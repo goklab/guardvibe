@@ -35,4 +35,46 @@ describe("Supply Chain Rules", () => {
       testRule("VG861", "uses: actions/checkout@v4\n    - uses: actions/setup-node@v4", false);
     });
   });
+
+  describe("VG862 - Source Map Publish Risk", () => {
+    it("detects sourceMap: true in tsconfig", () => {
+      testRule("VG862", '{ "compilerOptions": { "sourceMap": true } }', true);
+    });
+    it("ignores sourceMap: false", () => {
+      testRule("VG862", '{ "compilerOptions": { "sourceMap": false } }', false);
+    });
+  });
+
+  describe("VG863 - package.json Missing files Field", () => {
+    it("detects publishable package without files field", () => {
+      testRule("VG863", '{ "name": "my-pkg", "version": "1.0.0" }', true);
+    });
+    it("ignores package with files field", () => {
+      testRule("VG863", '{ "name": "my-pkg", "version": "1.0.0", "files": ["dist"] }', false);
+    });
+    it("ignores private package without files field", () => {
+      testRule("VG863", '{ "name": "my-app", "version": "1.0.0", "private": true }', false);
+    });
+  });
+
+  describe("VG864 - files Field Includes Source Code", () => {
+    it("detects src in files array", () => {
+      testRule("VG864", '"files": ["src", "dist"]', true);
+    });
+    it("detects ** glob in files array", () => {
+      testRule("VG864", '"files": ["**"]', true);
+    });
+    it("ignores clean files array", () => {
+      testRule("VG864", '"files": ["dist", "build"]', false);
+    });
+  });
+
+  describe("VG865 - .npmignore Missing Sensitive Patterns", () => {
+    it("detects npmignore without map/env/src exclusions", () => {
+      testRule("VG865", "node_modules/\ncoverage/", true);
+    });
+    it("ignores npmignore with *.map", () => {
+      testRule("VG865", "*.map\n.env\nsrc/", false);
+    });
+  });
 });

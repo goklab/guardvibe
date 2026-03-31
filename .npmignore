@@ -1,0 +1,19 @@
+# Source maps (prevent source code leaks via .map files)
+*.map
+
+# Environment and secrets
+.env
+.env.*
+
+# Source code (build output is in "files" field, but defense-in-depth)
+src/
+tests/
+__tests__/
+
+# Dev/CI config
+*.test.*
+*.spec.*
+tsconfig*.json
+.github/
+.claude/
+coverage/
