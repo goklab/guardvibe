@@ -109,7 +109,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^25.5.2",
     "c8": "^11.0.0",
     "eslint": "^10.2.0",
     "tsx": "^4.21.0",
