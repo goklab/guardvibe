@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.goklab/guardvibe",
-  "description": "Security MCP for vibe coding. 313 rules, 25 tools for AI-generated code.",
+  "description": "Security MCP for vibe coding. 313 rules, 26 tools for AI-generated code.",
   "repository": {
     "url": "https://github.com/goklab/guardvibe",
     "source": "github"
   },
-  "version": "2.4.5",
+  "version": "2.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "guardvibe",
-      "version": "2.4.5",
+      "version": "2.5.0",
       "transport": {
         "type": "stdio"
       }

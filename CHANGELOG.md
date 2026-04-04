@@ -5,6 +5,13 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-04-04
+
+### Added
+- Cross-file taint analysis — tracks tainted data flowing across module boundaries (`analyze_cross_file_dataflow` tool)
+- Import/export resolution, module graph building, and cross-file taint propagation
+- Detects SQL injection, XSS, open redirect, code injection, and path traversal across files
+
 ## [2.4.5] - 2026-04-04
 
 ### Added

@@ -1,8 +1,8 @@
 {
   "name": "guardvibe",
-  "version": "2.4.5",
+  "version": "2.5.0",
   "mcpName": "io.github.goklab/guardvibe",
-  "description": "Security MCP for vibe coding. 313 rules, 25 tools for Next.js, Supabase, Clerk, Stripe, Prisma, tRPC, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK, and the full AI-generated stack.",
+  "description": "Security MCP for vibe coding. 313 rules, 26 tools for Next.js, Supabase, Clerk, Stripe, Prisma, tRPC, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK, and the full AI-generated stack.",
   "type": "module",
   "bin": {
     "guardvibe": "build/cli.js",

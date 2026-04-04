@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 313 security rules covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 313 security rules, 26 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,7 +14,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **313 security rules** purpose-built for the stacks AI agents generate
+- **313 security rules, 26 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -179,7 +179,7 @@ SOC2, PCI-DSS, HIPAA control mapping with compliance reports
 ### Supply Chain
 Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 
-## Tools (25 MCP tools)
+## Tools (26 MCP tools)
 
 | Tool | What it does |
 |------|-------------|
@@ -201,6 +201,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 | `scan_secrets_history` | Scan git history for leaked secrets (active and removed) |
 | `policy_check` | Check project against compliance policies defined in .guardviberc |
 | `analyze_dataflow` | Track tainted data flows from user input to dangerous sinks |
+| `analyze_cross_file_dataflow` | **Cross-file taint analysis** — track tainted data across module boundaries |
 | `check_command` | Analyze shell commands for security risks before execution |
 | `scan_config_change` | Compare config file versions to detect security downgrades |
 | `repo_security_posture` | Assess overall repository security posture and map sensitive areas |
