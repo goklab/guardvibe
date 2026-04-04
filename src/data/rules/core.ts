@@ -447,7 +447,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "User-controlled input is passed directly to fetch(), axios, or http.request() as the URL. Attackers can make the server request internal services (169.254.169.254 for cloud metadata, localhost admin panels, internal APIs) leading to data exfiltration or remote code execution.",
     pattern:
-      /(?:fetch|axios\.(?:get|post|put|delete|patch|request)|got(?:\.(?:get|post|put|delete|patch))?|http\.(?:get|request)|https\.(?:get|request)|urllib\.request\.urlopen)\s*\(\s*(?!["'`]https?:\/\/|["'`]\/|`\$\{process\.env)(?:[a-zA-Z_$]\w*)\s*[,)]/gi,
+      /(?:fetch|axios\.(?:get|post|put|delete|patch|request)|got(?:\.(?:get|post|put|delete|patch))?|http\.(?:get|request)|https\.(?:get|request)|urllib\.request\.urlopen)\s*\(\s*(?!["'`]https?:\/\/|["'`]\/|`\/|`\$\{process\.env|new\s+URL)(?:[a-zA-Z_$]\w*)\s*[,)]/gi,
     languages: ["javascript", "typescript", "python"],
     fix: "Validate URLs against an allowlist of trusted domains. Block private/internal IP ranges (10.x, 172.16-31.x, 192.168.x, 127.x, 169.254.x, ::1). Use a URL parser to check the hostname before making the request.",
     fixCode:

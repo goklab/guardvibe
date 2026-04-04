@@ -41,10 +41,10 @@ export const advancedSecurityRules: SecurityRule[] = [
   {
     id: "VG132",
     name: "Missing Request Body Size Limit",
-    severity: "medium",
+    severity: "low",
     owasp: "API4:2023 Unrestricted Resource Consumption",
     description:
-      "API endpoint reads request body without size limit. Attackers can send multi-gigabyte payloads to exhaust server memory and cause denial of service.",
+      "API endpoint reads request body without explicit size limit. Note: Next.js/Vercel applies a default 4.5MB limit, so this is informational for those platforms. For custom servers, attackers can send large payloads to exhaust memory.",
     pattern:
       /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH)\s*\([^)]*\)\s*\{(?:(?!content-length|maxBodySize|limit|MAX_)[\s\S]){5,}?(?:req\.json|req\.text|req\.body|req\.formData|request\.json|request\.text)\s*\(\s*\)/g,
     languages: ["javascript", "typescript"],

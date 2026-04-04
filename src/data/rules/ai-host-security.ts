@@ -46,7 +46,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     description:
       "Claude settings.json hook command contains shell metacharacters (|, ;, &&, $(), backticks). Hooks run with full shell access — attackers can chain arbitrary commands. CVE-2025-59536.",
     pattern:
-      /["'](?:PreToolUse|PostToolUse|Notification|Stop|SubagentStop)["']\s*:\s*\[[\s\S]{0,500}?(?:\||\$\(|`[^`]+`|;\s*\w|&&\s*\w)/g,
+      /["']command["']\s*:\s*["'][^"']*?(?:\||\$\(|`[^`]+`|;\s*\w|&&\s*\w)[^"']*?["']/g,
     languages: ["json"],
     fix: "Remove shell metacharacters from hook commands. Use simple, direct commands without piping or chaining.",
     fixCode:
