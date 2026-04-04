@@ -46,7 +46,9 @@ describe("Firebase Rules", () => {
 
   // VG754: Firebase Config Hardcoded
   it("VG754: detects hardcoded firebase config", () => {
-    testRule("VG754", 'const firebaseConfig = { apiKey: "AIzaSyB1234567890abcdefghijklmnopqrstuv" }', true);
+    // guardvibe:test-fixture — fake key split to avoid GitHub secret scanning
+    const fakeKey = ["AIza", "SyB1234567890abcdefghijklmnopqrstuv"].join("");
+    testRule("VG754", `const firebaseConfig = { apiKey: "${fakeKey}" }`, true);
   });
   it("VG754: allows env var firebase config", () => {
     testRule("VG754", "const firebaseConfig = { apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY }", false);

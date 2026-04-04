@@ -46,7 +46,9 @@ describe("Other Service Rules", () => {
 
   // VG804: MongoDB Connection String
   it("VG804: detects hardcoded MongoDB URI", () => {
-    testRule("VG804", 'const MONGODB_URI = "mongodb+srv://admin:pass@cluster0.abc.mongodb.net/mydb"', true);
+    // guardvibe:test-fixture — fake URI split to avoid GitHub secret scanning
+    const fakeUri = ["mongodb+srv://", "admin:pass@cluster0.abc.mongodb.net/mydb"].join("");
+    testRule("VG804", `const MONGODB_URI = "${fakeUri}"`, true);
   });
   it("VG804: allows env var", () => {
     testRule("VG804", "const client = new MongoClient(process.env.MONGODB_URI!)", false);
