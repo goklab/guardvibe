@@ -4,6 +4,7 @@ import type { HostFinding, DoctorConfig, DoctorScope } from "../server/types.js"
 import { formatHostFindings, redactSecrets } from "../server/types.js";
 import { auditMcpConfig } from "./audit-mcp-config.js";
 import { scanHostConfig } from "./scan-host-config.js";
+import { enrichAllRemediations } from "../cli/remediation.js";
 
 /**
  * guardvibe_doctor — Unified host hardening scanner
@@ -42,6 +43,9 @@ export function doctor(
 
   // ── Analyzer 3: Permissions (inline scan) ───────────────────────
   scanPermissions(root, doctorConfig, allFindings, allScanned, allSkipped);
+
+  // ── Host-Specific Remediation Enrichment ─────────────────────────
+  enrichAllRemediations(allFindings);
 
   // ── Output ──────────────────────────────────────────────────────
   const title = `GuardVibe Doctor — Host Security Audit (scope: ${scope})`;
