@@ -89,10 +89,10 @@ function findConfigFileUp(startDir: string, filename: string): string | null {
  */
 function scanPermissions(
   root: string,
-  doctorConfig: DoctorConfig,
+  _doctorConfig: DoctorConfig,
   findings: HostFinding[],
   scannedFiles: string[],
-  skippedFiles: string[],
+  _skippedFiles: string[],
 ): void {
   // Check .claude.json for permissive patterns
   const claudeJson = join(root, ".claude.json");

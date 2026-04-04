@@ -27,11 +27,6 @@ interface ClaudeSettings {
   mcpServers?: Record<string, McpServerEntry>;
 }
 
-interface McpConfig {
-  mcpServers?: Record<string, McpServerEntry>;
-  servers?: Record<string, McpServerEntry>;
-}
-
 /**
  * Scan MCP configuration files for security issues.
  * Standalone tool + called by doctor.
