@@ -25,6 +25,7 @@ import { reviewPr } from "./tools/review-pr.js";
 import { scanSecretsHistory } from "./tools/scan-secrets-history.js";
 import { policyCheck } from "./tools/policy-check.js";
 import { analyzeTaint, formatTaintFindings } from "./tools/taint-analysis.js";
+import { analyzeCrossFileTaint, formatCrossFileTaintFindings } from "./tools/cross-file-taint.js";
 import { checkCommand } from "./tools/check-command.js";
 import { scanConfigChange } from "./tools/scan-config-change.js";
 import { repoSecurityPosture } from "./tools/repo-posture.js";
@@ -444,6 +445,33 @@ server.tool(
       return { content: [{ type: "text", text: "No tainted data flows detected." }] };
     }
     const results = formatTaintFindings(findings, format);
+    return { content: [{ type: "text", text: results }] };
+  }
+);
+
+// Tool 18b: Cross-File Taint/Dataflow Analysis
+server.tool(
+  "analyze_cross_file_dataflow",
+  "Track user input flowing across module boundaries — detects injection vulnerabilities that span multiple files. Resolves imports/exports, builds a module graph, and follows tainted data from HTTP handlers through helper functions to dangerous sinks (SQL, eval, redirect, file ops). Pass all related files for best results.",
+  {
+    files: z
+      .array(
+        z.object({
+          path: z.string().describe("Relative file path (e.g. src/lib/db.ts)"),
+          content: z.string().describe("File source code"),
+        })
+      )
+      .describe("List of files to analyze: [{path, content}]"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+  },
+  async ({ files, format }) => {
+    const { crossFileFindings, perFileFindings } = analyzeCrossFileTaint(files);
+    const total = crossFileFindings.length + Array.from(perFileFindings.values()).reduce((sum, f) => sum + f.length, 0);
+    if (total === 0) {
+      if (format === "json") return { content: [{ type: "text", text: JSON.stringify({ summary: { crossFileFlows: 0, perFileFlows: 0, total: 0, critical: 0, high: 0, medium: 0 }, crossFileFindings: [], perFileFindings: [] }) }] };
+      return { content: [{ type: "text", text: "No tainted data flows detected across files." }] };
+    }
+    const results = formatCrossFileTaintFindings(crossFileFindings, perFileFindings, format);
     return { content: [{ type: "text", text: results }] };
   }
 );
