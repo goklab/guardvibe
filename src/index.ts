@@ -37,6 +37,10 @@ import { loadConfig } from "./utils/config.js";
 import { setRules, getRules } from "./utils/rule-registry.js";
 import { recordScan, recordFix, recordSecrets, recordDependencyCVEs, recordGrade, getSummaryLine } from "./lib/stats.js";
 import { securityStats } from "./tools/security-stats.js";
+import { auditMcpConfig } from "./tools/audit-mcp-config.js";
+import { scanHostConfig } from "./tools/scan-host-config.js";
+import { doctor } from "./tools/doctor.js";
+import { formatHostFindings, redactSecrets } from "./server/types.js";
 
 const server = new McpServer({
   name: "guardvibe",
@@ -676,6 +680,56 @@ server.tool(
     const root = resolvePath(projectPath);
     const results = securityStats(root, period, format);
     return { content: [{ type: "text", text: results }] };
+  }
+);
+
+// Tool 26: Audit MCP configuration files
+server.tool(
+  "audit_mcp_config",
+  "Scan MCP configuration files (.claude/settings.json, .cursor/mcp.json, .vscode/mcp.json) for security issues: malicious hooks (CVE-2025-59536), suspicious MCP servers, overly permissive tool access, and shell injection patterns. Use this to verify MCP configurations are safe before use.",
+  {
+    path: z.string().default(".").describe("Project root directory to scan"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+  },
+  async ({ path: projectPath, format }) => {
+    const { resolve: resolvePath } = await import("path");
+    const root = resolvePath(projectPath);
+    const result = auditMcpConfig(root);
+    const output = formatHostFindings(result.findings, result.scannedFiles, result.skippedFiles, format, "MCP Configuration Audit");
+    return { content: [{ type: "text", text: redactSecrets(output) }] };
+  }
+);
+
+// Tool 27: Scan host environment configuration
+server.tool(
+  "scan_host_config",
+  "Scan host environment for AI security issues: API base URL hijacking (CVE-2026-21852), credential exposure in shell profiles, .env file leaks, and environment variable sniffing. Checks .env files at project scope; add scope=host to also check shell profiles and global AI configs.",
+  {
+    path: z.string().default(".").describe("Project root directory"),
+    scope: z.enum(["project", "host", "full"]).default("project").describe("Scan scope: project (.env files only), host (+ shell profiles, global configs), full (+ home dir)"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+  },
+  async ({ path: projectPath, scope, format }) => {
+    const { resolve: resolvePath } = await import("path");
+    const root = resolvePath(projectPath);
+    const result = scanHostConfig(root, scope);
+    const output = formatHostFindings(result.findings, result.scannedFiles, result.skippedFiles, format, "Host Environment Security Scan");
+    return { content: [{ type: "text", text: redactSecrets(output) }] };
+  }
+);
+
+// Tool 28: Unified host hardening scanner (doctor)
+server.tool(
+  "guardvibe_doctor",
+  "Comprehensive AI host security audit. Scans MCP configurations, hooks, environment variables, shell profiles, and permissions for known attack vectors (CVE-2025-59536 hook injection, CVE-2026-21852 base URL hijack, tool result injection, supply chain attacks). Reports trust state, verdict, and confidence for each finding. Supports allowlists via .guardviberc. Use scope=project (default) for project-only scan, scope=host to include shell profiles and global configs.",
+  {
+    path: z.string().default(".").describe("Project root directory"),
+    scope: z.enum(["project", "host", "full"]).default("project").describe("Scan scope: project (default, .claude.json + .cursor/ + .vscode/ + .env), host (+ shell profiles + global MCP configs), full (+ home dir configs)"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable)"),
+  },
+  async ({ path: projectPath, scope, format }) => {
+    const result = doctor(projectPath, scope, format);
+    return { content: [{ type: "text", text: result }] };
   }
 );
 

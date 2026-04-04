@@ -22,6 +22,8 @@ import { cveVersionRules } from "./cve-versions.js";
 import { apiSecurityRules } from "./api-security.js";
 import { modernStackRules } from "./modern-stack.js";
 import { advancedSecurityRules } from "./advanced-security.js";
+import { aiHostSecurityRules } from "./ai-host-security.js";
+import { aiToolRuntimeRules } from "./ai-tool-runtime.js";
 import { enrichRulesWithCompliance } from "../compliance-metadata.js";
 
 export const owaspRules = enrichRulesWithCompliance([
@@ -48,6 +50,8 @@ export const owaspRules = enrichRulesWithCompliance([
   ...apiSecurityRules,
   ...modernStackRules,
   ...advancedSecurityRules,
+  ...aiHostSecurityRules,
+  ...aiToolRuntimeRules,
 ]);
 
 // Alias for clarity — these are the built-in rules without plugins

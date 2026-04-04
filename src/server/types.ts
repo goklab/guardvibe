@@ -1,0 +1,185 @@
+import type { z } from "zod";
+
+// ── Host Finding Model (v2.6.0) ────────────────────────────────────
+// Four-axis finding model for host security analysis
+
+export interface HostFinding {
+  ruleId: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  trustState: "trusted" | "unknown" | "unverified-offline" | "suspicious";
+  verdict: "observed" | "risky" | "exploitable";
+  confidence: "high" | "medium" | "low";
+  source: "core" | `plugin:${string}`;
+  file?: string;
+  line?: number;
+  description: string;
+  remediation: string;
+  patchPreview?: string;
+}
+
+// ── Doctor Config Allowlist ────────────────────────────────────────
+
+export interface DoctorConfig {
+  trustedServers?: string[];
+  trustedBaseUrls?: string[];
+  trustedRegistries?: string[];
+  ignorePaths?: string[];
+}
+
+// ── Doctor Scope ───────────────────────────────────────────────────
+
+export type DoctorScope = "project" | "host" | "full";
+
+// ── Doctor Options ─────────────────────────────────────────────────
+
+export interface DoctorOptions {
+  scope: DoctorScope;
+  includeHomeProfiles?: boolean;
+  allowNetworkVerification?: boolean;
+}
+
+// ── Tool Definition (new-style registration) ───────────────────────
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  schema: Record<string, z.ZodTypeAny>;
+  handler: (input: Record<string, unknown>) => Promise<{
+    content: Array<{ type: "text"; text: string }>;
+  }>;
+}
+
+// ── Secret Redaction ───────────────────────────────────────────────
+
+const SECRET_PATTERNS = [
+  // API keys & tokens
+  /(?:sk-ant-api\d+-[\w-]+|sk-[a-zA-Z0-9]{20,})/g,
+  /(?:ANTHROPIC_API_KEY|OPENAI_API_KEY|API_KEY|SECRET_KEY|ACCESS_TOKEN|AUTH_TOKEN)\s*=\s*['"]?([^\s'"]+)/gi,
+  // Generic key=value secrets
+  /(?:password|passwd|secret|token|credential|api_key|apikey|auth)\s*[:=]\s*['"]([^'"]{8,})['"]/gi,
+];
+
+export function redactSecrets(text: string): string {
+  let result = text;
+  for (const pattern of SECRET_PATTERNS) {
+    // Reset lastIndex for global patterns
+    pattern.lastIndex = 0;
+    result = result.replace(pattern, (match) => {
+      // Keep first 8 chars + mask the rest
+      if (match.length <= 12) return match.slice(0, 4) + "...XXXX";
+      const eqIdx = match.indexOf("=");
+      if (eqIdx > 0) {
+        const key = match.slice(0, eqIdx + 1);
+        const val = match.slice(eqIdx + 1).replace(/^['"\s]+/, "");
+        if (val.length <= 4) return match;
+        return `${key}${val.slice(0, 4)}...XXXX`;
+      }
+      return match.slice(0, 8) + "...XXXX";
+    });
+  }
+  return result;
+}
+
+// ── Finding Formatters ─────────────────────────────────────────────
+
+export function formatHostFinding(f: HostFinding, format: "markdown" | "json"): string {
+  if (format === "json") {
+    return JSON.stringify({
+      ruleId: f.ruleId,
+      severity: f.severity,
+      trustState: f.trustState,
+      verdict: f.verdict,
+      confidence: f.confidence,
+      source: f.source,
+      file: f.file,
+      line: f.line,
+      description: redactSecrets(f.description),
+      remediation: redactSecrets(f.remediation),
+      patchPreview: f.patchPreview ? redactSecrets(f.patchPreview) : undefined,
+    });
+  }
+
+  const icon = f.severity === "critical" ? "🔴" :
+    f.severity === "high" ? "🟠" :
+    f.severity === "medium" ? "🟡" :
+    f.severity === "low" ? "🔵" : "⚪";
+
+  const lines = [
+    `${icon} **[${f.severity.toUpperCase()}]** ${f.ruleId} — ${redactSecrets(f.description)}`,
+    `  Trust: ${f.trustState} | Verdict: ${f.verdict} | Confidence: ${f.confidence}`,
+  ];
+
+  if (f.file) {
+    lines.push(`  File: \`${f.file}\`${f.line ? `:${f.line}` : ""}`);
+  }
+
+  lines.push(`  Fix: ${redactSecrets(f.remediation)}`);
+
+  if (f.patchPreview) {
+    lines.push(`  Patch: \`${redactSecrets(f.patchPreview)}\``);
+  }
+
+  return lines.join("\n");
+}
+
+export function formatHostFindings(
+  findings: HostFinding[],
+  scannedFiles: string[],
+  skippedFiles: string[],
+  format: "markdown" | "json",
+  title: string = "Host Security Report",
+): string {
+  if (format === "json") {
+    const critical = findings.filter(f => f.severity === "critical").length;
+    const high = findings.filter(f => f.severity === "high").length;
+    const medium = findings.filter(f => f.severity === "medium").length;
+    const low = findings.filter(f => f.severity === "low").length;
+    const info = findings.filter(f => f.severity === "info").length;
+
+    return JSON.stringify({
+      summary: {
+        total: findings.length,
+        critical, high, medium, low, info,
+        scannedFiles: scannedFiles.length,
+        skippedFiles: skippedFiles.length,
+      },
+      findings: findings.map(f => ({
+        ...f,
+        description: redactSecrets(f.description),
+        remediation: redactSecrets(f.remediation),
+        patchPreview: f.patchPreview ? redactSecrets(f.patchPreview) : undefined,
+      })),
+      manifest: { scanned: scannedFiles, skipped: skippedFiles },
+    });
+  }
+
+  const lines = [`# ${title}`, ""];
+
+  if (findings.length === 0) {
+    lines.push("No host security issues detected.");
+  } else {
+    const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    const sorted = [...findings].sort((a, b) =>
+      (severityOrder[a.severity] ?? 99) - (severityOrder[b.severity] ?? 99)
+    );
+
+    lines.push(`**Issues found: ${findings.length}**`, "");
+
+    for (const f of sorted) {
+      lines.push(formatHostFinding(f, "markdown"));
+      lines.push("");
+    }
+  }
+
+  lines.push("---", `Scanned: ${scannedFiles.length} files | Skipped: ${skippedFiles.length} files`);
+  if (scannedFiles.length > 0) {
+    lines.push("", "**Scanned files:**");
+    for (const f of scannedFiles) lines.push(`- \`${f}\``);
+  }
+  if (skippedFiles.length > 0) {
+    lines.push("", "**Skipped files:**");
+    for (const f of skippedFiles) lines.push(`- \`${f}\``);
+  }
+
+  return lines.join("\n");
+}
