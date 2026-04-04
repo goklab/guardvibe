@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 313 security rules, 26 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 330 security rules, 29 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,7 +14,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **313 security rules, 26 tools** purpose-built for the stacks AI agents generate
+- **330 security rules, 29 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -35,12 +35,13 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 | Runs inside AI agents (MCP) | Native | Not supported | Not supported |
 | Zero config setup | `npx guardvibe` | Account + config required | Built-in (limited) |
 | Vibecoding stack rules (Next.js, Supabase, Clerk, tRPC, Hono) | 100+ dedicated | Generic patterns | Not applicable |
-| AI/LLM security (prompt injection, MCP, tool abuse) | 17 rules | Experimental/None | None |
+| AI/LLM security (prompt injection, MCP, tool abuse) | 30 rules | Experimental/None | None |
+| AI host security (CVE-2025-59536, CVE-2026-21852) | `guardvibe doctor` | Not supported | Not supported |
 | Auto-fix suggestions for AI agents | `fix_code` tool | CLI autofix | Not supported |
 | CVE version detection | 21 packages | Extensive | Extensive |
 | Compliance mapping (SOC2, PCI-DSS, HIPAA) | Built-in | Paid tier | None |
 | SARIF CI/CD export | Yes | Yes | Limited |
-| Rule count | 313 (focused) | 5000+ (broad) | N/A |
+| Rule count | 330 (focused) | 5000+ (broad) | N/A |
 
 **When to use GuardVibe:** You're building with AI agents and want security scanning integrated into your coding workflow — no dashboard, no account, no CI setup.
 
@@ -149,6 +150,9 @@ Resend (email HTML injection), Upstash Redis, Pinecone, PostHog, Google Analytic
 ### AI / LLM Security
 Prompt injection detection, LLM output sinks, system prompt leaks, MCP server SSRF/path traversal/command injection, `dangerouslyAllowBrowser`, missing `maxTokens`, AI API key client exposure, indirect prompt injection via external data
 
+### AI Host Security (NEW in v2.6.0+)
+`guardvibe doctor` — unified host hardening scanner detecting CVE-2025-59536 (hook injection via `.claude/settings.json`), CVE-2026-21852 (API key exfiltration via `ANTHROPIC_BASE_URL` override), MCP config audit, environment scanner, permission analysis. Supports Claude, Cursor, VS Code, Gemini, Windsurf. Host-specific remediation with platform-tailored fix steps.
+
 ### OWASP API Security
 BOLA/IDOR (Broken Object Level Authorization), mass assignment (spread request body, Object.assign), missing pagination, rate limiting, admin endpoint authorization, verbose error leaks
 
@@ -179,7 +183,7 @@ SOC2, PCI-DSS, HIPAA control mapping with compliance reports
 ### Supply Chain
 Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 
-## Tools (26 MCP tools)
+## Tools (29 MCP tools)
 
 | Tool | What it does |
 |------|-------------|
@@ -209,26 +213,31 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 | `scan_file` | Real-time single-file scan — designed for post-edit hooks |
 | `scan_changed_files` | Scan only git-changed files — for PRs and incremental CI |
 | `security_stats` | Cumulative security dashboard — scans, fixes, grade trend over time |
+| `guardvibe_doctor` | **Host security audit** — CVE-2025-59536, CVE-2026-21852, MCP config, env scanner |
+| `audit_mcp_config` | Audit MCP server configurations for hook injection, file:// abuse, sensitive paths |
+| `scan_host_config` | Scan shell profiles, .env files for base URL hijack and credential sniffing |
 
 All scanning tools support `format: "json"` for machine-readable output.
 
-## Security Rules (313 rules across 23 modules)
+## Security Rules (330 rules across 25 modules)
 
 | Category | Rules | Coverage |
 |----------|-------|----------|
 | Core OWASP | 38 | SQL injection, XSS, CSRF, command injection, CORS, SSRF, hardcoded secrets |
 | Next.js App Router | 17 | Server Actions, secret exposure, auth bypass, CSP, redirects |
 | Auth (Clerk / Auth.js / Supabase Auth) | 16 | Middleware, secret keys, session storage, role checks, SSR cookies |
-| Database (Supabase / Prisma / Drizzle) | 10 | Raw queries, client exposure, service role leaks |
+| Database (Supabase / Prisma / Drizzle) | 11 | Raw queries, client exposure, service role leaks, NoSQL injection |
 | OWASP API Security | 10 | BOLA/IDOR, mass assignment, pagination, rate limiting, error leaks |
-| Modern Stack | 36 | Zod, tRPC, Hono, GraphQL, Uploadthing, Turso, Convex, OAuth, CSP, webhooks, AI SDK |
-| Deployment Config | 20 | Vercel, Next.js config, Docker Compose, Fly, Render, Netlify, Cloudflare |
+| Modern Stack | 37 | Zod, tRPC, Hono, GraphQL, Uploadthing, Turso, Convex, OAuth, CSP, webhooks, AI SDK |
+| Deployment Config | 21 | Vercel, Next.js config, Docker Compose, Fly, Render, Netlify, Cloudflare, K8s secrets |
 | Payments (Stripe / Polar / Lemon) | 9 | Webhook signatures, key exposure, price manipulation |
 | Services (Resend / Upstash / Pinecone / PostHog) | 11 | API key leaks, PII tracking, email injection |
 | Web Security | 15 | Webhooks, CSP, .env safety, AI key exposure, cookie handling |
 | React Native / Expo | 10 | AsyncStorage secrets, deep links, ATS, hardcoded URLs |
 | Firebase | 7 | Firestore rules, admin SDK, storage, custom tokens |
 | AI / LLM Security | 16 | Prompt injection, MCP SSRF, excessive agency, indirect injection |
+| **AI Host Security** | **10** | **CVE-2025-59536 hook injection, CVE-2026-21852 base URL hijack, MCP config audit** |
+| **AI Tool Runtime** | **4** | **MCP tool output sanitization, obfuscated descriptions, safety bypass** |
 | CVE Version Intelligence | 21 | Known vulnerable versions in package.json (21 CVEs) |
 | Shell / Bash | 5 | Pipe to bash, chmod 777, rm -rf, sudo password |
 | SQL | 4 | DROP/DELETE without WHERE, stacked queries, GRANT ALL |
@@ -243,12 +252,32 @@ All scanning tools support `format: "json"` for machine-readable output.
 ## CLI Commands
 
 ```bash
-npx guardvibe init <platform>    # Setup MCP server (claude, cursor, gemini, all)
-npx guardvibe hook install       # Install pre-commit hook
-npx guardvibe hook uninstall     # Remove pre-commit hook
-npx guardvibe ci github          # Generate GitHub Actions workflow
-npx guardvibe-scan               # Scan staged files (for pre-commit)
+# Scanning
+npx guardvibe scan [path]            # Scan a directory for security issues
+npx guardvibe scan . --format json   # JSON output for automation
+npx guardvibe check <file>           # Scan a single file
+npx guardvibe diff [base]            # Scan only changed files since git ref
+
+# Host security audit
+npx guardvibe doctor                 # Host hardening audit (project scope)
+npx guardvibe doctor --scope host    # + shell profiles, global MCP configs
+npx guardvibe doctor --scope full    # + home dir configs
+npx guardvibe doctor --format json   # JSON output
+
+# Setup
+npx guardvibe init <platform>       # Setup MCP server (claude, cursor, gemini, all)
+npx guardvibe hook install           # Install pre-commit hook
+npx guardvibe hook uninstall         # Remove pre-commit hook
+npx guardvibe ci github              # Generate GitHub Actions workflow
+
+# Pre-commit / CI
+npx guardvibe-scan                   # Scan staged files (for pre-commit)
 npx guardvibe-scan --format sarif --output results.sarif  # CI mode
+
+# Options (all scan commands)
+#   --format markdown|json|sarif|buddy
+#   --output <file>     Write results to file
+#   --fail-on <level>   Exit 1 on findings: critical|high|medium|low|none
 ```
 
 ## Plugin System
