@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { securityBanner, bannerFields } from "../utils/banner.js";
 
 // ── Host Finding Model (v2.6.0) ────────────────────────────────────
 // Four-axis finding model for host security analysis
@@ -153,10 +154,12 @@ export function formatHostFindings(
     const low = findings.filter(f => f.severity === "low").length;
     const info = findings.filter(f => f.severity === "info").length;
 
+    const { grade, score } = bannerFields({ total: findings.length, critical, high, medium, low, filesScanned: scannedFiles.length });
     return JSON.stringify({
       summary: {
         total: findings.length,
         critical, high, medium, low, info,
+        grade, score,
         scannedFiles: scannedFiles.length,
         skippedFiles: skippedFiles.length,
       },
@@ -197,6 +200,12 @@ export function formatHostFindings(
     lines.push("", "**Skipped files:**");
     for (const f of skippedFiles) lines.push(`- \`${f}\``);
   }
+
+  const critical = findings.filter(f => f.severity === "critical").length;
+  const high = findings.filter(f => f.severity === "high").length;
+  const medium = findings.filter(f => f.severity === "medium").length;
+  const low = findings.filter(f => f.severity === "low").length;
+  lines.push(securityBanner({ total: findings.length, critical, high, medium, low, filesScanned: scannedFiles.length, context: "Host Security" }));
 
   return lines.join("\n");
 }

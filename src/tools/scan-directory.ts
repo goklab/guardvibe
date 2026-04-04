@@ -7,6 +7,7 @@ import { loadConfig } from "../utils/config.js";
 import type { SecurityRule } from "../data/rules/types.js";
 import { DEFAULT_EXCLUDES, EXTENSION_MAP, CONFIG_FILE_MAP } from "../utils/constants.js";
 import { walkDirectory } from "../utils/walk-directory.js";
+import { securityBanner } from "../utils/banner.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
@@ -330,6 +331,8 @@ export function scanDirectory(
     lines.push(``, `**Skipped files:**`);
     for (const s of skippedFiles) lines.push(`- ${s}`);
   }
+
+  lines.push(securityBanner({ total: totalIssues, critical: totalCritical, high: totalHigh, medium: totalMedium, score, grade, filesScanned: metadata.filesScanned }));
 
   return lines.join("\n");
 }

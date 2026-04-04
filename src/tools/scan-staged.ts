@@ -2,6 +2,7 @@ import { execFileSync } from "child_process";
 import { extname, basename } from "path";
 import { analyzeCode, formatFindingsJson, type Finding } from "./check-code.js";
 import type { SecurityRule } from "../data/rules/types.js";
+import { securityBanner } from "../utils/banner.js";
 
 const EXTENSION_MAP: Record<string, string> = {
   ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript", ".cjs": "javascript",
@@ -160,6 +161,8 @@ export function scanStaged(cwd: string = process.cwd(), format: "markdown" | "js
   if (skippedFiles.length > 0) {
     lines.push("", `*Skipped ${skippedFiles.length} files with unsupported extensions.*`);
   }
+
+  lines.push(securityBanner({ total: totalIssues, critical: totalCritical, high: totalHigh, medium: totalMedium, score, grade, filesScanned: scannedCount, context: "Pre-Commit" }));
 
   return lines.join("\n");
 }

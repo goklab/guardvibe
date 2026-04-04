@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "fs";
 import { resolve, extname, basename, join, dirname } from "path";
 import { parseArgs, shouldFail, validateFormat, getOutputPath, getStringFlag } from "./args.js";
+import { securityBanner } from "../utils/banner.js";
 
 function safeWriteOutput(outputFile: string, result: string): void {
   const dir = dirname(outputFile);
@@ -146,6 +147,10 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
         lines.push(`  Fix: ${f.fix}`);
       }
     }
+    const critical = allFindings.filter(f => f.severity === "critical").length;
+    const high = allFindings.filter(f => f.severity === "high").length;
+    const medium = allFindings.filter(f => f.severity === "medium").length;
+    lines.push(securityBanner({ total: allFindings.length, critical, high, medium, filesScanned: changedFiles.length, context: "Diff" }));
     result = lines.join("\n");
   }
 

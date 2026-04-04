@@ -2,6 +2,7 @@ import { basename } from "path";
 import { owaspRules, type SecurityRule } from "../data/rules/index.js";
 import { loadConfig } from "../utils/config.js";
 import { loadIgnoreFile, isIgnored } from "../utils/ignore.js";
+import { securityBanner } from "../utils/banner.js";
 
 export interface Finding {
   rule: SecurityRule;
@@ -481,6 +482,7 @@ function formatCleanReport(language: string, framework?: string): string {
     ``,
     `Tips for ${language}${ctx}:`,
     ...tips.map(t => `- ${t}`),
+    securityBanner({ total: 0, critical: 0, high: 0, medium: 0 }),
   ].join("\n");
 }
 
@@ -623,6 +625,8 @@ function formatReport(
       }
     }
   }
+
+  lines.push(securityBanner({ total: allFindings.length, critical: criticalCount, high: highCount, medium: mediumCount }));
 
   return lines.join("\n");
 }
