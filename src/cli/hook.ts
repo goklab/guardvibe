@@ -91,7 +91,7 @@ export function runHook(args: string[]): void {
   } else if (action === "uninstall") {
     uninstallHook();
   } else {
-    console.error("  Usage: npx guardvibe hook install|uninstall");
+    console.error("  [ERR] Unknown action. Usage: npx guardvibe hook install|uninstall");
     process.exit(1);
   }
 

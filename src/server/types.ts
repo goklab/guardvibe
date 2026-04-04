@@ -52,9 +52,26 @@ export interface ToolDefinition {
 // ── Secret Redaction ───────────────────────────────────────────────
 
 const SECRET_PATTERNS = [
-  // API keys & tokens
+  // Anthropic & OpenAI keys
   /(?:sk-ant-api\d+-[\w-]+|sk-[a-zA-Z0-9]{20,})/g,
-  /(?:ANTHROPIC_API_KEY|OPENAI_API_KEY|API_KEY|SECRET_KEY|ACCESS_TOKEN|AUTH_TOKEN)\s*=\s*['"]?([^\s'"]+)/gi,
+  // AWS Access Key
+  /AKIA[0-9A-Z]{16}/g,
+  // AWS Secret Key
+  /(?:aws)?_?secret_?(?:access)?_?key['"]?\s*[:=]\s*['"][A-Za-z0-9/+=]{40}['"]/gi,
+  // GitHub tokens
+  /(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,}/g,
+  // Stripe keys
+  /(?:sk_live|pk_live|rk_live)_[A-Za-z0-9]{20,}/g,
+  // Google API key
+  /AIza[0-9A-Za-z_-]{35}/g,
+  // Slack tokens
+  /xox[baprs]-[A-Za-z0-9-]{10,}/g,
+  // SendGrid
+  /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
+  // Private keys
+  /-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----/g,
+  // Named env vars with values
+  /(?:ANTHROPIC_API_KEY|OPENAI_API_KEY|API_KEY|SECRET_KEY|ACCESS_TOKEN|AUTH_TOKEN|DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY)\s*=\s*['"]?([^\s'"]+)/gi,
   // Generic key=value secrets
   /(?:password|passwd|secret|token|credential|api_key|apikey|auth)\s*[:=]\s*['"]([^'"]{8,})['"]/gi,
 ];

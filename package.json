@@ -6,7 +6,6 @@
   "type": "module",
   "bin": {
     "guardvibe": "build/cli.js",
-    "guardvibe-init": "build/cli.js",
     "guardvibe-scan": "build/cli.js"
   },
   "main": "./build/index.js",

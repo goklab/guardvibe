@@ -5,6 +5,41 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2026-04-04
+
+### Fixed
+- `--output` flag without value no longer creates a file named "true" — now errors with clear message
+- `--fail-on` default standardized to "critical" across all CLI commands (was inconsistently "high" in `guardvibe-scan`)
+- `--format` with invalid value (e.g., "yaml") now errors explicitly instead of silently falling back to markdown
+- `--output` with nested path (e.g., `--output reports/deep/out.json`) now auto-creates parent directories
+- CLI error messages now consistently use `[ERR]` prefix across all commands
+
+### Changed
+- Secret redaction expanded from 3 to 13 patterns — now covers AWS keys, GitHub tokens, Stripe keys, Google API keys, Slack tokens, SendGrid keys, private key headers, and DATABASE_URL
+- `guardvibe-init` binary entry removed as part of early CLI surface cleanup. Use `guardvibe init` going forward. This simplifies the public CLI before wider adoption.
+
+### Added
+- 21 new stabilization tests covering all v2.7.1 fixes
+
+## [2.7.0] - 2026-04-04
+
+### Added
+- `npx guardvibe doctor` CLI command with `--scope`, `--format`, `--output`, `--fail-on` flags
+- CLI modular decomposition: `src/cli/` with args, init, hook, ci, scan, doctor, remediation modules
+- Host-specific remediation: findings now include platform-tailored fix steps for Claude, Cursor, VS Code, Gemini, Windsurf, Shell, and .env files
+- 13 new doctor CLI tests
+
+## [2.6.0] - 2026-04-04
+
+### Added
+- Host security: `guardvibe_doctor` unified host hardening scanner
+- `audit_mcp_config` — MCP configuration scanner (CVE-2025-59536 hook injection)
+- `scan_host_config` — environment scanner (CVE-2026-21852 base URL hijack)
+- Four-axis finding model: severity, trustState, verdict, confidence
+- 14 new AI host security rules (VG880-VG895)
+- Secret redaction in all output paths
+- `.guardviberc` allowlist support for trusted servers, base URLs, registries
+
 ## [2.5.0] - 2026-04-04
 
 ### Added

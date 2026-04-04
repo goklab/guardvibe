@@ -66,8 +66,7 @@ export function runCi(args: string[]): void {
   if (provider === "github") {
     generateGitHubActions();
   } else {
-    console.error("  Usage: npx guardvibe ci github");
-    console.error("  (more CI providers coming soon)");
+    console.error("  [ERR] Unknown CI provider. Usage: npx guardvibe ci github");
     process.exit(1);
   }
 

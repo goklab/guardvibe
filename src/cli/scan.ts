@@ -3,15 +3,24 @@
  * Also: guardvibe-scan (pre-commit hook / CI entry point)
  */
 
-import { readFileSync, writeFileSync, existsSync, statSync } from "fs";
-import { resolve, extname, basename, join } from "path";
-import { parseArgs, shouldFail } from "./args.js";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "fs";
+import { resolve, extname, basename, join, dirname } from "path";
+import { parseArgs, shouldFail, validateFormat, getOutputPath, getStringFlag } from "./args.js";
+
+function safeWriteOutput(outputFile: string, result: string): void {
+  const dir = dirname(outputFile);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(outputFile, result, "utf-8");
+  console.log(`  [OK] Results written to ${outputFile}`);
+}
 
 export async function runScan(): Promise<void> {
   const args = process.argv.slice(2);
   const { flags } = parseArgs(args);
-  const format = (flags.format as string) ?? "markdown";
-  const outputFile = (flags.output as string) ?? null;
+  const format = validateFormat(flags);
+  const outputFile = getOutputPath(flags);
 
   let result: string;
 
@@ -24,14 +33,13 @@ export async function runScan(): Promise<void> {
   }
 
   if (outputFile) {
-    writeFileSync(outputFile, result, "utf-8");
-    console.log(`  [OK] Results written to ${outputFile}`);
+    safeWriteOutput(outputFile, result);
   } else {
     console.log(result);
   }
 
   if (format !== "sarif") {
-    const failOn = (flags["fail-on"] as string) ?? "high";
+    const failOn = getStringFlag(flags, "fail-on") ?? "critical";
     if (shouldFail(result, failOn)) process.exit(1);
   }
 }
@@ -39,9 +47,9 @@ export async function runScan(): Promise<void> {
 export async function runDirectoryScan(targetPath: string, flags: Record<string, string | true>): Promise<void> {
   const { scanDirectory } = await import("../tools/scan-directory.js");
 
-  const format = (flags.format as string) ?? "markdown";
-  const outputFile = (flags.output as string) ?? null;
-  const baselinePath = (flags.baseline as string) ?? null;
+  const format = validateFormat(flags);
+  const outputFile = getOutputPath(flags);
+  const baselinePath = getStringFlag(flags, "baseline");
   const saveBaseline = flags["save-baseline"] === true || typeof flags["save-baseline"] === "string";
   const scanPath = resolve(targetPath);
 
@@ -55,8 +63,7 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
   }
 
   if (outputFile) {
-    writeFileSync(outputFile, result, "utf-8");
-    console.log(`  [OK] Results written to ${outputFile}`);
+    safeWriteOutput(outputFile, result);
   } else {
     console.log(result);
   }
@@ -65,12 +72,11 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
     const baselineFile = typeof flags["save-baseline"] === "string"
       ? flags["save-baseline"]
       : join(scanPath, ".guardvibe-baseline.json");
-    writeFileSync(baselineFile, result, "utf-8");
-    console.log(`  [OK] Baseline saved to ${baselineFile}`);
+    safeWriteOutput(baselineFile, result);
   }
 
   if (format !== "sarif") {
-    const failOn = (flags["fail-on"] as string) ?? "critical";
+    const failOn = getStringFlag(flags, "fail-on") ?? "critical";
     if (shouldFail(result, failOn)) process.exit(1);
   }
 }
@@ -80,8 +86,8 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
   const { analyzeCode } = await import("../tools/check-code.js");
   const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("../utils/constants.js");
 
-  const format = (flags.format as string) ?? "markdown";
-  const outputFile = (flags.output as string) ?? null;
+  const format = validateFormat(flags);
+  const outputFile = getOutputPath(flags);
   const root = resolve(".");
 
   let changedFiles: string[];
@@ -144,13 +150,12 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
   }
 
   if (outputFile) {
-    writeFileSync(outputFile, result, "utf-8");
-    console.log(`  [OK] Results written to ${outputFile}`);
+    safeWriteOutput(outputFile, result);
   } else {
     console.log(result);
   }
 
-  const failOn = (flags["fail-on"] as string) ?? "critical";
+  const failOn = getStringFlag(flags, "fail-on") ?? "critical";
   if (failOn !== "none") {
     const failLevels: Record<string, string[]> = {
       low: ["critical", "high", "medium", "low"],
@@ -190,19 +195,18 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
     process.exit(1);
   }
 
-  const format = (flags.format as string) ?? "markdown";
+  const format = validateFormat(flags);
   const formatArg = format === "json" ? "json" as const : format === "buddy" ? "buddy" as const : "markdown" as const;
   const result = checkCode(content, language, undefined, resolved, undefined, formatArg);
 
-  const outputFile = (flags.output as string) ?? null;
+  const outputFile = getOutputPath(flags);
   if (outputFile) {
-    writeFileSync(outputFile, result, "utf-8");
-    console.log(`  [OK] Results written to ${outputFile}`);
+    safeWriteOutput(outputFile, result);
   } else {
     console.log(result);
   }
 
-  const failOn = (flags["fail-on"] as string) ?? "critical";
+  const failOn = getStringFlag(flags, "fail-on") ?? "critical";
   if (shouldFail(result, failOn)) process.exit(1);
 }
 
@@ -227,7 +231,7 @@ export async function handleCheckCommand(args: string[]): Promise<void> {
   const { flags, positional } = parseArgs(args);
   const filePath = positional[0];
   if (!filePath) {
-    console.error("  Please specify a file: npx guardvibe check <file>");
+    console.error("  [ERR] Please specify a file: npx guardvibe check <file>");
     process.exit(1);
   }
   await runFileCheck(filePath, flags);

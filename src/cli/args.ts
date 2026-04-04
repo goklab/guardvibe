@@ -2,6 +2,33 @@
  * CLI argument parsing utilities
  */
 
+const VALID_FORMATS = new Set(["markdown", "json", "sarif", "buddy"]);
+
+export function getStringFlag(flags: Record<string, string | true>, key: string): string | null {
+  const val = flags[key];
+  if (val === undefined || val === true) return null;
+  return val;
+}
+
+export function validateFormat(flags: Record<string, string | true>): string {
+  const format = getStringFlag(flags, "format") ?? "markdown";
+  if (!VALID_FORMATS.has(format)) {
+    console.error(`  [ERR] Invalid format "${format}". Use: markdown, json, sarif, or buddy`);
+    process.exit(1);
+  }
+  return format;
+}
+
+export function getOutputPath(flags: Record<string, string | true>): string | null {
+  const val = flags.output;
+  if (val === undefined) return null;
+  if (val === true) {
+    console.error("  [ERR] --output requires a file path. Usage: --output results.json");
+    process.exit(1);
+  }
+  return val;
+}
+
 export function parseArgs(args: string[]): { flags: Record<string, string | true>; positional: string[] } {
   const flags: Record<string, string | true> = {};
   const positional: string[] = [];

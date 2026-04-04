@@ -206,7 +206,7 @@ function setupPlatform(name: string): boolean {
 export function runInit(args: string[]): void {
   const platform = args[0]?.toLowerCase();
   if (!platform) {
-    console.error("  Please specify a platform: claude, gemini, cursor, or all");
+    console.error("  [ERR] Please specify a platform: claude, gemini, cursor, or all");
     process.exit(1);
   }
 
@@ -219,8 +219,7 @@ export function runInit(args: string[]): void {
   } else if (platforms[platform]) {
     setupPlatform(platform);
   } else {
-    console.error(`  Unknown platform: ${platform}`);
-    console.error(`  Available: claude, gemini, cursor, all`);
+    console.error(`  [ERR] Unknown platform: ${platform}. Available: claude, gemini, cursor, all`);
     process.exit(1);
   }
 
