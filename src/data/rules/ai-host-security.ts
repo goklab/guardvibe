@@ -17,7 +17,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove the ANTHROPIC_BASE_URL override, or add the URL to your .guardviberc trustedBaseUrls allowlist if it's a legitimate corporate proxy.",
     fixCode:
       '# Remove from .env / shell profile:\n# ANTHROPIC_BASE_URL=https://api.anthropic.com\n\n# Or allowlist in .guardviberc:\n# { "doctor": { "trustedBaseUrls": ["https://proxy.corp.internal"] } }',
-    compliance: ["SOC2:CC6.1", "GDPR:Art32"],
+    compliance: ["SOC2:CC6.1", "GDPR:Art32", "EUAIACT:Art15"],
     exploit:
       "Attacker sets ANTHROPIC_BASE_URL to a proxy server that logs all API requests, capturing API keys and conversation content.",
   },
@@ -34,7 +34,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove the OPENAI_BASE_URL override, or add the URL to your .guardviberc trustedBaseUrls allowlist.",
     fixCode:
       '# Remove override or allowlist in .guardviberc:\n# { "doctor": { "trustedBaseUrls": ["https://proxy.corp.internal"] } }',
-    compliance: ["SOC2:CC6.1", "GDPR:Art32"],
+    compliance: ["SOC2:CC6.1", "GDPR:Art32", "EUAIACT:Art15"],
     exploit:
       "Attacker redirects OpenAI API traffic through a malicious proxy to capture API keys and conversation data.",
   },
@@ -51,7 +51,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove shell metacharacters from hook commands. Use simple, direct commands without piping or chaining.",
     fixCode:
       '// SAFE hook example:\n"PostToolUse": [{ "command": "echo done" }]',
-    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1", "EUAIACT:Art15"],
     exploit:
       "Malicious .claude/settings.json injected via supply chain attack runs arbitrary commands every time a tool is used.",
   },
@@ -68,7 +68,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Replace wildcard tool access with explicit tool names that the MCP server actually needs.",
     fixCode:
       '// SAFE:\n"allowedTools": ["read_file", "list_directory"]',
-    compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1"],
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1", "EUAIACT:Art14"],
   },
   {
     id: "VG890",
@@ -83,7 +83,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove network request commands from hooks. Hooks should perform only local operations.",
     fixCode:
       '// SAFE hook:\n"command": "echo done"',
-    compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.9"],
+    compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.9", "EUAIACT:Art15"],
     exploit:
       "Malicious hook exfiltrates SSH keys, environment variables, or source code to an attacker-controlled server after every tool invocation.",
   },
@@ -100,7 +100,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove pipe chains from hook commands. Process tool output in a dedicated script if needed.",
     fixCode:
       '// SAFE:\n"command": "python3 process_output.py"',
-    compliance: ["SOC2:CC7.1"],
+    compliance: ["SOC2:CC7.1", "EUAIACT:Art15"],
   },
   {
     id: "VG892",
@@ -115,7 +115,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Use npm packages or HTTPS URLs for MCP servers. Avoid file:// references in MCP configurations.",
     fixCode:
       '// SAFE:\n"command": "npx @modelcontextprotocol/server-filesystem /path/to/allowed"',
-    compliance: ["SOC2:CC6.1"],
+    compliance: ["SOC2:CC6.1", "EUAIACT:Art15"],
   },
   {
     id: "VG893",
@@ -130,7 +130,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Replace broad wildcards with specific tool names. Use exact match patterns for tool access control.",
     fixCode:
       '// SAFE:\n"allowedTools": ["mcp__guardvibe__scan_file", "mcp__guardvibe__check_code"]',
-    compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1"],
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1", "EUAIACT:Art14"],
   },
   {
     id: "VG894",
@@ -145,7 +145,7 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove security-sensitive paths from AI host configuration. Limit file access to project directories only.",
     fixCode:
       '// SAFE:\n"allowedDirectories": ["./src", "./docs"]',
-    compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1", "HIPAA:§164.312(a)"],
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1", "HIPAA:§164.312(a)", "EUAIACT:Art14"],
   },
   {
     id: "VG895",
@@ -160,6 +160,6 @@ export const aiHostSecurityRules: SecurityRule[] = [
     fix: "Remove file-modifying commands from PostToolUse hooks. Hooks should only observe and report, not modify files.",
     fixCode:
       '// SAFE:\n"PostToolUse": [{ "command": "echo Tool completed" }]',
-    compliance: ["SOC2:CC7.1", "PCI-DSS:Req10.2"],
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req10.2", "EUAIACT:Art14"],
   },
 ];

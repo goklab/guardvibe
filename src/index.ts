@@ -45,6 +45,7 @@ import { formatHostFindings, redactSecrets } from "./server/types.js";
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
+  description: "Security MCP for vibe coding. 330+ security rules and 29 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, and host environment hardening. Scans code, dependencies, secrets, configs, and git history. Generates compliance reports (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration.",
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -117,7 +118,7 @@ server.tool(
 // Tool 3: Get security documentation and best practices (renumbered from Tool 2)
 server.tool(
   "get_security_docs",
-  "Get security best practices and guidance for a specific topic, framework, or vulnerability type. Use this to learn how to write secure code.",
+  "Get security best practices and remediation guidance for a specific topic, framework, or vulnerability type. Covers OWASP Top 10, framework-specific hardening (Next.js, Supabase, Stripe), and secure coding patterns. Returns actionable guidance with code examples.",
   {
     topic: z
       .string()
@@ -232,7 +233,7 @@ server.tool(
 // Tool 7: Scan for leaked secrets, API keys, and credentials
 server.tool(
   "scan_secrets",
-  "Scan files and directories for leaked secrets, API keys, tokens, and credentials. Checks .env files, config files, and source code. Verifies .gitignore coverage.",
+  "Scan files and directories for leaked secrets, API keys, tokens, and credentials. Detects high-entropy strings, known API key patterns (AWS, Stripe, OpenAI, GitHub, Supabase), exposed .env files, and missing .gitignore coverage. Returns findings with exact line numbers and remediation steps.",
   {
     path: z.string().describe("File or directory path to scan"),
     recursive: z.boolean().optional().default(true).describe("Scan subdirectories"),
@@ -285,10 +286,10 @@ server.tool(
 // Tool 9: Generate compliance-focused security report
 server.tool(
   "compliance_report",
-  "Generate a compliance-focused security report mapped to SOC2, PCI-DSS, HIPAA, GDPR, or ISO27001 controls. Scans a directory and groups findings by compliance control. Includes exploit scenarios and audit evidence for each finding. Use mode=executive for a C-level summary.",
+  "Generate a compliance-focused security report mapped to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, or EUAIACT (EU AI Act) controls. Scans a directory and groups findings by compliance control. Includes exploit scenarios and audit evidence for each finding. Use mode=executive for a C-level summary.",
   {
     path: z.string().describe("Directory to scan"),
-    framework: z.enum(["SOC2", "PCI-DSS", "HIPAA", "GDPR", "ISO27001", "all"]).describe("Compliance framework"),
+    framework: z.enum(["SOC2", "PCI-DSS", "HIPAA", "GDPR", "ISO27001", "EUAIACT", "all"]).describe("Compliance framework"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable for agents)"),
     mode: z.enum(["full", "executive"]).default("full").describe("Report mode: full (detailed) or executive (C-level summary)"),
   },
@@ -374,7 +375,7 @@ server.tool(
 // Tool 14: Generate security policies based on detected stack
 server.tool(
   "generate_policy",
-  "Scan a project to detect its stack (Next.js, Supabase, Stripe, etc.) and generate tailored security policies: CSP headers, CORS config, Supabase RLS suggestions, rate limiting config, and security headers.",
+  "Auto-detect project stack (Next.js, Supabase, Stripe, Clerk, Prisma, etc.) and generate tailored security policies. Outputs ready-to-use CSP headers, CORS configuration, Supabase RLS policies, rate limiting rules, and security headers based on detected frameworks.",
   {
     path: z.string().describe("Project root directory to scan"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
@@ -421,7 +422,7 @@ server.tool(
 // Tool 17: Compliance Policy Check
 server.tool(
   "policy_check",
-  "Check project against compliance policies defined in .guardviberc. Supports custom frameworks, severity thresholds, required controls, and risk exceptions. Returns pass/fail with details.",
+  "Check project against compliance policies defined in .guardviberc. Validates custom framework requirements, severity thresholds, required controls, and risk exceptions. Returns pass/fail status with detailed findings per control.",
   {
     path: z.string().describe("Project root directory"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),

@@ -158,7 +158,7 @@ export const modernStackRules: SecurityRule[] = [
   // AI SDK Specific
   // =====================================================
   {
-    id: "VG874",
+    id: "VG998",
     name: "OpenAI Client with dangerouslyAllowBrowser",
     severity: "critical",
     owasp: "A07:2025 Sensitive Data Exposure",
@@ -172,7 +172,7 @@ export const modernStackRules: SecurityRule[] = [
     compliance: ["SOC2:CC6.1", "PCI-DSS:Req2.3"],
   },
   {
-    id: "VG875",
+    id: "VG999",
     name: "AI Request Without maxTokens Limit",
     severity: "medium",
     owasp: "A04:2023 Unrestricted Resource Consumption",
@@ -572,7 +572,7 @@ export const modernStackRules: SecurityRule[] = [
     compliance: ["SOC2:CC7.1"],
   },
   {
-    id: "VG910",
+    id: "VG1000",
     name: "Hono SSE Injection via streamSSE",
     severity: "medium",
     owasp: "A02:2025 Injection",
@@ -583,6 +583,34 @@ export const modernStackRules: SecurityRule[] = [
     fix: "Sanitize all SSE field values by stripping CR/LF characters (\\r, \\n) before passing them to streamSSE. Never use raw user input in event, id, or retry fields.",
     fixCode:
       '// Sanitize SSE fields\nfunction sanitizeSSE(value: string): string {\n  return value.replace(/[\\r\\n]/g, "");\n}\n\n// Usage with Hono streamSSE\nreturn streamSSE(c, async (stream) => {\n  await stream.writeSSE({\n    event: sanitizeSSE(eventName),\n    data: sanitizeSSE(data),\n    id: sanitizeSSE(id),\n  });\n});',
+    compliance: ["SOC2:CC7.1"],
+  },
+  {
+    id: "VG1003",
+    name: "Hono ErrorBoundary XSS via Unsanitized Error Messages",
+    severity: "high",
+    owasp: "A07:2025 Cross-Site Scripting",
+    description:
+      "Hono v4.11.7 öncesi ErrorBoundary bileşeni hata mesajlarını sanitize etmeden render eder. Kullanıcı kaynaklı input bir hata tetiklerse, hata mesajı ham HTML olarak render edilir ve reflected XSS'e yol açar.",
+    pattern: /(?:import\s.*from\s+['"]hono\/(?:jsx|components)['"])[\s\S]{0,500}?ErrorBoundary/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Hono'yu v4.11.7 veya üstüne yükseltin. Yükseltemiyorsanız, ErrorBoundary fallback'inde hata mesajlarını HTML escape edin.",
+    fixCode:
+      '// Upgrade: npm install hono@latest\n\n// Veya manuel sanitize:\nimport { ErrorBoundary } from "hono/jsx";\nfunction escapeHtml(s: string) {\n  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");\n}\n<ErrorBoundary fallback={(err) => <p>{escapeHtml(err.message)}</p>}>\n  <MyComponent />\n</ErrorBoundary>',
+    compliance: ["SOC2:CC7.1"],
+  },
+  {
+    id: "VG1004",
+    name: "React Server Action Without Rate Limiting",
+    severity: "medium",
+    owasp: "API4:2023 Unrestricted Resource Consumption",
+    description:
+      "React Server Action veya RSC endpoint'i rate limiting ve request size kontrolü olmadan expose edilmiş. Saldırganlar yüksek hacimli veya büyük boyutlu payload'larla DoS gerçekleştirebilir. CVE-2026-23864 ile ilişkili.",
+    pattern: /["']use server["'][\s\S]{0,500}?export\s+(?:async\s+)?function\s+\w+/g,
+    languages: ["javascript", "typescript"],
+    fix: "Her Server Action'a rate limiting middleware (ör. @upstash/ratelimit) ve request size validasyonu ekleyin.",
+    fixCode:
+      '"use server";\nimport { Ratelimit } from "@upstash/ratelimit";\nimport { headers } from "next/headers";\n\nconst ratelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "10s") });\n\nexport async function submitForm(formData: FormData) {\n  const ip = (await headers()).get("x-forwarded-for") ?? "127.0.0.1";\n  const { success } = await ratelimit.limit(ip);\n  if (!success) throw new Error("Too many requests");\n}',
     compliance: ["SOC2:CC7.1"],
   },
 ];

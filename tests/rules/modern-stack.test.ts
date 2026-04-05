@@ -134,32 +134,32 @@ describe("Modern Stack Security Rules", () => {
   // =====================================================
   // AI SDK
   // =====================================================
-  describe("VG874 - dangerouslyAllowBrowser", () => {
+  describe("VG998 - dangerouslyAllowBrowser", () => {
     it("detects dangerouslyAllowBrowser: true", () => {
       assert(hasRule(
         `const openai = new OpenAI({ dangerouslyAllowBrowser: true });`,
-        "VG874"
+        "VG998"
       ));
     });
     it("allows server-side usage", () => {
       assert(!hasRule(
         `const openai = new OpenAI();`,
-        "VG874"
+        "VG998"
       ));
     });
   });
 
-  describe("VG875 - AI request without maxTokens", () => {
+  describe("VG999 - AI request without maxTokens", () => {
     it("detects generateText without maxTokens", () => {
       assert(hasRule(
         `const result = await generateText({ model: "gpt-4", prompt: "hello" });`,
-        "VG875"
+        "VG999"
       ));
     });
     it("allows generateText with maxTokens", () => {
       assert(!hasRule(
         `const result = await generateText({ model: "gpt-4", maxTokens: 1024, prompt: "hello" });`,
-        "VG875"
+        "VG999"
       ));
     });
   });
@@ -475,6 +475,54 @@ describe("Modern Stack Security Rules", () => {
       assert(!hasRule(
         `const safeName = randomUUID() + ".png";\nawait fs.writeFile(\`/uploads/\${safeName}\`, buffer);`,
         "VG993"
+      ));
+    });
+  });
+
+  // =====================================================
+  // Hono ErrorBoundary XSS
+  // =====================================================
+  describe("VG1003 - Hono ErrorBoundary XSS", () => {
+    it("detects ErrorBoundary with hono/jsx import", () => {
+      assert(hasRule(
+        `import { ErrorBoundary } from 'hono/jsx';\n<ErrorBoundary fallback={(e) => <p>{e.message}</p>}><App /></ErrorBoundary>`,
+        "VG1003"
+      ));
+    });
+    it("detects ErrorBoundary with hono/components import", () => {
+      assert(hasRule(
+        `import { ErrorBoundary } from "hono/components";\n<ErrorBoundary><Page /></ErrorBoundary>`,
+        "VG1003"
+      ));
+    });
+    it("does not match React ErrorBoundary", () => {
+      assert(!hasRule(
+        `import { ErrorBoundary } from "react-error-boundary";\n<ErrorBoundary fallback={<p>Error</p>}><App /></ErrorBoundary>`,
+        "VG1003"
+      ));
+    });
+  });
+
+  // =====================================================
+  // React Server Action DoS
+  // =====================================================
+  describe("VG1004 - React Server Action Without Rate Limiting", () => {
+    it("detects server action without rate limiting", () => {
+      assert(hasRule(
+        `"use server";\n\nexport async function createPost(formData: FormData) {\n  await db.post.create({ data: { title: formData.get("title") } });\n}`,
+        "VG1004"
+      ));
+    });
+    it("detects use server with sync exported function", () => {
+      assert(hasRule(
+        `"use server";\nexport function deleteItem(id: string) {\n  return db.item.delete({ where: { id } });\n}`,
+        "VG1004"
+      ));
+    });
+    it("does not match client component", () => {
+      assert(!hasRule(
+        `"use client";\nexport function Button() {\n  return <button>Click</button>;\n}`,
+        "VG1004"
       ));
     });
   });

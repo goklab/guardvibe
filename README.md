@@ -178,7 +178,7 @@ Dockerfile security, GitHub Actions CI/CD, Terraform (S3, IAM, RDS, security gro
 API keys (AWS, GitHub, Stripe, OpenAI, Resend, Turso), .env management, .gitignore coverage, high-entropy detection, NEXT_PUBLIC exposure
 
 ### Compliance
-SOC2, PCI-DSS, HIPAA control mapping with compliance reports
+SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act (EUAIACT) control mapping with compliance reports
 
 ### Supply Chain
 Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
@@ -195,7 +195,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 | `scan_secrets` | Detect leaked secrets, API keys, tokens |
 | `check_dependencies` | Check individual packages against OSV |
 | `check_package_health` | Typosquat detection, maintenance status, adoption metrics |
-| `compliance_report` | SOC2 / PCI-DSS / HIPAA compliance mapping |
+| `compliance_report` | SOC2 / PCI-DSS / HIPAA / GDPR / ISO27001 / EU AI Act compliance mapping |
 | `export_sarif` | SARIF v2.1.0 export for CI/CD integration |
 | `get_security_docs` | Security best practices and guides |
 | `fix_code` | **Auto-fix suggestions** with concrete patches for AI agents |
