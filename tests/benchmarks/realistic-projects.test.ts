@@ -77,16 +77,16 @@ export async function createPost(formData: FormData) {
 // ============================================================
 
 const aiVulnerableCode = {
-  // Should detect: VG874 (dangerouslyAllowBrowser)
+  // Should detect: VG998 (dangerouslyAllowBrowser)
   "client-openai.ts": {
     code: `"use client";
 import OpenAI from "openai";
 const openai = new OpenAI({ dangerouslyAllowBrowser: true });`,
     lang: "typescript",
-    expectedRules: ["VG874"],
+    expectedRules: ["VG998"],
   },
 
-  // Should detect: VG875 (missing maxTokens)
+  // Should detect: VG999 (missing maxTokens)
   "chat-route.ts": {
     code: `export async function POST(req: Request) {
   const { messages } = await req.json();
@@ -94,7 +94,7 @@ const openai = new OpenAI({ dangerouslyAllowBrowser: true });`,
   return Response.json({ text: result.text });
 }`,
     lang: "typescript",
-    expectedRules: ["VG875"],
+    expectedRules: ["VG999"],
   },
 };
 
