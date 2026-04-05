@@ -140,8 +140,8 @@ describe("CLI - Scan Commands", () => {
     const vulnPath = join(TEST_DIR, "vuln.ts");
 
     writeFileSync(vulnPath, 'const password = "supersecretpassword123";\n', "utf-8");
-    const { stdout, exitCode } = runCLI(["scan", TEST_DIR]);
-    assert(exitCode === 1, "should exit with error for high/critical findings");
+    const { stdout, exitCode } = runCLI(["scan", TEST_DIR, "--fail-on", "high"]);
+    assert(exitCode === 1, "should exit with error when --fail-on is set and findings match");
     assert(stdout.includes("Hardcoded"), `should detect hardcoded secret, got: ${stdout.slice(0, 300)}`);
   });
 });
@@ -176,8 +176,8 @@ describe("CLI - Check Command", () => {
     const filePath = join(TEST_DIR, "vuln.ts");
 
     writeFileSync(filePath, 'const apiKey = "sk_live_abcdef1234567890";\n', "utf-8");
-    const { stdout, exitCode } = runCLI(["check", filePath]);
-    assert(exitCode === 1, "should exit with error for findings");
+    const { stdout, exitCode } = runCLI(["check", filePath, "--fail-on", "high"]);
+    assert(exitCode === 1, "should exit with error when --fail-on is set");
     assert(stdout.includes("VG062") || stdout.includes("Hardcoded") || stdout.includes("VG001"), `should detect issue, got: ${stdout.slice(0, 300)}`);
   });
 

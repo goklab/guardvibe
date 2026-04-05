@@ -39,7 +39,7 @@ export async function runScan(): Promise<void> {
     console.log(result);
   }
 
-  if (format !== "sarif") {
+  if (format !== "sarif" && flags["fail-on"]) {
     const failOn = getStringFlag(flags, "fail-on") ?? "critical";
     if (shouldFail(result, failOn)) process.exit(1);
   }
@@ -76,7 +76,7 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
     safeWriteOutput(baselineFile, result);
   }
 
-  if (format !== "sarif") {
+  if (format !== "sarif" && flags["fail-on"]) {
     const failOn = getStringFlag(flags, "fail-on") ?? "critical";
     if (shouldFail(result, failOn)) process.exit(1);
   }
@@ -160,16 +160,18 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
     console.log(result);
   }
 
-  const failOn = getStringFlag(flags, "fail-on") ?? "critical";
-  if (failOn !== "none") {
-    const failLevels: Record<string, string[]> = {
-      low: ["critical", "high", "medium", "low"],
-      medium: ["critical", "high", "medium"],
-      high: ["critical", "high"],
-      critical: ["critical"],
-    };
-    const levels = failLevels[failOn] || failLevels.critical;
-    if (allFindings.some(f => levels.includes(f.severity))) process.exit(1);
+  if (flags["fail-on"]) {
+    const failOn = getStringFlag(flags, "fail-on") ?? "critical";
+    if (failOn !== "none") {
+      const failLevels: Record<string, string[]> = {
+        low: ["critical", "high", "medium", "low"],
+        medium: ["critical", "high", "medium"],
+        high: ["critical", "high"],
+        critical: ["critical"],
+      };
+      const levels = failLevels[failOn] || failLevels.critical;
+      if (allFindings.some(f => levels.includes(f.severity))) process.exit(1);
+    }
   }
 }
 
@@ -211,8 +213,10 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
     console.log(result);
   }
 
-  const failOn = getStringFlag(flags, "fail-on") ?? "critical";
-  if (shouldFail(result, failOn)) process.exit(1);
+  if (flags["fail-on"]) {
+    const failOn = getStringFlag(flags, "fail-on") ?? "critical";
+    if (shouldFail(result, failOn)) process.exit(1);
+  }
 }
 
 export async function handleScanCommand(args: string[]): Promise<void> {

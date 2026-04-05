@@ -19,3 +19,5 @@ GEMINI.md
 .cursorrules
 # GuardVibe (auto-added by guardvibe init)
 .guardvibe/
+coverage/
+.mcpregistry_*
