@@ -60,7 +60,13 @@ function calculateScore(critical: number, high: number, medium: number, fileCoun
   // Calibrated: medium issues are informational (0.5 weight), high issues are real (5x), critical are severe (15x)
   const weighted = critical * 15 + high * 5 + medium * 0.5;
   const density = weighted / Math.max(fileCount, 1);
-  return Math.max(0, Math.min(100, Math.round(100 - Math.min(density, 5) * 20)));
+  let score = Math.max(0, Math.min(100, Math.round(100 - Math.min(density, 5) * 20)));
+
+  // Severity caps: CRITICAL findings can never get A/B, HIGH can never get A
+  if (critical > 0) score = Math.min(score, 60);  // cap at C
+  if (high > 0) score = Math.min(score, 75);       // cap at B
+
+  return score;
 }
 
 function scoreToGrade(score: number): string {
@@ -194,6 +200,14 @@ export function checkProject(files: FileInput[], format: "markdown" | "json" = "
   if (skippedFiles.length > 0) {
     lines.push(``, `*Skipped ${skippedFiles.length} files with unsupported extensions.*`);
   }
+
+  // Always show scan limitations
+  lines.push(
+    ``,
+    `---`,
+    ``,
+    `**Note:** Pattern-based scanning cannot detect business logic flaws (race conditions, IDOR, privilege escalation logic). Use AI-assisted code review for deeper analysis.`,
+  );
 
   return lines.join("\n");
 }
