@@ -1,4 +1,4 @@
-import { analyzeCode, type Finding } from "./check-code.js";
+import { analyzeCode } from "./check-code.js";
 import type { SecurityRule } from "../data/rules/types.js";
 
 export interface VerifyResult {
