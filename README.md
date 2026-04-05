@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 334 security rules, 29 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 334 security rules, 31 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,7 +14,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **334 security rules, 29 tools** purpose-built for the stacks AI agents generate
+- **334 security rules, 31 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -183,7 +183,7 @@ SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act (EUAIACT) control mapping with c
 ### Supply Chain
 Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 
-## Tools (29 MCP tools)
+## Tools (31 MCP tools)
 
 | Tool | What it does |
 |------|-------------|
@@ -216,6 +216,8 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 | `guardvibe_doctor` | **Host security audit** — CVE-2025-59536, CVE-2026-21852, MCP config, env scanner |
 | `audit_mcp_config` | Audit MCP server configurations for hook injection, file:// abuse, sensitive paths |
 | `scan_host_config` | Scan shell profiles, .env files for base URL hijack and credential sniffing |
+| `verify_fix` | Verify a security fix was applied correctly — returns fixed/still_vulnerable/new_issues |
+| `security_workflow` | Get recommended tool workflow for your current task (writing, pre-commit, PR review, etc.) |
 
 All scanning tools support `format: "json"` for machine-readable output.
 

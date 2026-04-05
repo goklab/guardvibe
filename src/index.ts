@@ -41,11 +41,13 @@ import { auditMcpConfig } from "./tools/audit-mcp-config.js";
 import { scanHostConfig } from "./tools/scan-host-config.js";
 import { doctor } from "./tools/doctor.js";
 import { formatHostFindings, redactSecrets } from "./server/types.js";
+import { verifyFix } from "./tools/verify-fix.js";
+import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js";
 
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: "Security MCP for vibe coding. 334 security rules and 29 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, and host environment hardening. Scans code, dependencies, secrets, configs, and git history. Generates compliance reports (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration.",
+  description: "Security MCP for vibe coding. 334 security rules and 31 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, and host environment hardening. Scans code, dependencies, secrets, configs, and git history. Generates compliance reports (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration.",
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -577,6 +579,22 @@ server.tool(
     const cwd = dirname(resolved);
     recordScan(cwd, { toolName: "scan_file", filesScanned: 1, findings: findings.map(f => ({ severity: f.rule.severity, ruleId: f.rule.id })) });
     const summary = getSummaryLine(cwd, findings.length, format);
+
+    // Append suggested fixes in JSON mode for agent auto-apply
+    if (format === "json" && findings.length > 0) {
+      const fixResult = fixCodeTool(content, language, undefined, resolved, "json", rules);
+      const fixes = JSON.parse(fixResult);
+      const parsed = JSON.parse(result);
+      parsed.suggested_fixes = (fixes.fixes || []).map((f: FixSuggestion) => ({
+        ruleId: f.ruleId,
+        line: f.line,
+        edit: f.edit,
+        confidence: f.confidence,
+        effort: f.effort,
+      })).filter((f: { edit?: unknown }) => f.edit);
+      return { content: [{ type: "text", text: JSON.stringify(parsed) + summary }] };
+    }
+
     return { content: [{ type: "text", text: result + summary }] };
   }
 );
@@ -731,6 +749,108 @@ server.tool(
   async ({ path: projectPath, scope, format }) => {
     const result = doctor(projectPath, scope, format);
     return { content: [{ type: "text", text: result }] };
+  }
+);
+
+// Tool 29: Verify a specific fix was applied correctly
+server.tool(
+  "verify_fix",
+  "Verify that a specific security fix was applied correctly. Re-scans the updated code and checks if the target vulnerability (by rule ID) is resolved. Returns 'fixed', 'still_vulnerable', or 'new_issues' status with details.",
+  {
+    code: z.string().describe("Updated code after applying the fix"),
+    language: z.string().describe("Programming language"),
+    ruleId: z.string().describe("Rule ID to verify (e.g. VG402)"),
+    filePath: z.string().optional().describe("File path for context-aware analysis"),
+  },
+  async ({ code, language, ruleId, filePath }) => {
+    const rules = getRules();
+    const result = verifyFix(code, language, ruleId, filePath, rules);
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
+);
+
+// Tool 30: Security workflow guide for AI agents
+server.tool(
+  "security_workflow",
+  "Get the recommended GuardVibe security workflow for your current task. Returns which tools to call, in what order, and with what parameters. Use this when you're unsure which GuardVibe tool to use.",
+  {
+    task: z.enum([
+      "writing_code",
+      "pre_commit",
+      "pr_review",
+      "new_project",
+      "fix_vulnerabilities",
+      "compliance_audit",
+      "dependency_check",
+    ]).describe("What you are currently doing"),
+  },
+  async ({ task }) => {
+    const workflows: Record<string, object> = {
+      writing_code: {
+        task: "writing_code",
+        description: "Scan code after each significant edit to catch vulnerabilities early.",
+        steps: [
+          { tool: "scan_file", params: { file_path: "<edited_file>", format: "json" }, purpose: "Scan the file you just edited. Returns findings + suggested_fixes with structured edits." },
+          { tool: "verify_fix", params: { code: "<updated_code>", language: "<lang>", ruleId: "<id>" }, purpose: "After applying a fix, verify it resolved the issue.", condition: "if suggested_fixes returned" },
+        ],
+      },
+      pre_commit: {
+        task: "pre_commit",
+        description: "Security gate before committing code.",
+        steps: [
+          { tool: "scan_staged", params: { format: "json" }, purpose: "Scan all staged files for vulnerabilities." },
+          { tool: "fix_code", params: { code: "<vulnerable_code>", language: "<lang>", format: "json" }, purpose: "Get structured fix suggestions with edit instructions.", condition: "if critical/high findings" },
+          { tool: "verify_fix", params: { code: "<fixed_code>", language: "<lang>", ruleId: "<id>" }, purpose: "Verify each fix was applied correctly.", condition: "after applying fixes" },
+          { tool: "scan_staged", params: { format: "json" }, purpose: "Final verification — confirm all issues resolved.", condition: "after all fixes applied" },
+        ],
+      },
+      pr_review: {
+        task: "pr_review",
+        description: "Review a pull request for security issues.",
+        steps: [
+          { tool: "scan_changed_files", params: { path: ".", format: "json" }, purpose: "Scan only git-changed files." },
+          { tool: "review_pr", params: { path: ".", format: "json" }, purpose: "Review PR diff with severity gating." },
+          { tool: "explain_remediation", params: { ruleId: "<id>" }, purpose: "Get detailed fix guidance for critical findings.", condition: "for each critical/high finding" },
+        ],
+      },
+      new_project: {
+        task: "new_project",
+        description: "Set up security for a new project.",
+        steps: [
+          { tool: "scan_directory", params: { path: ".", format: "json" }, purpose: "Full project scan to establish baseline." },
+          { tool: "generate_policy", params: { path: "." }, purpose: "Auto-detect stack and generate security policies (CSP, CORS, RLS)." },
+          { tool: "audit_config", params: { path: "." }, purpose: "Audit config files for security misconfigurations." },
+          { tool: "guardvibe_doctor", params: { scope: "project" }, purpose: "Audit AI host security (hooks, MCP configs, env)." },
+        ],
+      },
+      fix_vulnerabilities: {
+        task: "fix_vulnerabilities",
+        description: "Fix known vulnerabilities in existing code.",
+        steps: [
+          { tool: "fix_code", params: { code: "<code>", language: "<lang>", format: "json" }, purpose: "Get structured fix suggestions with edit instructions and confidence scores." },
+          { tool: "verify_fix", params: { code: "<fixed_code>", language: "<lang>", ruleId: "<id>" }, purpose: "Verify each fix resolved the target vulnerability.", condition: "after applying each fix" },
+          { tool: "scan_file", params: { file_path: "<file>", format: "json" }, purpose: "Final scan to confirm file is clean.", condition: "after all fixes" },
+        ],
+      },
+      compliance_audit: {
+        task: "compliance_audit",
+        description: "Generate compliance reports for regulatory frameworks.",
+        steps: [
+          { tool: "compliance_report", params: { path: ".", framework: "<SOC2|PCI-DSS|HIPAA|GDPR|ISO27001|EUAIACT>", format: "json" }, purpose: "Generate compliance-mapped findings report." },
+          { tool: "explain_remediation", params: { ruleId: "<id>" }, purpose: "Get audit evidence and fix strategies for each finding.", condition: "for each finding" },
+        ],
+      },
+      dependency_check: {
+        task: "dependency_check",
+        description: "Check dependencies for vulnerabilities and supply chain risks.",
+        steps: [
+          { tool: "scan_dependencies", params: { manifest_path: "package.json" }, purpose: "Check all dependencies against OSV database." },
+          { tool: "check_package_health", params: { name: "<pkg>" }, purpose: "Check individual packages for typosquatting and maintenance status.", condition: "for suspicious packages" },
+        ],
+      },
+    };
+
+    return { content: [{ type: "text", text: JSON.stringify(workflows[task]) }] };
   }
 );
 

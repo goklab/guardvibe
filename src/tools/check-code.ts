@@ -8,6 +8,7 @@ export interface Finding {
   rule: SecurityRule;
   match: string;
   line: number;
+  confidence: "high" | "medium" | "low";
 }
 
 interface Suppression {
@@ -192,6 +193,43 @@ function hasRoleCheckPattern(code: string): boolean {
   return false;
 }
 
+/**
+ * Calculate confidence level for a finding based on file context and match quality.
+ */
+function calculateConfidence(
+  rule: SecurityRule,
+  matchText: string,
+  lineNumber: number,
+  lines: string[],
+  filePath?: string,
+): "high" | "medium" | "low" {
+  // Test/fixture/example files → low confidence
+  if (filePath && /(?:\/tests?\/|__tests__|\.test\.|\.spec\.|\/fixtures?\/|\/examples?\/|\/mocks?\/)/.test(filePath)) {
+    return "low";
+  }
+
+  // CVE version rules in package.json → always high
+  if (rule.id.startsWith("VG9") && filePath?.endsWith("package.json")) {
+    return "high";
+  }
+
+  // Secret detection with known prefixes → high
+  if (["VG001", "VG062"].includes(rule.id)) {
+    if (/(?:sk-live-|sk_live_|ghp_|gho_|github_pat_|AKIA[0-9A-Z]{16}|xoxb-|xoxp-|whsec_|rk_live_)/.test(matchText)) {
+      return "high";
+    }
+    return "medium";
+  }
+
+  // Match is on a comment-only line → low
+  const line = lines[lineNumber - 1] || "";
+  if (/^\s*(?:\/\/|#|\*|\/\*)/.test(line)) {
+    return "low";
+  }
+
+  return "medium";
+}
+
 export function analyzeCode(
   code: string,
   language: string,
@@ -333,6 +371,7 @@ export function analyzeCode(
         rule: effectiveRule,
         match: match[0].substring(0, 80),
         line: lineNumber,
+        confidence: calculateConfidence(effectiveRule, match[0], lineNumber, lines, filePath),
       });
     }
   }

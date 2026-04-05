@@ -1,6 +1,14 @@
 import { owaspRules, type SecurityRule } from "../data/rules/index.js";
 import { analyzeCode, type Finding } from "./check-code.js";
 
+export interface StructuredEdit {
+  startLine: number;
+  endLine: number;
+  oldText: string;
+  newText: string;
+  imports?: string[];
+}
+
 export interface FixSuggestion {
   ruleId: string;
   ruleName: string;
@@ -10,7 +18,10 @@ export interface FixSuggestion {
   description: string;
   fix: string;
   fixCode?: string;
-  patch?: string; // line-level replacement suggestion
+  patch?: string;
+  edit?: StructuredEdit;
+  confidence: "high" | "medium" | "low";
+  effort: 1 | 2 | 3;
 }
 
 /**
@@ -60,6 +71,8 @@ function generateFixSuggestions(findings: Finding[], code: string): FixSuggestio
 
     const sourceLine = lines[finding.line - 1] || "";
     const patch = generatePatch(finding, sourceLine);
+    const edit = generateStructuredEdit(finding, sourceLine, lines);
+    const effort = estimateEffort(finding.rule.id);
 
     suggestions.push({
       ruleId: finding.rule.id,
@@ -71,6 +84,9 @@ function generateFixSuggestions(findings: Finding[], code: string): FixSuggestio
       fix: finding.rule.fix,
       fixCode: finding.rule.fixCode,
       patch,
+      edit,
+      confidence: finding.confidence,
+      effort,
     });
   }
 
@@ -253,6 +269,109 @@ function generatePatch(finding: Finding, sourceLine: string): string | undefined
   }
 
   return undefined;
+}
+
+/**
+ * Generate a structured edit that an AI agent can apply directly.
+ */
+function generateStructuredEdit(
+  finding: Finding,
+  sourceLine: string,
+  _lines: string[],
+): StructuredEdit | undefined {
+  const { rule, line } = finding;
+  const trimmed = sourceLine.trim();
+  if (!trimmed) return undefined;
+
+  // --- Hardcoded credentials → env var ---
+  if (["VG001", "VG062", "VG060", "VG506", "VG514", "VG517", "VG603",
+       "VG621", "VG626", "VG651", "VG665", "VG677"].includes(rule.id)) {
+    const m = /(\w+)\s*[:=]\s*['"][^'"]+['"]/.exec(sourceLine);
+    if (m) {
+      const envName = m[1].replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase();
+      return {
+        startLine: line, endLine: line,
+        oldText: sourceLine,
+        newText: sourceLine.replace(/['"][^'"]+['"]/, `process.env.${envName}`),
+      };
+    }
+  }
+
+  // --- NEXT_PUBLIC_ exposure → remove prefix ---
+  if (["VG411", "VG604", "VG627", "VG631", "VG655", "VG671", "VG676", "VG755"].includes(rule.id)) {
+    const m = /(NEXT_PUBLIC_)(\w+)/.exec(sourceLine);
+    if (m) {
+      return {
+        startLine: line, endLine: line,
+        oldText: sourceLine, newText: sourceLine.replace(`NEXT_PUBLIC_${m[2]}`, m[2]),
+      };
+    }
+  }
+
+  // --- innerHTML → textContent ---
+  if (["VG012", "VG042", "VG408"].includes(rule.id) && sourceLine.includes("innerHTML")) {
+    return {
+      startLine: line, endLine: line,
+      oldText: sourceLine, newText: sourceLine.replace("innerHTML", "textContent"),
+    };
+  }
+
+  // --- CORS wildcard → env var ---
+  if (["VG040", "VG403", "VG500", "VG510"].includes(rule.id) && /['"]\*['"]/.test(sourceLine)) {
+    return {
+      startLine: line, endLine: line,
+      oldText: sourceLine, newText: sourceLine.replace(/['"]\*['"]/, "process.env.ALLOWED_ORIGIN"),
+    };
+  }
+
+  // --- dangerouslyAllowBrowser: true → remove ---
+  if (rule.id === "VG998" && /dangerouslyAllowBrowser\s*:\s*true/.test(sourceLine)) {
+    return {
+      startLine: line, endLine: line,
+      oldText: sourceLine, newText: sourceLine.replace(/,?\s*dangerouslyAllowBrowser\s*:\s*true\s*,?/, ""),
+    };
+  }
+
+  // --- Source maps → disable ---
+  if (["VG512", "VG662"].includes(rule.id) && /true/.test(sourceLine)) {
+    return {
+      startLine: line, endLine: line,
+      oldText: sourceLine, newText: sourceLine.replace(/true/, "false"),
+    };
+  }
+
+  // --- Missing auth → add auth check before the line ---
+  if (["VG002", "VG402", "VG420", "VG952"].includes(rule.id)) {
+    const indent = sourceLine.match(/^(\s*)/)?.[1] || "  ";
+    return {
+      startLine: line, endLine: line,
+      oldText: sourceLine,
+      newText: `${indent}const { userId } = await auth();\n${indent}if (!userId) return new Response("Unauthorized", { status: 401 });\n${sourceLine}`,
+      imports: ['import { auth } from "@clerk/nextjs/server"'],
+    };
+  }
+
+  return undefined;
+}
+
+/**
+ * Estimate fix effort: 1 = single line, 2 = few lines, 3 = structural change
+ */
+function estimateEffort(ruleId: string): 1 | 2 | 3 {
+  const effort1 = new Set([
+    "VG001", "VG062", "VG060", "VG012", "VG042", "VG040", "VG411",
+    "VG506", "VG507", "VG512", "VG514", "VG517", "VG656", "VG662",
+    "VG874", "VG875", "VG978", "VG998",
+  ]);
+  if (effort1.has(ruleId)) return 1;
+
+  const effort3 = new Set([
+    "VG402", "VG404", "VG405", "VG407", "VG432", "VG440", "VG441",
+    "VG859", "VG953", "VG964",
+  ]);
+  if (effort3.has(ruleId)) return 3;
+
+  return 2;
 }
 
 function formatFixMarkdown(suggestions: FixSuggestion[]): string {
