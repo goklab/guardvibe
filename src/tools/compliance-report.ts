@@ -91,17 +91,19 @@ export function complianceReport(
 
   // --- FULL MODE ---
   const lines: string[] = [
-    `# GuardVibe Compliance Report`,
+    `# GuardVibe Compliance Control Mapping`,
+    ``,
+    `> This report maps code-level security findings to ${framework} controls. It identifies vulnerabilities relevant to compliance requirements but is not a substitute for professional compliance audits.`,
     ``,
     `Framework: ${framework}`,
     `Directory: ${scanRoot}`,
     `Files scanned: ${filePaths.length}`,
-    `Compliance issues: ${relevant.length}`,
+    `Security issues mapped to controls: ${relevant.length}`,
     ``,
   ];
 
   if (controlMap.size === 0) {
-    lines.push(`## No Compliance Issues`, ``, `No issues mapped to ${framework} controls were found.`);
+    lines.push(`## No Issues Found`, ``, `No code-level security issues mapped to ${framework} controls were found. This does not constitute a compliance certification.`);
     return lines.join("\n");
   }
 
@@ -151,7 +153,9 @@ function formatExecutiveSummary(
   const riskLevel = critical > 0 ? "HIGH" : high > 0 ? "MEDIUM" : total > 0 ? "LOW" : "MINIMAL";
 
   const lines: string[] = [
-    `# Executive Security Summary`,
+    `# Security Findings — ${framework} Control Mapping`,
+    ``,
+    `> Maps code-level security findings to ${framework} controls. Not a compliance audit or certification.`,
     ``,
     `**Framework:** ${framework} | **Date:** ${new Date().toISOString().split("T")[0]}`,
     `**Directory:** ${scanRoot}`,
@@ -204,7 +208,7 @@ function formatExecutiveSummary(
 
   // Compliance coverage
   lines.push(
-    `## Compliance Coverage`,
+    `## Controls with Findings`,
     ``,
     `| Control | Status | Issues |`,
     `|---------|--------|--------|`,

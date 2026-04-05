@@ -47,7 +47,7 @@ import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js"
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: "Security MCP for vibe coding. 334 security rules and 31 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, and host environment hardening. Scans code, dependencies, secrets, configs, and git history. Generates compliance reports (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration.",
+  description: "Security MCP for vibe coding. 334 security rules and 31 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, and host environment hardening. Scans code, dependencies, secrets, configs, and git history. Maps security findings to compliance controls (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration. Note: GuardVibe is a security scanner, not a compliance auditor — it helps identify code-level issues relevant to compliance frameworks but does not replace professional compliance audits.",
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -288,7 +288,7 @@ server.tool(
 // Tool 9: Generate compliance-focused security report
 server.tool(
   "compliance_report",
-  "Generate a compliance-focused security report mapped to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, or EUAIACT (EU AI Act) controls. Scans a directory and groups findings by compliance control. Includes exploit scenarios and audit evidence for each finding. Use mode=executive for a C-level summary.",
+  "Map security scan findings to compliance framework controls (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EUAIACT). Scans a directory and groups code-level security issues by the compliance control they relate to. Includes exploit scenarios and remediation evidence for each finding. Use mode=executive for a risk summary. Note: this maps code vulnerabilities to controls — it does not perform a compliance audit or replace professional assessment.",
   {
     path: z.string().describe("Directory to scan"),
     framework: z.enum(["SOC2", "PCI-DSS", "HIPAA", "GDPR", "ISO27001", "EUAIACT", "all"]).describe("Compliance framework"),
@@ -780,7 +780,7 @@ server.tool(
       "pr_review",
       "new_project",
       "fix_vulnerabilities",
-      "compliance_audit",
+      "compliance_mapping",
       "dependency_check",
     ]).describe("What you are currently doing"),
   },
@@ -833,11 +833,11 @@ server.tool(
         ],
       },
       compliance_audit: {
-        task: "compliance_audit",
-        description: "Generate compliance reports for regulatory frameworks.",
+        task: "compliance_mapping",
+        description: "Map security findings to compliance framework controls. This identifies code-level issues relevant to specific controls — it does not replace professional compliance audits.",
         steps: [
-          { tool: "compliance_report", params: { path: ".", framework: "<SOC2|PCI-DSS|HIPAA|GDPR|ISO27001|EUAIACT>", format: "json" }, purpose: "Generate compliance-mapped findings report." },
-          { tool: "explain_remediation", params: { ruleId: "<id>" }, purpose: "Get audit evidence and fix strategies for each finding.", condition: "for each finding" },
+          { tool: "compliance_report", params: { path: ".", framework: "<SOC2|PCI-DSS|HIPAA|GDPR|ISO27001|EUAIACT>", format: "json" }, purpose: "Scan code and map findings to compliance controls." },
+          { tool: "explain_remediation", params: { ruleId: "<id>" }, purpose: "Get remediation guidance and fix strategies for each finding.", condition: "for each finding" },
         ],
       },
       dependency_check: {
