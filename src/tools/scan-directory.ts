@@ -348,8 +348,41 @@ export function scanDirectory(
   }
 
   if (skippedFiles.length > 0) {
-    lines.push(``, `**Skipped files:**`);
-    for (const s of skippedFiles) lines.push(`- ${s}`);
+    lines.push(``, `**Skipped files:** ${skippedFiles.length}`);
+  }
+
+  // ── Priority Summary Table (always at the end, visible in terminal) ──
+  if (totalIssues > 0) {
+    const severityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    const ruleStats = new Map<string, { rule: typeof allFindings[0]["rule"]; files: Set<string>; count: number }>();
+    for (const r of scanResults) {
+      for (const f of r.findings) {
+        const existing = ruleStats.get(f.rule.id);
+        if (existing) { existing.files.add(r.path); existing.count++; }
+        else ruleStats.set(f.rule.id, { rule: f.rule, files: new Set([r.path]), count: 1 });
+      }
+    }
+
+    const sorted = Array.from(ruleStats.values())
+      .sort((a, b) => (severityOrder[a.rule.severity] ?? 99) - (severityOrder[b.rule.severity] ?? 99))
+      .slice(0, 10);
+
+    lines.push(
+      ``, `---`,
+      `## Priority Summary`,
+      ``,
+      `| # | Severity | Rule | Issue | Files | Count |`,
+      `|---|----------|------|-------|-------|-------|`,
+    );
+    sorted.forEach((item, i) => {
+      const sev = item.rule.severity.toUpperCase();
+      lines.push(`| ${i + 1} | ${sev} | ${item.rule.id} | ${item.rule.name} | ${item.files.size} | ${item.count} |`);
+    });
+
+    if (ruleStats.size > 10) {
+      lines.push(``, `*+ ${ruleStats.size - 10} more rule types not shown*`);
+    }
+    lines.push(``);
   }
 
   lines.push(securityBanner({ total: totalIssues, critical: totalCritical, high: totalHigh, medium: totalMedium, score, grade, filesScanned: metadata.filesScanned }));
