@@ -118,19 +118,21 @@ export function complianceReport(
 
   lines.push(`---`, ``);
 
+  const MAX_COMPLIANCE_FINDINGS = 50;
+  let complianceCount = 0;
   for (const [control, items] of sortedControls) {
+    if (complianceCount >= MAX_COMPLIANCE_FINDINGS) {
+      lines.push(``, `> **Additional findings omitted.** Use \`scan_file\` on individual files for full details.`, ``);
+      break;
+    }
     lines.push(`## ${control}`, ``);
     for (const item of items) {
+      if (complianceCount >= MAX_COMPLIANCE_FINDINGS) break;
       const f = item.finding;
       lines.push(
         `- **[${f.rule.severity.toUpperCase()}]** ${f.rule.name} (${f.rule.id}) in \`${f.filePath}\`:${f.line}`,
       );
-      if (f.rule.exploit) {
-        lines.push(`  - **Exploit scenario:** ${f.rule.exploit}`);
-      }
-      if (f.rule.audit) {
-        lines.push(`  - **Audit evidence:** ${f.rule.audit}`);
-      }
+      complianceCount++;
     }
     lines.push(``);
   }

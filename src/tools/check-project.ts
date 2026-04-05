@@ -152,67 +152,30 @@ export function checkProject(files: FileInput[], format: "markdown" | "json" = "
 
     lines.push(`---`, ``);
 
-    // Per-file details
+    // Per-file details (truncated to prevent MCP output overflow)
+    const MAX_DETAIL_FINDINGS = 30;
+    let detailCount = 0;
     for (const r of results) {
+      if (detailCount >= MAX_DETAIL_FINDINGS) {
+        const remaining = totalIssues - detailCount;
+        lines.push(``, `> **${remaining} more findings omitted.** Use \`check_code\` or \`scan_file\` on individual files for full details.`, ``);
+        break;
+      }
       const fileIssueCount = r.findings.length;
       lines.push(`## File: ${r.path} (${fileIssueCount} issues)`, ``);
 
-      // Group findings by rule.id to match check-code formatting
-      const grouped = new Map<string, Finding[]>();
       for (const finding of r.findings) {
-        const existing = grouped.get(finding.rule.id);
-        if (existing) {
-          existing.push(finding);
-        } else {
-          grouped.set(finding.rule.id, [finding]);
-        }
+        if (detailCount >= MAX_DETAIL_FINDINGS) break;
+        const icon = finding.rule.severity.toUpperCase();
+        lines.push(
+          `### [${icon}] ${finding.rule.name} (${finding.rule.id})`,
+          `**Line:** ~${finding.line} | **Match:** \`${finding.match}\``,
+          `**Fix:** ${finding.rule.fix}`,
+          ``
+        );
+        detailCount++;
       }
-
-      const sortedGroups = Array.from(grouped.entries()).sort(([, aFindings], [, bFindings]) => {
-        return (severityOrder[aFindings[0].rule.severity] ?? 99) - (severityOrder[bFindings[0].rule.severity] ?? 99);
-      });
-
-      for (const [, groupFindings] of sortedGroups) {
-        const first = groupFindings[0];
-        const icon = first.rule.severity.toUpperCase();
-
-        if (groupFindings.length > 2) {
-          const lineList = groupFindings.map((f) => `~${f.line}`).join(", ");
-          lines.push(
-            `## [${icon}] ${first.rule.name} (${first.rule.id})`,
-            ``,
-            `**OWASP:** ${first.rule.owasp}`,
-            `**Occurrences:** ${groupFindings.length} (lines: ${lineList})`,
-            `**Example match:** \`${first.match}\``,
-            ``,
-            first.rule.description,
-            ``,
-            `**Fix:** ${first.rule.fix}`,
-            ...(first.rule.fixCode ? [``, `**Secure code:**`, `\`\`\``, first.rule.fixCode, `\`\`\``] : []),
-            ``,
-            `---`,
-            ``
-          );
-        } else {
-          for (const finding of groupFindings) {
-            lines.push(
-              `## [${icon}] ${finding.rule.name} (${finding.rule.id})`,
-              ``,
-              `**OWASP:** ${finding.rule.owasp}`,
-              `**Line:** ~${finding.line}`,
-              `**Match:** \`${finding.match}\``,
-              ``,
-              finding.rule.description,
-              ``,
-              `**Fix:** ${finding.rule.fix}`,
-              ...(finding.rule.fixCode ? [``, `**Secure code:**`, `\`\`\``, finding.rule.fixCode, `\`\`\``] : []),
-              ``,
-              `---`,
-              ``
-            );
-          }
-        }
-      }
+      lines.push(`---`, ``);
     }
   } else {
     lines.push(

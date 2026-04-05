@@ -187,10 +187,23 @@ export function scanDirectory(
     }
   }
 
+  // MCP output size limit — large projects can produce 300K+ characters which
+  // exceeds Claude Code's max allowed tokens for tool results.
+  const MAX_JSON_FINDINGS = 50;
+  const MAX_MD_FINDINGS = 30;
+
   if (format === "json") {
     const findingsWithFiles = scanResults.flatMap(r =>
       r.findings.map(f => ({ ...f, rule: f.rule, file: r.path }))
     );
+
+    // Sort by severity: critical first, then high, then medium
+    const severityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+    findingsWithFiles.sort((a, b) => (severityRank[a.rule.severity] ?? 4) - (severityRank[b.rule.severity] ?? 4));
+
+    const truncated = findingsWithFiles.length > MAX_JSON_FINDINGS;
+    const limitedFindings = findingsWithFiles.slice(0, MAX_JSON_FINDINGS);
+
     const baseJson: Record<string, unknown> = {
       summary: {
         total: allFindings.length,
@@ -198,12 +211,13 @@ export function scanDirectory(
         low: allFindings.filter(f => f.rule.severity === "low").length,
         blocked: totalCritical > 0 || totalHigh > 0,
         grade, score,
+        ...(truncated ? { truncated: true, showing: MAX_JSON_FINDINGS, message: `Showing top ${MAX_JSON_FINDINGS} of ${allFindings.length} findings (sorted by severity). Use scan_file on individual files for full details.` } : {}),
       },
       metadata,
-      findings: findingsWithFiles.map(f => ({
+      findings: limitedFindings.map(f => ({
         id: f.rule.id, name: f.rule.name, severity: f.rule.severity,
         owasp: f.rule.owasp, line: f.line, match: f.match, file: (f as any).file,
-        fix: f.rule.fix, fixCode: f.rule.fixCode, compliance: f.rule.compliance,
+        fix: f.rule.fix,
       })),
       baseline: findingsToBaseline(scanResults),
     };
@@ -308,18 +322,24 @@ export function scanDirectory(
     });
     lines.push(`---`, ``);
 
+    let findingsPrinted = 0;
     for (const result of scanResults) {
+      if (findingsPrinted >= MAX_MD_FINDINGS) {
+        const remaining = allFindings.length - findingsPrinted;
+        lines.push(``, `> **${remaining} more findings omitted.** Use \`scan_file\` on individual files for full details.`, ``);
+        break;
+      }
       lines.push(`## File: ${result.path} (${result.findings.length} issues)`, ``);
       for (const f of result.findings) {
+        if (findingsPrinted >= MAX_MD_FINDINGS) break;
         const icon = f.rule.severity.toUpperCase();
         lines.push(
           `### [${icon}] ${f.rule.name} (${f.rule.id})`,
           `**Line:** ~${f.line} | **Match:** \`${f.match}\``,
-          `${f.rule.description}`,
           `**Fix:** ${f.rule.fix}`,
-          ...(f.rule.fixCode ? [``, `**Secure code:**`, `\`\`\``, f.rule.fixCode, `\`\`\``] : []),
           ``
         );
+        findingsPrinted++;
       }
       lines.push(`---`, ``);
     }
