@@ -266,6 +266,67 @@ export const complianceMetadata: Record<string, ComplianceExtension> = {
     exploit: "Unrestricted file upload allows attacker to upload malicious executables, web shells, or oversized files that crash the server.",
     audit: "Show file type validation, size limits, and virus scanning for all upload endpoints.",
   },
+  // === AI BENCHMARK RULES (Phase 1: VG126, VG151-VG153, VG417, VG1005-VG1009) ===
+  VG126: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker provides a crafted regex pattern (e.g., (a+)+$) as search input, causing catastrophic backtracking that freezes the server's event loop for minutes.",
+    audit: "Verify all RegExp constructors use escaped or hardcoded patterns. Show that user-provided search terms go through escapeRegex() before RegExp construction.",
+  },
+  VG151: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker triggers errors in API endpoints and reads the raw error.message to discover database schema, file paths, library versions, and internal service URLs.",
+    audit: "Show that all catch blocks return generic error messages to clients. Demonstrate server-side logging captures full error details.",
+  },
+  VG152: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24", "ISO27001:A.8.3"],
+    exploit: "Attacker sends __proto__.isAdmin=true as a property key, polluting Object.prototype so all subsequent security checks see isAdmin as true.",
+    audit: "Show that user input is never used as direct object key. Demonstrate allowlist validation or Map usage.",
+  },
+  VG153: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker sends a carefully crafted string that triggers exponential backtracking in a vulnerable regex, causing the event loop to hang for minutes and denying service to all other requests.",
+    audit: "Show that all regex patterns have been validated with safe-regex or equivalent. Demonstrate no nested quantifiers.",
+  },
+  VG417: {
+    gdpr: ["GDPR:Art32(1)(b)"],
+    iso27001: ["ISO27001:A.8.3", "ISO27001:A.5.15"],
+    exploit: "Attacker adds RSC: 1 header to HTTP requests targeting protected admin routes, causing the middleware to skip authentication checks and grant access.",
+    audit: "Show that middleware auth logic does not contain early-return branches based on RSC or prefetch headers.",
+  },
+  VG1005: {
+    gdpr: ["GDPR:Art32(1)(b)", "GDPR:Art25"],
+    iso27001: ["ISO27001:A.8.3", "ISO27001:A.5.15"],
+    exploit: "Attacker crafts a user ID value containing PostgREST filter syntax (e.g., 'x,admin_role.eq.true') to modify the .or() filter and access other users' messages.",
+    audit: "Show that .or() calls use only server-verified values. Demonstrate that user-controlled IDs are validated UUIDs.",
+  },
+  VG1006: {
+    gdpr: ["GDPR:Art25", "GDPR:Art5(1)(c)"],
+    iso27001: ["ISO27001:A.8.11"],
+    exploit: "API response includes all table columns, exposing email, password_hash, internal_notes, billing info. Attacker reads these from browser devtools or API response.",
+    audit: "Show that all Supabase queries use explicit column selection. Demonstrate no select('*') in production code.",
+  },
+  VG1007: {
+    gdpr: ["GDPR:Art32(1)(a)", "GDPR:Art32(1)(b)"],
+    iso27001: ["ISO27001:A.8.3", "ISO27001:A.5.15"],
+    exploit: "Since service_role bypasses RLS, any missing auth check in any route handler grants full table access. Attacker finds one unprotected endpoint and dumps entire database.",
+    audit: "Show per-request Supabase clients using anon key with RLS. Demonstrate service_role is isolated to background jobs only.",
+  },
+  VG1008: {
+    gdpr: ["GDPR:Art32(1)(b)"],
+    iso27001: ["ISO27001:A.5.15", "ISO27001:A.8.3"],
+    exploit: "Attacker calls the role-update endpoint/action with their own userId and role='admin', gaining full admin privileges without any authorization check.",
+    audit: "Show that role elevation functions verify the caller is already an admin. Demonstrate that ENABLE_ADMIN_SETUP is false in production.",
+  },
+  VG1009: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker injects % or PostgREST filter syntax into the search input to read all records or bypass the ilike filter constraints.",
+    audit: "Show that user input in ilike/like patterns is escaped with a custom escapeLike function.",
+  },
 };
 
 /**
