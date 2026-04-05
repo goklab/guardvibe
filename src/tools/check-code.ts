@@ -194,6 +194,39 @@ function hasRoleCheckPattern(code: string): boolean {
 }
 
 /**
+ * Known legitimate npm packages with suspicious-looking prefixes.
+ * These are widely-used packages that trigger VG872/VG873 false positives.
+ */
+const LEGITIMATE_PREFIXED_PACKAGES = new Set([
+  "fast-glob", "fast-deep-equal", "fast-json-stable-stringify", "fast-json-stringify",
+  "fast-xml-parser", "fast-diff", "fast-levenshtein", "fast-redact", "fast-check",
+  "fast-uri", "fast-querystring", "fast-decode-uri-component", "fast-content-type-parse",
+  "safe-array-concat", "safe-stable-stringify", "safe-buffer", "safe-regex",
+  "safe-regex-test", "safe-push-apply",
+  "simple-git", "simple-update-notifier", "simple-swizzle", "simple-concat",
+  "native-promise-only", "native-url",
+  "pure-rand",
+  "clean-css", "clean-stack",
+  "modern-normalize", "modern-ahocorasick",
+  "enhanced-resolve",
+  "better-sqlite3", "better-opn",
+  "super-json",
+  "ultra-runner",
+  "core-js", "core-js-compat", "core-util-is", "core-js-pure",
+  "common-tags", "common-path-prefix",
+  "base-x", "base64-js",
+  "internal-slot", "internal-ip",
+  "shared-utils",
+  "original-url", "original-fs",
+  "secure-json-parse",
+  "native-run",
+]);
+
+function isLegitimatePackage(name: string): boolean {
+  return LEGITIMATE_PREFIXED_PACKAGES.has(name);
+}
+
+/**
  * Calculate confidence level for a finding based on file context and match quality.
  */
 function calculateConfidence(
@@ -252,6 +285,14 @@ export function analyzeCode(
   let codeHasAuthGuard = hasAuthGuardPattern(code);
   const codeHasRoleCheck = hasRoleCheckPattern(code);
 
+  // Pre-analyze: detect fix patterns to suppress false positives after remediation
+  const codeHasSanitization = /(?:DOMPurify\.sanitize|sanitize(?:Html|HTML)|xss\s*\(|purify\s*\(|escapeHtml|sanitizeHtml)\s*\(/i.test(code);
+  const codeHasUrlValidation = /(?:(?:validate|verify|check|safe|allowed)(?:Url|URL|Uri|URI)|(?:ALLOWED_(?:HOSTS|URLS|ORIGINS|DOMAINS))|(?:allowlist|whitelist|safelist)[\s\S]{0,50}?(?:includes|has|match))/i.test(code);
+  const codeHasUuidFilename = /(?:randomUUID|nanoid|uuidv4|v4\s*\(\)|crypto\.randomUUID)\s*\(/i.test(code);
+  const codeHasCronVerification = /(?:verify|validate|check)(?:Cron|Secret|Auth|Signature)\s*\(/i.test(code);
+  const isMigrationFile = filePath ? /(?:migrations?|supabase\/migrations|seeds?|fixtures)\//i.test(filePath) : false;
+  const isPeerDeps = /["']peerDependencies["']/i.test(code);
+
   // Config: check custom auth function names from .guardviberc
   if (!codeHasAuthGuard && config.authFunctions && config.authFunctions.length > 0) {
     const customPattern = new RegExp(`(?:${config.authFunctions.join("|")})\\s*\\(`, "i");
@@ -302,8 +343,25 @@ export function analyzeCode(
     // Skip npm package rules (VG863/VG864/VG865): only apply to package.json files
     if ((rule.id === "VG863" || rule.id === "VG864" || rule.id === "VG865") && filePath && !filePath.endsWith("package.json")) continue;
 
-    // Skip destructive DDL rules (VG540-VG542) in migration directories
-    if (rule.id.startsWith("VG54") && filePath && /(?:migrations?|seeds?|fixtures)\//i.test(filePath)) continue;
+    // Skip destructive DDL rules (VG540-VG542) and view rules (VG439) in migration directories
+    if ((rule.id.startsWith("VG54") || rule.id === "VG439") && isMigrationFile) continue;
+
+    // Skip innerHTML/XSS rules when DOMPurify or sanitization is present
+    if (codeHasSanitization && ["VG408", "VG012", "VG042"].includes(rule.id)) continue;
+
+    // Skip SSRF rules when URL validation/allowlist pattern is present
+    if (codeHasUrlValidation && ["VG120"].includes(rule.id)) continue;
+
+    // Skip filename rules when UUID-based filename generation is present
+    if (codeHasUuidFilename && rule.id === "VG993") continue;
+
+    // Skip cron secret rules when custom verification function is present
+    if (codeHasCronVerification && ["VG968", "VG503"].includes(rule.id)) continue;
+
+    // Skip CVE version rules in peerDependencies (ranges, not actual versions)
+    if (isPeerDeps && rule.id === "VG903") continue;
+
+    // VG872/VG873 legitimate package filtering is handled at match level below
 
     // Skip server-only import rule (VG964) for files that are inherently server-only:
     // Route Handlers (app/api/), middleware, instrumentation, next.config,
@@ -365,6 +423,23 @@ export function analyzeCode(
       // Skip hardcoded-credential rules when the value is a human-readable sentence
       if (rule.id === "VG001" || rule.id === "VG062") {
         if (isHumanReadableString(lines, lineNumber)) continue;
+      }
+
+      // Skip supply chain rules for known legitimate packages
+      if (["VG872", "VG873"].includes(rule.id)) {
+        const pkgMatch = /"([\w@/-]+)"/.exec(match[0]);
+        if (pkgMatch && isLegitimatePackage(pkgMatch[1])) continue;
+      }
+
+      // Skip VG903 React version in peerDependencies sections
+      if (rule.id === "VG903") {
+        const beforeText = code.substring(0, match.index);
+        const lastPeer = beforeText.lastIndexOf("peerDependencies");
+        const lastDeps = Math.max(
+          beforeText.lastIndexOf('"dependencies"'),
+          beforeText.lastIndexOf('"devDependencies"')
+        );
+        if (lastPeer > lastDeps) continue;
       }
 
       findings.push({
