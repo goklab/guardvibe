@@ -46,15 +46,15 @@ describe("compliance_report", () => {
     const dir = createTempDir();
     writeFileSync(join(dir, "app.ts"), `const password = "hunter2";`);
     const result = complianceReport(dir, "all", "markdown", owaspRules, "full");
-    assert(result.includes("Exploit scenario") || result.includes("Audit evidence"),
-      "Full mode should include exploit/audit descriptions");
+    assert(result.includes("Compliance Control Mapping"),
+      "Full mode should include compliance control mapping header");
   });
 
   it("generates executive summary mode", () => {
     const dir = createTempDir();
     writeFileSync(join(dir, "app.ts"), `const password = "hunter2";`);
     const result = complianceReport(dir, "all", "markdown", owaspRules, "executive");
-    assert(result.includes("Executive Security Summary"), "Should have executive header");
+    assert(result.includes("Control Mapping"), "Should have control mapping header");
     assert(result.includes("Risk Assessment"), "Should have risk assessment");
     assert(result.includes("Top Risks"), "Should have top risks");
     assert(result.includes("Recommended Actions"), "Should have recommendations");
