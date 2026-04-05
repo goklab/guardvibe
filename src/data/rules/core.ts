@@ -529,4 +529,20 @@ export const coreRules: SecurityRule[] = [
       '// Express: regenerate session after login\napp.post("/login", async (req, res) => {\n  const user = await authenticate(req.body);\n  if (!user) return res.status(401).json({ error: "Invalid credentials" });\n  req.session.regenerate((err) => {\n    req.session.userId = user.id;\n    res.json({ ok: true });\n  });\n});',
     compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.10"],
   },
+
+  // ── Dynamic RegExp from User Input ──────────────────────────────
+  {
+    id: "VG126",
+    name: "Dynamic RegExp Construction from User Input",
+    severity: "medium",
+    owasp: "A03:2025 Injection",
+    description:
+      "RegExp is constructed with a variable that may contain user input. Attackers can inject ReDoS patterns to freeze the event loop, or craft regex that matches unintended content.",
+    pattern: /new\s+RegExp\s*\(\s*(?!["'`\/])(?:\w+(?:\.\w+)?)\s*[,)]/g,
+    languages: ["javascript", "typescript"],
+    fix: "Escape user input before using in RegExp, or use string methods (.includes(), .startsWith()) instead.",
+    fixCode:
+      '// BAD: user controls the regex\nnew RegExp(userInput, "gi")\n\n// GOOD: escape special characters\nfunction escapeRegex(s: string) {\n  return s.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");\n}\nnew RegExp(escapeRegex(userInput), "gi")\n\n// BEST: use string methods\nitems.filter(i => i.name.toLowerCase().includes(query.toLowerCase()));',
+    compliance: ["SOC2:CC7.1"],
+  },
 ];

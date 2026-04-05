@@ -353,4 +353,52 @@ export const advancedSecurityRules: SecurityRule[] = [
     fix: "Remove the lockfile from .gitignore and commit it to the repository.",
     compliance: ["SOC2:CC7.1"],
   },
+
+  // ── Error Message Exposure ───────────────────────────────────────
+  {
+    id: "VG151",
+    name: "Internal Error Message Exposed to Client",
+    severity: "medium",
+    owasp: "A05:2025 Security Misconfiguration",
+    description:
+      "Caught error's .message property is returned directly in the API response. This can leak internal details (stack traces, DB errors, file paths) that help attackers understand the system architecture.",
+    pattern: /catch\s*\(\s*(?:error|err|e)\s*\)\s*\{[\s\S]{0,300}?(?:Response\.json|NextResponse\.json|res\.(?:json|send|status))\s*\([\s\S]{0,100}?(?:error|err|e)\.message/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Log the real error server-side, return a generic message to the client.",
+    fixCode:
+      '// BAD: leaks internal details\ncatch (error) {\n  return Response.json({ error: error.message }, { status: 500 });\n}\n\n// GOOD: generic response, detailed server log\ncatch (error) {\n  console.error("Route error:", error);\n  return Response.json({ error: "Internal server error" }, { status: 500 });\n}',
+    compliance: ["SOC2:CC7.2"],
+  },
+
+  // ── Object Injection / Prototype Pollution ───────────────────────
+  {
+    id: "VG152",
+    name: "Object Injection via Dynamic Property Access",
+    severity: "high",
+    owasp: "A03:2025 Injection",
+    description:
+      "User-controlled input is used as an object property key via bracket notation (obj[userInput]). Attackers can access __proto__, constructor, or prototype to pollute object prototypes and bypass security checks.",
+    pattern: /(?:(?:req|request|body|query|params|input|data)\.\w+|(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*(?:await\s+)?(?:req|request)[\s\S]{0,50}?)[\s\S]{0,100}?\w+\s*\[\s*(?:key|field|prop|name|column|attr|param)\s*\]/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Validate property names against an allowlist, or use Map instead of plain objects.",
+    fixCode:
+      '// BAD: prototype pollution\nconst key = req.query.field;\nconst value = config[key];\n\n// GOOD: allowlist validation\nconst ALLOWED_FIELDS = new Set(["name", "email", "role"]);\nif (!ALLOWED_FIELDS.has(key)) return new Response("Invalid field", { status: 400 });\nconst value = config[key];\n\n// GOOD: use Map\nconst config = new Map([["name", "..."], ["email", "..."]]);\nconst value = config.get(key);',
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+  },
+
+  // ── ReDoS — Unsafe Regular Expression ────────────────────────────
+  {
+    id: "VG153",
+    name: "Regular Expression Vulnerable to ReDoS",
+    severity: "medium",
+    owasp: "A04:2025 Insecure Design",
+    description:
+      "Regular expression contains nested quantifiers ((a+)+), overlapping alternation with quantifiers (([a-z]+)*), or other patterns that cause catastrophic backtracking. Attackers can send crafted input to freeze the event loop.",
+    pattern: /\/(?:[^/\\]|\\.)*(?:\([^)]*[+*][^)]*\)[+*]|\(\?:[^)]*[+*][^)]*\)[+*]|\[[^\]]*\][+*][^/]*[+*])(?:[^/\\]|\\.)*\//g,
+    languages: ["javascript", "typescript"],
+    fix: "Rewrite the regex to avoid nested quantifiers. Use atomic groups or possessive quantifiers if available, or use the 'safe-regex' library to validate patterns.",
+    fixCode:
+      '// BAD: catastrophic backtracking\nconst re = /(a+)+$/;\n\n// GOOD: no nested quantifiers\nconst re = /a+$/;\n\n// GOOD: validate with safe-regex\nimport safe from "safe-regex";\nif (!safe(pattern)) throw new Error("Unsafe regex");',
+    compliance: ["SOC2:CC7.1"],
+  },
 ];

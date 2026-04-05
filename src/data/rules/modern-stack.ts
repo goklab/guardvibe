@@ -613,4 +613,78 @@ export const modernStackRules: SecurityRule[] = [
       '"use server";\nimport { Ratelimit } from "@upstash/ratelimit";\nimport { headers } from "next/headers";\n\nconst ratelimit = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "10s") });\n\nexport async function submitForm(formData: FormData) {\n  const ip = (await headers()).get("x-forwarded-for") ?? "127.0.0.1";\n  const { success } = await ratelimit.limit(ip);\n  if (!success) throw new Error("Too many requests");\n}',
     compliance: ["SOC2:CC7.1"],
   },
+
+  // =====================================================
+  // Supabase PostgREST Injection
+  // =====================================================
+  {
+    id: "VG1005",
+    name: "Supabase .or() Filter Injection",
+    severity: "critical",
+    owasp: "A03:2025 Injection",
+    description:
+      "User input is interpolated into a Supabase .or() filter string via template literal or concatenation. This is equivalent to SQL injection for PostgREST — attackers can modify filter logic to access unauthorized data.",
+    pattern: /\.or\s*\(\s*(?:`[^`]*\$\{)|\.or\s*\(\s*\w+\s*\)|["'][^"']*["']\s*\+\s*\w+(?:Id|Name|Term|Input)\b[\s\S]{0,100}?\.or\s*\(/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Never interpolate user input into .or() strings. Use separate .eq() filters or build the filter from validated enum values.",
+    fixCode:
+      '// BAD: filter injection\n.or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)\n\n// GOOD: use server-verified auth ID\nconst { data: { user } } = await supabase.auth.getUser();\n.or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)\n\n// BEST: use RLS policies instead of client-side filtering',
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+  },
+  {
+    id: "VG1006",
+    name: "Supabase select('*') Exposes All Columns",
+    severity: "high",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "Supabase query uses select('*') or select() without specifying columns. This returns all table columns including sensitive fields (email, password_hash, internal_notes) to the client.",
+    pattern: /\.from\s*\(\s*["'][^"']+["']\s*\)\s*\.select\s*\(\s*(?:["']\*["']|\))/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Always specify explicit columns: .select('id, name, avatar_url') instead of .select('*').",
+    fixCode:
+      '// BAD: returns all columns including sensitive data\nconst { data } = await supabase.from("users").select("*");\n\n// GOOD: only needed columns\nconst { data } = await supabase.from("users").select("id, name, avatar_url");',
+    compliance: ["SOC2:CC6.1", "GDPR:Art25"],
+  },
+  {
+    id: "VG1007",
+    name: "Supabase Service Role Key Bypasses RLS",
+    severity: "critical",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "Server-side Supabase client is initialized with the service_role key, which bypasses all Row Level Security policies. If any route handler is missing an auth check, the entire table is exposed.",
+    pattern: /createClient\s*\(\s*[\s\S]{0,100}?(?:SERVICE_ROLE|service_role)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Use createServerClient() with per-request auth context, or use anon key with RLS policies. Reserve service_role for admin-only background jobs.",
+    fixCode:
+      '// BAD: service role bypasses all RLS\nconst supabase = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!);\n\n// GOOD: per-request client respects RLS\nimport { createServerClient } from "@supabase/ssr";\nconst supabase = createServerClient(url, anonKey, { cookies });',
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req6.5.10", "GDPR:Art32"],
+  },
+  {
+    id: "VG1008",
+    name: "Admin Role Elevation Without Authorization Check",
+    severity: "critical",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "Code sets a user's role to 'admin' without verifying that the caller is already an admin. Any authenticated user could escalate their own privileges.",
+    pattern: /(?:\.update\s*\([\s\S]{0,200}?(?:role|is_?admin|permission)\s*[:=]\s*["'](?:admin|superadmin|owner)["']|\.update\s*\([\s\S]{0,200}?(?:isAdmin|is_admin)\s*[:=]\s*true)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Always verify the caller has admin privileges before allowing role elevation.",
+    fixCode:
+      '// GOOD: verify caller is admin first\nexport async function setRole(targetUserId: string, newRole: string) {\n  const { userId } = await auth();\n  const caller = await db.user.findUnique({ where: { id: userId } });\n  if (caller.role !== "admin") throw new Error("Forbidden");\n  await db.user.update({ where: { id: targetUserId }, data: { role: newRole } });\n}',
+    compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.10"],
+  },
+  {
+    id: "VG1009",
+    name: "Supabase ilike/like Pattern Injection",
+    severity: "high",
+    owasp: "A03:2025 Injection",
+    description:
+      "User input is interpolated into a Supabase .ilike() or .like() pattern via template literal or concatenation. Special characters (%, _, \\) in the input can modify the pattern, and PostgREST filter syntax characters can break the filter entirely.",
+    pattern: /\.(?:ilike|like)\s*\(\s*["'][^"']+["']\s*,\s*(?:`[^`]*\$\{|["'][^"']*["']\s*\+\s*(?!\s*["']))/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Escape special pattern characters (%, _, \\) in user input before using in ilike/like filters.",
+    fixCode:
+      '// BAD: pattern injection\n.ilike("name", `%${query}%`)\n\n// GOOD: escape special characters\nfunction escapeLike(s: string) {\n  return s.replace(/[%_\\\\]/g, "\\\\$&");\n}\n.ilike("name", `%${escapeLike(query)}%`)',
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+  },
 ];

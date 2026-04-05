@@ -361,6 +361,9 @@ export function analyzeCode(
     // Skip admin role rules when code has any role/permission check
     if (codeHasRoleCheck && adminRoleRuleIds.has(rule.id)) continue;
 
+    // Skip admin role elevation rule when code has auth + role guard
+    if (rule.id === "VG1008" && codeHasAuthGuard && codeHasRoleCheck) continue;
+
     // Skip auth rules for webhook routes with signature verification
     const hasSignatureVerification = isWebhookRoute && /(?:verify|signature|hmac|constructEvent|svix|webhookSecret|createHmac|X-Signature|stripe-signature)/i.test(code);
     if (hasSignatureVerification && authRuleIds.has(rule.id)) continue;

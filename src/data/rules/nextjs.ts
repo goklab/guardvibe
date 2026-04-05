@@ -252,4 +252,20 @@ export const nextjsRules: SecurityRule[] = [
       '"use cache";\nimport { cacheLife, cacheTag } from "next/cache";\n\nasync function getCachedData() {\n  cacheLife("hours");\n  cacheTag("data-feed");\n  return db.posts.findMany();\n}\n\n// Revalidate when data changes:\nimport { revalidateTag } from "next/cache";\nrevalidateTag("data-feed");',
     compliance: ["SOC2:CC7.1"],
   },
+
+  // ── RSC Header Middleware Bypass ─────────────────────────────────
+  {
+    id: "VG417",
+    name: "Next.js RSC/Prefetch Header Bypasses Middleware Auth",
+    severity: "high",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "Middleware skips auth checks when RSC: 1 or Next-Router-Prefetch header is present. Attackers can add these headers to any request to bypass authentication on protected routes.",
+    pattern: /(?:headers\.get\s*\(\s*["'](?:RSC|Next-Router-Prefetch|Next-Url)["']\s*\))[\s\S]{0,100}?(?:NextResponse\.next|return\s+NextResponse\.next|continue|return)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Never skip auth checks based on RSC or prefetch headers. These headers are user-controllable and cannot be trusted for security decisions.",
+    fixCode:
+      '// BAD: attackers can add RSC header to skip auth\nif (request.headers.get("RSC") === "1") {\n  return NextResponse.next(); // Auth bypassed!\n}\n\n// GOOD: always enforce auth regardless of headers\nconst { userId } = await auth();\nif (!userId && isProtectedRoute(pathname)) {\n  return NextResponse.redirect(new URL("/login", request.url));\n}',
+    compliance: ["SOC2:CC6.6"],
+  },
 ];
