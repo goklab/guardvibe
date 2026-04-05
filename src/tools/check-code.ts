@@ -225,6 +225,9 @@ const LEGITIMATE_PREFIXED_PACKAGES = new Set([
   "original-url", "original-fs",
   "secure-json-parse",
   "native-run",
+  "fast-sha256", "fast-text-encoding",
+  "svix",
+  "cheerio",
 ]);
 
 function isLegitimatePackage(name: string): boolean {
@@ -308,6 +311,11 @@ export function analyzeCode(
     /(?:sanitize|validate|verify|check|safe|allowed)(?:Redirect|RedirectUrl|CallbackUrl)\s*\(/i.test(code) ||
     /import\s+.*(?:sanitizeRedirect|validateRedirect|safeRedirect)/i.test(code);
   const isMigrationFile = filePath ? /(?:migrations?|supabase\/migrations|seeds?|fixtures)\//i.test(filePath) : false;
+  const isSqlSchemaFile = filePath ? /(?:schema|migration|seed|ddl|init).*\.sql$/i.test(filePath) : false;
+  const isReactNative = /(?:react-native|from\s+['"]react-native['"]|from\s+['"]expo|import\s+.*\bexpo\b)/i.test(code);
+  const codeHasTimingSafeEqual = /(?:timingSafeEqual|timing.?safe|constant.?time)/i.test(code);
+  const codeHasFilenameSanitization =
+    /(?:\.replace\s*\(\s*\/\[?\^?[a-z0-9\\-_\]]*\]?\/?[gi]*\s*,|sanitize(?:File|Name|Path)|safeName|cleanName)/i.test(code);
   const isPeerDeps = /["']peerDependencies["']/i.test(code);
 
   // Config: check custom auth function names from .guardviberc
@@ -343,6 +351,10 @@ export function analyzeCode(
     // Skip auth rules when code has any auth guard pattern (naming-agnostic)
     if (codeHasAuthGuard && authRuleIds.has(rule.id)) continue;
 
+    // Skip auth rules for intentionally public endpoints
+    // /api/public/*, health checks, config endpoints, recache/warmup
+    if (authRuleIds.has(rule.id) && filePath && /(?:\/api\/public\/|\/health|\/config|\/recache|\/warmup|\/ping|\/status)/i.test(filePath)) continue;
+
     // Skip admin role rules when code has any role/permission check
     if (codeHasRoleCheck && adminRoleRuleIds.has(rule.id)) continue;
 
@@ -363,14 +375,49 @@ export function analyzeCode(
     // Skip destructive DDL rules (VG540-VG542) and view rules (VG439) in migration directories
     if ((rule.id.startsWith("VG54") || rule.id === "VG439") && isMigrationFile) continue;
 
+    // Skip SQL injection rules in schema/migration .sql files (DDL, not user input)
+    if (rule.id === "VG543" && (isMigrationFile || isSqlSchemaFile)) continue;
+
+    // Skip web-only rules in React Native/mobile context
+    // VG427 (getSession) is correct in mobile; VG678/VG977/VG978 are HTTP-only concerns
+    if (isReactNative && ["VG427", "VG678", "VG977", "VG978", "VG964"].includes(rule.id)) continue;
+
     // Skip innerHTML/XSS rules when DOMPurify or sanitization is present
-    if (codeHasSanitization && ["VG408", "VG012", "VG042"].includes(rule.id)) continue;
+    if (codeHasSanitization && ["VG408", "VG012", "VG042", "VG852"].includes(rule.id)) continue;
+
+    // Skip innerHTML rules for static content patterns (JSON-LD structured data, theme scripts)
+    // These use hardcoded app-defined data, not user input
+    if (["VG408", "VG012", "VG042", "VG852"].includes(rule.id)) {
+      const hasStaticContent = /(?:JSON\.stringify|themeScript|structuredData|jsonLd|schema|gtag|analytics)/i.test(code);
+      const hasUserContent = /(?:userInput|userData|postContent|messageBody|commentHtml)/i.test(code);
+      if (hasStaticContent && !hasUserContent) continue;
+    }
 
     // Skip SSRF rules when URL validation/allowlist pattern is present
-    if (codeHasUrlValidation && ["VG120"].includes(rule.id)) continue;
+    if (codeHasUrlValidation && rule.id === "VG120") continue;
 
-    // Skip filename rules when UUID-based filename generation is present
-    if (codeHasUuidFilename && rule.id === "VG993") continue;
+    // Skip SSRF for fetch() calls that only use relative URLs or known-safe patterns
+    // (internal API calls like /api/..., Supabase signed URLs)
+    if (rule.id === "VG120") {
+      const fetchCalls = code.match(/fetch\s*\(\s*(?:["'`]|url|signedUrl)/gi) || [];
+      const hasUserUrl = /fetch\s*\(\s*(?:(?:req|request|params|query|body|input|data)\s*[\[.]|new\s+URL\s*\(\s*(?:req|request))/i.test(code);
+      const onlyInternalFetches = !hasUserUrl &&
+        !/fetch\s*\(\s*["'`]https?:\/\//i.test(code) ||
+        /fetch\s*\(\s*(?:["'`]\/api\/|signedUrl|presignedUrl|uploadUrl)/i.test(code);
+      if (fetchCalls.length > 0 && onlyInternalFetches) continue;
+    }
+
+    // Skip filename rules when UUID-based filename generation OR filename sanitization is present
+    if ((codeHasUuidFilename || codeHasFilenameSanitization) && rule.id === "VG993") continue;
+
+    // Skip timing-unsafe comparison rule when timingSafeEqual is already used in the file
+    if (codeHasTimingSafeEqual && rule.id === "VG106") continue;
+
+    // Downgrade VG106 for non-secret variable names (TokenCount, tokenLength, etc.)
+    // These contain "token" but aren't actual secret comparisons
+    if (rule.id === "VG106") {
+      // Will be checked at match level below
+    }
 
     // Skip cron secret rules when custom verification function is present
     if (codeHasCronVerification && ["VG968", "VG503"].includes(rule.id)) continue;
@@ -378,14 +425,30 @@ export function analyzeCode(
     // Skip open redirect rules when redirect URL validation is present
     if (codeHasRedirectValidation && ["VG425", "VG409", "VG660"].includes(rule.id)) continue;
 
-    // Skip VG678 (Missing X-Content-Type-Options) in client components —
-    // client-side code calling getPublicUrl() can't set response headers.
-    // Also skip when code only uses Supabase getPublicUrl/getSignedUrl to generate
-    // URL strings (not actually serving file content via response stream).
+    // Skip VG105 JWT alg:none when code uses HMAC/custom token verification (not JWT library)
+    if (rule.id === "VG105") {
+      const usesJwtLib = /(?:jsonwebtoken|jose|jwt\.verify|jwt\.sign|jwt\.decode)\b/i.test(code);
+      const usesHmac = /(?:createHmac|hmac|crypto\.subtle\.sign|crypto\.sign)/i.test(code);
+      const importsCustomTokenLib = /import\s+.*(?:verifyToken|validateToken|checkToken|decodeToken)\b.*from\s+["'].*(?:token|auth|hmac)/i.test(code);
+      if (!usesJwtLib && (usesHmac || importsCustomTokenLib)) continue;
+    }
+
+    // Skip VG989 (X-Forwarded-For rate limit bypass) when project uses Next.js/Vercel
+    // Vercel sets X-Forwarded-For from its edge network — it's trustworthy in that context
+    if (rule.id === "VG989" && filePath && /(?:\/app\/|\/pages\/|next)/i.test(filePath)) continue;
+
+    // Skip VG678 (Missing X-Content-Type-Options) when not actually serving files:
+    // - Client components can't set HTTP response headers
+    // - Supabase getPublicUrl/getSignedUrl just generate URL strings
+    // - Email sending (Resend, nodemailer) doesn't serve files
+    // - React Native components are not HTTP endpoints
     if (rule.id === "VG678") {
       const isClientComponent = /^['"]use client['"]/.test(code.trimStart()) ||
         (filePath && /Client\.\w+$/.test(filePath));
       if (isClientComponent) continue;
+      if (isReactNative) continue;
+      const isEmailFile = /(?:resend|nodemailer|sendEmail|sendMail|email\.send)/i.test(code);
+      if (isEmailFile) continue;
       const hasOnlyUrlGeneration = /(?:getPublicUrl|getSignedUrl)\s*\(/i.test(code) &&
         !/(?:createReadStream|sendFile|res\.download|\.pipe\s*\()/i.test(code);
       if (hasOnlyUrlGeneration) continue;
@@ -412,9 +475,26 @@ export function analyzeCode(
     // Skip CVE version rules in peerDependencies (ranges, not actual versions)
     if (isPeerDeps && rule.id === "VG903") continue;
 
+    // Skip VG140 (XXE) when file doesn't actually parse XML — just has XML-related imports
+    if (rule.id === "VG140") {
+      const hasXmlParsing = /(?:parseString|parseXml|xml2js|DOMParser|XMLParser)\s*\(/i.test(code);
+      if (!hasXmlParsing) continue;
+    }
+
     // Skip VG020 (wildcard dependency version) in lock files — engine constraints
     // like "node": ">=6" are not dependency versions
     if (rule.id === "VG020" && filePath && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
+
+    // Skip VG430 (Supabase anon key on server) when file properly separates client/server
+    // Pattern: file exports both a client (anon key) and server (service_role) function
+    if (rule.id === "VG430") {
+      const hasServiceRole = /(?:SUPABASE_SERVICE_ROLE|service_role|serviceRole)/i.test(code);
+      const hasClientServer = /(?:createClient|createServerClient|createBrowserClient)/i.test(code) && hasServiceRole;
+      if (hasClientServer) continue;
+    }
+
+    // Skip VG448 (Supabase RPC bypass RLS) when using service_role key (server-side)
+    if (rule.id === "VG448" && /(?:SUPABASE_SERVICE_ROLE|service_role|createServerSupabaseClient|createServerClient)/i.test(code)) continue;
 
     // VG872/VG873 legitimate package filtering is handled at match level below
 
@@ -484,6 +564,12 @@ export function analyzeCode(
       if (["VG872", "VG873"].includes(rule.id)) {
         const pkgMatch = /"([\w@/-]+)"/.exec(match[0]);
         if (pkgMatch && isLegitimatePackage(pkgMatch[1])) continue;
+      }
+
+      // Skip VG106 for non-secret variable names (TokenCount, tokenBalance, hashMap, etc.)
+      if (rule.id === "VG106") {
+        const varName = match[0].split(/\s*(?:===|!==|==|!=)/)[0].trim();
+        if (/(?:Count|Length|Balance|Map|List|Array|Index|Size|Total|Num|Id|Type|Name|Status|Data|Info|Error|Result|Response|Config|Option|Url|Path|Provider|Model|Limit|Quota|Rate|Max|Min)/i.test(varName)) continue;
       }
 
       // Skip VG903 React version in peerDependencies sections
