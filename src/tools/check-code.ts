@@ -286,10 +286,22 @@ export function analyzeCode(
   const codeHasRoleCheck = hasRoleCheckPattern(code);
 
   // Pre-analyze: detect fix patterns to suppress false positives after remediation
-  const codeHasSanitization = /(?:DOMPurify\.sanitize|sanitize(?:Html|HTML)|xss\s*\(|purify\s*\(|escapeHtml|sanitizeHtml)\s*\(/i.test(code);
-  const codeHasUrlValidation = /(?:(?:validate|verify|check|safe|allowed)(?:Url|URL|Uri|URI)|(?:ALLOWED_(?:HOSTS|URLS|ORIGINS|DOMAINS))|(?:allowlist|whitelist|safelist)[\s\S]{0,50}?(?:includes|has|match))/i.test(code);
-  const codeHasUuidFilename = /(?:randomUUID|nanoid|uuidv4|v4\s*\(\)|crypto\.randomUUID)\s*\(/i.test(code);
-  const codeHasCronVerification = /(?:verify|validate|check)(?:Cron|Secret|Auth|Signature)\s*\(/i.test(code);
+  // These detect BOTH inline usage AND imported utility functions
+  const codeHasSanitization =
+    /(?:DOMPurify\.sanitize|sanitize(?:Html|HTML)|xss\s*\(|purify\s*\(|escapeHtml|sanitizeHtml)\s*\(/i.test(code) ||
+    /import\s+.*(?:sanitize|DOMPurify|escapeHtml|purify|xss)\b/i.test(code);
+  const codeHasUrlValidation =
+    /(?:(?:validate|verify|check|safe|allowed)(?:Url|URL|Uri|URI|Fetch)(?:Url)?|(?:ALLOWED_(?:HOSTS|URLS|ORIGINS|DOMAINS))|(?:allowlist|whitelist|safelist)[\s\S]{0,50}?(?:includes|has|match))/i.test(code) ||
+    /import\s+.*(?:validateUrl|validateFetchUrl|urlValidat|safeUrl|allowedUrl)/i.test(code);
+  const codeHasUuidFilename =
+    /(?:randomUUID|nanoid|uuidv4|v4\s*\(\)|crypto\.randomUUID)\s*\(/i.test(code) ||
+    /import\s+.*(?:sanitizeFilename|sanitizeUploadFilename|safeFilename)/i.test(code);
+  const codeHasCronVerification =
+    /(?:verify|validate|check)(?:Cron|Secret|Auth|Signature)\s*\(/i.test(code) ||
+    /import\s+.*(?:verifyCron|cronAuth|validateCron|checkCron)/i.test(code);
+  const codeHasRedirectValidation =
+    /(?:sanitize|validate|verify|check|safe|allowed)(?:Redirect|RedirectUrl|CallbackUrl)\s*\(/i.test(code) ||
+    /import\s+.*(?:sanitizeRedirect|validateRedirect|safeRedirect)/i.test(code);
   const isMigrationFile = filePath ? /(?:migrations?|supabase\/migrations|seeds?|fixtures)\//i.test(filePath) : false;
   const isPeerDeps = /["']peerDependencies["']/i.test(code);
 
@@ -357,6 +369,18 @@ export function analyzeCode(
 
     // Skip cron secret rules when custom verification function is present
     if (codeHasCronVerification && ["VG968", "VG503"].includes(rule.id)) continue;
+
+    // Skip open redirect rules when redirect URL validation is present
+    if (codeHasRedirectValidation && ["VG425", "VG409", "VG660"].includes(rule.id)) continue;
+
+    // Skip VG131 (state-changing GET) when only read operations are present
+    if (rule.id === "VG131") {
+      // If code only has read operations (findMany, findFirst, count, aggregate, select)
+      // and no actual mutations, skip this rule
+      const hasMutation = /(?:\.create\s*\(|\.update\s*\(|\.delete\s*\(|\.destroy\s*\(|\.remove\s*\(|\.insert\s*\(|DELETE\s+FROM|UPDATE\s+\w|INSERT\s+INTO)/i.test(code);
+      const onlyInComments = !hasMutation;
+      if (onlyInComments) continue;
+    }
 
     // Skip CVE version rules in peerDependencies (ranges, not actual versions)
     if (isPeerDeps && rule.id === "VG903") continue;
