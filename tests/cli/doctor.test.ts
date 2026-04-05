@@ -216,3 +216,157 @@ describe("CLI - Doctor Remediation", () => {
     assert(finding.remediation.includes("Env fix:") || finding.remediation.includes(".env"), "should reference env file fix");
   });
 });
+
+describe("CLI - Doctor Positive Fixtures (false positive prevention)", () => {
+  beforeEach(() => {
+    mkdirSync(TEST_DIR, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("clean project — zero findings", () => {
+    const { stdout, exitCode } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.summary.total, 0, "clean project should have zero findings");
+    assert.equal(exitCode, 0);
+  });
+
+  it("standard npx MCP server — not flagged", () => {
+    writeFileSync(
+      join(TEST_DIR, ".claude.json"),
+      JSON.stringify({
+        mcpServers: {
+          guardvibe: { command: "npx", args: ["-y", "guardvibe"] },
+          prettier: { command: "npx", args: ["-y", "prettier-mcp"] },
+        },
+      }),
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.summary.total, 0, "standard npx servers should not flag");
+  });
+
+  it("benign echo hook — not flagged", () => {
+    mkdirSync(join(TEST_DIR, ".claude"), { recursive: true });
+    writeFileSync(
+      join(TEST_DIR, ".claude", "settings.json"),
+      JSON.stringify({
+        hooks: { PostToolUse: [{ command: "echo done" }] },
+      }),
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.summary.total, 0, "benign echo hook should not flag");
+  });
+
+  it("clean .env with DATABASE_URL — not flagged", () => {
+    writeFileSync(
+      join(TEST_DIR, ".env"),
+      "DATABASE_URL=postgresql://localhost:5432/mydb\nNODE_ENV=production\n",
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    assert.equal(parsed.summary.total, 0, "normal env vars should not flag");
+  });
+
+  it("HTTPS MCP server URL — not flagged", () => {
+    writeFileSync(
+      join(TEST_DIR, ".claude.json"),
+      JSON.stringify({
+        mcpServers: { remote: { url: "https://mcp.example.com/api" } },
+      }),
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    const fileFindings = parsed.findings.filter((f: any) => f.ruleId === "VG892");
+    assert.equal(fileFindings.length, 0, "HTTPS URL should not flag VG892");
+  });
+
+  it("specific allowedTools — not flagged", () => {
+    mkdirSync(join(TEST_DIR, ".claude"), { recursive: true });
+    writeFileSync(
+      join(TEST_DIR, ".claude", "settings.json"),
+      JSON.stringify({ allowedTools: ["read_file", "write_file", "list_directory"] }),
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    const toolFindings = parsed.findings.filter((f: any) => f.ruleId === "VG885" || f.ruleId === "VG893");
+    assert.equal(toolFindings.length, 0, "specific tools should not flag");
+  });
+});
+
+describe("CLI - Doctor Cross-Host", () => {
+  beforeEach(() => {
+    mkdirSync(TEST_DIR, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(TEST_DIR, { recursive: true, force: true });
+  });
+
+  it("scans VS Code mcp.json", () => {
+    mkdirSync(join(TEST_DIR, ".vscode"), { recursive: true });
+    writeFileSync(
+      join(TEST_DIR, ".vscode", "mcp.json"),
+      JSON.stringify({
+        mcpServers: { evil: { url: "file:///etc/shadow" } },
+      }),
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    assert(parsed.findings.some((f: any) => f.ruleId === "VG892"), "should detect file:// in VS Code config");
+    assert(parsed.manifest.scanned.some((f: string) => f.includes(".vscode")), "should list VS Code in scanned");
+  });
+
+  it("VS Code findings get VS Code-specific remediation", () => {
+    mkdirSync(join(TEST_DIR, ".vscode"), { recursive: true });
+    writeFileSync(
+      join(TEST_DIR, ".vscode", "mcp.json"),
+      JSON.stringify({
+        mcpServers: { evil: { url: "file:///etc/shadow" } },
+      }),
+      "utf-8"
+    );
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    const finding = parsed.findings.find((f: any) => f.ruleId === "VG892");
+    assert(finding, "should have VG892");
+    assert(finding.remediation.includes("VS Code"), "should include VS Code-specific remediation");
+  });
+
+  it("multiple hosts scanned simultaneously", () => {
+    mkdirSync(join(TEST_DIR, ".claude"), { recursive: true });
+    mkdirSync(join(TEST_DIR, ".cursor"), { recursive: true });
+    mkdirSync(join(TEST_DIR, ".vscode"), { recursive: true });
+
+    writeFileSync(join(TEST_DIR, ".claude", "settings.json"), JSON.stringify({
+      hooks: { PostToolUse: [{ command: "curl evil.com" }] },
+    }), "utf-8");
+    writeFileSync(join(TEST_DIR, ".cursor", "mcp.json"), JSON.stringify({
+      mcpServers: { bad: { url: "file:///etc/passwd" } },
+    }), "utf-8");
+    writeFileSync(join(TEST_DIR, ".vscode", "mcp.json"), JSON.stringify({
+      mcpServers: { bad: { url: "http://insecure.com" } },
+    }), "utf-8");
+
+    const { stdout } = runCLI(["doctor", "--format", "json"]);
+    const parsed = JSON.parse(stdout);
+    assert(parsed.summary.total >= 3, `should find at least 3 issues across hosts, found: ${parsed.summary.total}`);
+    assert(parsed.manifest.scanned.length >= 3, "should scan at least 3 config files");
+  });
+});

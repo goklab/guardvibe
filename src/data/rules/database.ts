@@ -147,7 +147,7 @@ export const databaseRules: SecurityRule[] = [
     compliance: ["SOC2:CC6.1"],
   },
   {
-    id: "VG912",
+    id: "VG1002",
     name: "MongoDB NoSQL Injection via Query Operators",
     severity: "high",
     owasp: "A02:2025 Injection",

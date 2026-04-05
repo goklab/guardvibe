@@ -295,7 +295,7 @@ export const deploymentRules: SecurityRule[] = [
     compliance: ["SOC2:CC7.1"],
   },
   {
-    id: "VG911",
+    id: "VG1001",
     name: "Kubernetes Secret Hardcoded Value",
     severity: "critical",
     owasp: "A07:2025 Identification and Authentication Failures",

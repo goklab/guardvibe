@@ -163,65 +163,65 @@ describe("AI Security Rules", () => {
     });
   });
 
-  describe("VG870 - AI Tool Unrestricted Database Mutation", () => {
+  describe("VG994 - AI Tool Unrestricted Database Mutation", () => {
     it("detects dynamic SQL from args in tool", () => {
       const code = 'tool({\n  parameters: z.object({ sql: z.string() }),\n  execute: async (args) => {\n    return db.query(args.sql);\n  },\n})';
-      testRule("VG870", code, true);
+      testRule("VG994", code, true);
     });
     it("detects execute with args.command", () => {
       const code = 'tool({\n  parameters: z.object({ command: z.string() }),\n  execute: async (params) => {\n    return db.execute(params.command);\n  },\n})';
-      testRule("VG870", code, true);
+      testRule("VG994", code, true);
     });
     it("ignores fixed query with parameterized values", () => {
       const code = 'tool({\n  parameters: z.object({ name: z.string() }),\n  execute: async ({ name }) => {\n    return db.query("UPDATE users SET name = $1", [name]);\n  },\n})';
-      testRule("VG870", code, false);
+      testRule("VG994", code, false);
     });
   });
 
   // ── Katman 2: Indirect Prompt Injection ────────────────────────────
 
-  describe("VG871 - External Fetch Data in LLM Context", () => {
+  describe("VG995 - External Fetch Data in LLM Context", () => {
     it("detects fetch result passed to generateText", () => {
       const code = 'const html = await fetch(url).then(r => r.text());\nconst result = await generateText({ model, prompt: `Summarize: ${html}` });';
-      testRule("VG871", code, true);
+      testRule("VG995", code, true);
     });
     it("detects axios data in messages.push", () => {
       const code = 'const { data } = await axios(apiUrl);\nconst content = data.body;\nmessages.push({ role: "user", content: content });';
-      testRule("VG871", code, true);
+      testRule("VG995", code, true);
     });
     it("ignores fetch without LLM usage", () => {
       const code = 'const data = await fetch(url).then(r => r.json());\nreturn Response.json(data);';
-      testRule("VG871", code, false);
+      testRule("VG995", code, false);
     });
   });
 
-  describe("VG872 - Database Results in LLM Prompt", () => {
+  describe("VG996 - Database Results in LLM Prompt", () => {
     it("detects query results in generateText prompt template", () => {
       const code = 'const reviews = await db.query("SELECT text FROM reviews");\nconst result = await generateText({ model, prompt: `Summarize these reviews: ${reviews}` });';
-      testRule("VG872", code, true);
+      testRule("VG996", code, true);
     });
     it("detects findMany results in streamText", () => {
       const code = 'const posts = await prisma.post.findMany({ where: { published: true } });\nconst result = await streamText({ model, prompt: `Analyze: ${posts.map(p => p.content).join("\\n")}` });';
-      testRule("VG872", code, true);
+      testRule("VG996", code, true);
     });
     it("ignores query results used without LLM", () => {
       const code = 'const users = await db.query("SELECT name FROM users");\nreturn Response.json(users);';
-      testRule("VG872", code, false);
+      testRule("VG996", code, false);
     });
   });
 
-  describe("VG873 - File Content in LLM Without Sanitization", () => {
+  describe("VG997 - File Content in LLM Without Sanitization", () => {
     it("detects readFile content passed to generateText", () => {
       const code = 'const content = await readFile(uploadedPath, "utf-8");\nconst result = await generateText({ model, prompt: `Analyze this document: ${content}` });';
-      testRule("VG873", code, true);
+      testRule("VG997", code, true);
     });
     it("detects PDF parse result in streamText", () => {
       const code = 'const pdfData = await pdf.parse(buffer);\nconst text = pdfData.text;\nconst result = await streamText({ model, prompt: `Summarize: ${text}` });';
-      testRule("VG873", code, true);
+      testRule("VG997", code, true);
     });
     it("ignores readFile without LLM context", () => {
       const code = 'const content = await readFile("config.json", "utf-8");\nconst config = JSON.parse(content);';
-      testRule("VG873", code, false);
+      testRule("VG997", code, false);
     });
   });
 

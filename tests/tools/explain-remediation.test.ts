@@ -20,7 +20,7 @@ describe("explain_remediation", () => {
   });
 
   it("returns error for unknown rule", () => {
-    const r = JSON.parse(explainRemediation("VG999", undefined, "json"));
+    const r = JSON.parse(explainRemediation("VG9999", undefined, "json"));
     assert(r.error);
   });
 
