@@ -190,6 +190,11 @@ function hasRoleCheckPattern(code: string): boolean {
   if (/(?:check|require|verify|ensure|assert|has|can)\w*\s*\(\s*["'](?:admin|manager|editor|owner|moderator|superadmin)/i.test(code)) return true;
   // Destructured role check: const { role } = ...; if (role !== "admin")
   if (/\brole\b[\s\S]{0,100}?(?:!==|===)\s*["']/i.test(code)) return true;
+  // Import + call of admin/role guard function (requireAdmin, requireRole, checkAdmin, etc.)
+  if (/import\s+.*(?:requireAdmin|requireRole|checkAdmin|isAdmin|verifyAdmin|assertAdmin)\b/i.test(code) &&
+      /(?:requireAdmin|requireRole|checkAdmin|isAdmin|verifyAdmin|assertAdmin)\s*\(/i.test(code)) return true;
+  // await requireAdmin() with error check pattern (naming-agnostic admin guard)
+  if (/await\s+(?:\w+\.)*\w*(?:Admin|admin)\w*\s*\([^)]*\)\s*;?\s*\n\s*if\s*\(/i.test(code)) return true;
   return false;
 }
 
@@ -373,17 +378,43 @@ export function analyzeCode(
     // Skip open redirect rules when redirect URL validation is present
     if (codeHasRedirectValidation && ["VG425", "VG409", "VG660"].includes(rule.id)) continue;
 
-    // Skip VG131 (state-changing GET) when only read operations are present
+    // Skip VG678 (Missing X-Content-Type-Options) in client components —
+    // client-side code calling getPublicUrl() can't set response headers.
+    // Also skip when code only uses Supabase getPublicUrl/getSignedUrl to generate
+    // URL strings (not actually serving file content via response stream).
+    if (rule.id === "VG678") {
+      const isClientComponent = /^['"]use client['"]/.test(code.trimStart()) ||
+        (filePath && /Client\.\w+$/.test(filePath));
+      if (isClientComponent) continue;
+      const hasOnlyUrlGeneration = /(?:getPublicUrl|getSignedUrl)\s*\(/i.test(code) &&
+        !/(?:createReadStream|sendFile|res\.download|\.pipe\s*\()/i.test(code);
+      if (hasOnlyUrlGeneration) continue;
+    }
+
+    // Skip VG131 (state-changing GET) when the GET function body has no mutations.
+    // Must check per-GET-function, not the whole file — files with GET+POST would false-positive.
     if (rule.id === "VG131") {
-      // If code only has read operations (findMany, findFirst, count, aggregate, select)
-      // and no actual mutations, skip this rule
-      const hasMutation = /(?:\.create\s*\(|\.update\s*\(|\.delete\s*\(|\.destroy\s*\(|\.remove\s*\(|\.insert\s*\(|DELETE\s+FROM|UPDATE\s+\w|INSERT\s+INTO)/i.test(code);
-      const onlyInComments = !hasMutation;
-      if (onlyInComments) continue;
+      const getMatch = /export\s+(?:async\s+)?function\s+GET\s*\([^)]*\)\s*\{/.exec(code);
+      if (getMatch) {
+        const getStart = getMatch.index + getMatch[0].length;
+        let depth = 1, pos = getStart;
+        while (depth > 0 && pos < code.length) {
+          if (code[pos] === "{") depth++;
+          else if (code[pos] === "}") depth--;
+          pos++;
+        }
+        const getBody = code.substring(getStart, pos);
+        const hasMutationInGet = /(?:\.create\s*\(|\.update\s*\(|\.delete\s*\(|\.destroy\s*\(|\.remove\s*\(|\.insert\s*\(|\.upsert\s*\(|DELETE\s+FROM|UPDATE\s+\w|INSERT\s+INTO)/i.test(getBody);
+        if (!hasMutationInGet) continue;
+      }
     }
 
     // Skip CVE version rules in peerDependencies (ranges, not actual versions)
     if (isPeerDeps && rule.id === "VG903") continue;
+
+    // Skip VG020 (wildcard dependency version) in lock files — engine constraints
+    // like "node": ">=6" are not dependency versions
+    if (rule.id === "VG020" && filePath && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
 
     // VG872/VG873 legitimate package filtering is handled at match level below
 

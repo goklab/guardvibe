@@ -165,10 +165,13 @@ server.tool(
     ).describe("List of packages to check: [{name, version, ecosystem}]"),
   },
   async ({ packages }) => {
-    const results = await checkDependencies(packages);
-    return {
-      content: [{ type: "text", text: results }],
-    };
+    try {
+      const results = await checkDependencies(packages);
+      return { content: [{ type: "text", text: results }] };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { content: [{ type: "text", text: `⚠️ Dependency check failed: ${msg}\n\nThis may be a network issue reaching the OSV database. Try again or check your internet connection.` }] };
+    }
   }
 );
 
@@ -210,7 +213,7 @@ server.tool(
 // Tool 6: Scan manifest/lockfile for dependency vulnerabilities
 server.tool(
   "scan_dependencies",
-  "Parse a lockfile or manifest (package.json, package-lock.json, requirements.txt, go.mod) and check all dependencies for known CVEs via the OSV database. Reads the file directly.",
+  "Parse a lockfile or manifest (package.json, package-lock.json, requirements.txt, go.mod) and check all dependencies for known CVEs via the OSV database. Reads the file directly. Use this after installing dependencies, during CI, or when auditing existing projects for vulnerable packages.",
   {
     manifest_path: z.string().describe("Path to manifest file (e.g. 'package.json', 'requirements.txt', 'go.mod')"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable for agents)"),
@@ -325,8 +328,13 @@ server.tool(
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable for agents)"),
   },
   async ({ packages, format }) => {
-    const results = await checkPackageHealth(packages, format);
-    return { content: [{ type: "text", text: results }] };
+    try {
+      const results = await checkPackageHealth(packages, format);
+      return { content: [{ type: "text", text: results }] };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { content: [{ type: "text", text: `⚠️ Package health check failed: ${msg}\n\nThis may be a network issue reaching the npm registry. Try again or check your internet connection.` }] };
+    }
   }
 );
 
@@ -424,7 +432,7 @@ server.tool(
 // Tool 17: Compliance Policy Check
 server.tool(
   "policy_check",
-  "Check project against compliance policies defined in .guardviberc. Validates custom framework requirements, severity thresholds, required controls, and risk exceptions. Returns pass/fail status with detailed findings per control.",
+  "Check project against compliance policies defined in .guardviberc. Use this in CI/CD pipelines to enforce security gates, or before releases to verify compliance requirements are met. Validates custom framework requirements, severity thresholds, required controls, and risk exceptions. Returns pass/fail status with detailed findings per control.",
   {
     path: z.string().describe("Project root directory"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
