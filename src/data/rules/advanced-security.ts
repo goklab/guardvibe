@@ -401,4 +401,116 @@ export const advancedSecurityRules: SecurityRule[] = [
       '// BAD: catastrophic backtracking\nconst re = /(a+)+$/;\n\n// GOOD: no nested quantifiers\nconst re = /a+$/;\n\n// GOOD: validate with safe-regex\nimport safe from "safe-regex";\nif (!safe(pattern)) throw new Error("Unsafe regex");',
     compliance: ["SOC2:CC7.1"],
   },
+
+  // ── Supabase Race Condition: Check-Then-Act ──────────────────────
+  {
+    id: "VG154",
+    name: "Supabase Race Condition: Check-Then-Act Without Transaction",
+    severity: "critical",
+    owasp: "A04:2025 Insecure Design",
+    description:
+      "Code reads a Supabase value (select/count), checks a condition, then updates — without an atomic transaction or RPC function. Two concurrent requests can both pass the check before either writes, enabling double-spending, quota bypass, or duplicate operations.",
+    pattern: /\.from\s*\(\s*["'][^"']+["']\s*\)\s*\.select\s*\([\s\S]{0,300}?(?:\.single\s*\(|count:\s*["']exact["'])[\s\S]{0,500}?if\s*\([\s\S]{0,500}?\.(?:update|insert|delete|upsert)\s*\((?:(?!\.rpc\s*\(|BEGIN|SERIALIZABLE)[\s\S]){0,300}/g,
+    languages: ["javascript", "typescript"],
+    fix: "Use a Supabase RPC function with a PostgreSQL transaction, or use atomic UPDATE with WHERE conditions.",
+    fixCode:
+      '// BAD: race condition\nconst { data } = await supabase.from("users").select("credits").eq("id", id).single();\nif (data.credits >= cost) {\n  await supabase.from("users").update({ credits: data.credits - cost }).eq("id", id);\n}\n\n// GOOD: atomic RPC function\nawait supabase.rpc("spend_credits", { user_id: id, amount: cost });',
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+  },
+
+  // ── Missing CSRF Protection ──────────────────────────────────────
+  {
+    id: "VG155",
+    name: "State-Changing Endpoint Missing CSRF Protection",
+    severity: "medium",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "POST/PUT/PATCH/DELETE route handler performs database mutations without CSRF token verification. Cross-site requests from malicious pages can trick authenticated users into performing unwanted actions.",
+    pattern: /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\s*\([^)]*\)\s*\{(?:(?!csrf|csrfToken|CSRF|x-csrf|verifyCsrf|validateCsrf|anti.?forgery)[\s\S]){10,}?(?:\.create\s*\(|\.update\s*\(|\.delete\s*\(|\.insert\s*\(|\.upsert\s*\()/g,
+    languages: ["javascript", "typescript"],
+    fix: "Add CSRF token verification to state-changing endpoints.",
+    fixCode:
+      '// Verify CSRF token from header\nexport async function POST(req: Request) {\n  const csrfToken = req.headers.get("x-csrf-token");\n  if (!verifyCsrfToken(csrfToken)) {\n    return new Response("CSRF validation failed", { status: 403 });\n  }\n}',
+    compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.1"],
+  },
+
+  // ── In-Memory State in Serverless ────────────────────────────────
+  {
+    id: "VG156",
+    name: "In-Memory State in Serverless Environment",
+    severity: "medium",
+    owasp: "A04:2025 Insecure Design",
+    description:
+      "Module-level Map, object, or array is used for rate limiting, caching, or session storage. In serverless environments, each function instance has its own memory that resets on cold starts.",
+    pattern: /(?:const|let|var)\s+\w+[\s\S]{0,80}?=\s*(?:new\s+Map|new\s+Set|\{\s*\}|\[\s*\])[\s\S]{0,500}?export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|DELETE|PATCH)/g,
+    languages: ["javascript", "typescript"],
+    fix: "Use Redis (Upstash), Vercel KV, or another external store for state that must persist across requests in serverless.",
+    fixCode:
+      '// BAD: resets on cold start\nconst rateMap = new Map();\nexport async function POST(req: Request) { ... }\n\n// GOOD: use Redis\nimport { Ratelimit } from "@upstash/ratelimit";\nimport { Redis } from "@upstash/redis";\nconst ratelimit = new Ratelimit({ redis: Redis.fromEnv(), limiter: Ratelimit.slidingWindow(10, "10s") });',
+    compliance: ["SOC2:CC7.1"],
+  },
+
+  // ── Rate Limit Fail-Open ─────────────────────────────────────────
+  {
+    id: "VG157",
+    name: "Rate Limiter Fails Open on Error",
+    severity: "high",
+    owasp: "A04:2025 Insecure Design",
+    description:
+      "Rate limiting catch block returns a permissive result (limited: false, success: true) when the rate limit backend (Redis) fails. If Redis goes down, all rate limits are disabled.",
+    pattern: /catch\s*\([^)]*\)\s*\{[\s\S]{0,200}?(?:limited\s*:\s*false|success\s*:\s*true|allowed\s*:\s*true|return\s+(?:false|null|undefined)\s*;?\s*\})/g,
+    languages: ["javascript", "typescript"],
+    fix: "Fail closed: when the rate limiter backend is unavailable, deny the request.",
+    fixCode:
+      '// BAD: fail-open\ncatch (error) { return { limited: false }; }\n\n// GOOD: fail-closed\ncatch (error) {\n  console.error("Rate limiter unavailable:", error);\n  return { limited: true };\n}',
+    compliance: ["SOC2:CC7.1"],
+  },
+
+  // ── Fail-Open Authorization Default ──────────────────────────────
+  {
+    id: "VG158",
+    name: "Authorization Defaults to Permissive Role",
+    severity: "medium",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "Role normalization or validation defaults to a permissive role (member, user, editor) for unknown values. If an unrecognized role string is passed, the user gets member-level access instead of being denied.",
+    pattern: /(?:default\s*:\s*(?:return\s+)?["'](?:member|user|editor|writer)["']|:\s*["'](?:member|user|editor|writer)["']\s*;?\s*\}(?:\s*$|\s*\/\/))/gm,
+    languages: ["javascript", "typescript"],
+    fix: "Default unknown roles to the most restrictive level (guest, none, or throw an error).",
+    fixCode:
+      '// BAD: unknown role gets member access\ndefault: return "member";\n\n// GOOD: fail closed\ndefault: return "guest";\n\n// BEST: reject unknown roles\ndefault: throw new Error(`Unknown role: ${role}`);',
+    compliance: ["SOC2:CC6.6"],
+  },
+
+  // ── Timing Side-Channel in Secret Comparison ─────────────────────
+  {
+    id: "VG159",
+    name: "Timing-Unsafe Secret Comparison",
+    severity: "medium",
+    owasp: "A02:2025 Cryptographic Failures",
+    description:
+      "Secret, token, or API key is compared using === or !== which leaks timing information. Attackers can determine how many characters match by measuring response times.",
+    pattern: /(?:secret|token|apiKey|api_key|cron_secret|CRON_SECRET|webhook_secret|WEBHOOK_SECRET|hmac|signature)\b[\s\S]{0,60}?(?:===|!==)\s*(?:process\.env\.|req\.|request\.|headers)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Use crypto.timingSafeEqual() for all secret comparisons.",
+    fixCode:
+      '// BAD: timing leak\nif (secret !== process.env.CRON_SECRET) return false;\n\n// GOOD: constant-time comparison\nimport { timingSafeEqual } from "crypto";\nfunction safeCompare(a: string, b: string): boolean {\n  if (a.length !== b.length) return false;\n  return timingSafeEqual(Buffer.from(a), Buffer.from(b));\n}',
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req6.5.1"],
+  },
+
+  // ── User-Controlled href Without Protocol Check ──────────────────
+  {
+    id: "VG160",
+    name: "User-Controlled URL in href Without Protocol Validation",
+    severity: "medium",
+    owasp: "A07:2025 Cross-Site Scripting",
+    description:
+      "User-provided URL is used directly in an href attribute without checking for dangerous protocols. Attackers can inject javascript:alert(document.cookie) to execute XSS when the link is clicked.",
+    pattern: /href\s*=\s*\{(?:user|profile|author|post|comment|data|item|record)[\w.]*\.(?:url|website|link|href|homepage)\}/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Validate that URLs start with https:// or http:// before using in href.",
+    fixCode:
+      '// BAD: XSS via javascript: protocol\n<a href={user.website}>{user.name}</a>\n\n// GOOD: protocol validation\nfunction safeHref(url: string): string {\n  try {\n    const parsed = new URL(url);\n    if (["http:", "https:"].includes(parsed.protocol)) return url;\n  } catch {}\n  return "#";\n}\n<a href={safeHref(user.website)}>{user.name}</a>',
+    compliance: ["SOC2:CC7.1"],
+  },
 ];

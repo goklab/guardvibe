@@ -375,6 +375,10 @@ export function analyzeCode(
     // Skip rate limiting for admin routes with auth guard
     if (isAdminRoute && codeHasAuthGuard && rateLimitRuleIds.has(rule.id)) continue;
 
+    // Skip CSRF rule for webhook routes (signature-verified), cron routes, and API-key-auth routes
+    if (rule.id === "VG155" && (isWebhookRoute || isCronRoute)) continue;
+    if (rule.id === "VG155" && /(?:Bearer|x-api-key|apiKey|authorization)/i.test(code)) continue;
+
     // Skip npm package rules (VG863/VG864/VG865): only apply to package.json files
     if ((rule.id === "VG863" || rule.id === "VG864" || rule.id === "VG865") && filePath && !filePath.endsWith("package.json")) continue;
 
@@ -417,7 +421,7 @@ export function analyzeCode(
     if ((codeHasUuidFilename || codeHasFilenameSanitization) && rule.id === "VG993") continue;
 
     // Skip timing-unsafe comparison rule when timingSafeEqual is already used in the file
-    if (codeHasTimingSafeEqual && rule.id === "VG106") continue;
+    if (codeHasTimingSafeEqual && (rule.id === "VG106" || rule.id === "VG159")) continue;
 
     // Downgrade VG106 for non-secret variable names (TokenCount, tokenLength, etc.)
     // These contain "token" but aren't actual secret comparisons

