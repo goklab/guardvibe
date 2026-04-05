@@ -228,6 +228,8 @@ const LEGITIMATE_PREFIXED_PACKAGES = new Set([
   "fast-sha256", "fast-text-encoding",
   "svix",
   "cheerio",
+  "simple-plist", "simple-git", "simple-update-notifier", "simple-swizzle", "simple-concat",
+  "simple-html-tokenizer", "simple-ast",
 ]);
 
 function isLegitimatePackage(name: string): boolean {
@@ -315,7 +317,8 @@ export function analyzeCode(
   const isReactNative = /(?:react-native|from\s+['"]react-native['"]|from\s+['"]expo|import\s+.*\bexpo\b)/i.test(code);
   const codeHasTimingSafeEqual = /(?:timingSafeEqual|timing.?safe|constant.?time)/i.test(code);
   const codeHasFilenameSanitization =
-    /(?:\.replace\s*\(\s*\/\[?\^?[a-z0-9\\-_\]]*\]?\/?[gi]*\s*,|sanitize(?:File|Name|Path)|safeName|cleanName)/i.test(code);
+    /(?:\.replace\s*\(\s*\/\[?\^?[a-z0-9\\-_\]]*\]?\/?[gi]*\s*,|sanitize(?:File|Name|Path)|safeName|cleanName)/i.test(code) ||
+    /(?:Date\.now\(\)|timestamp|uuid|nanoid|crypto\.randomUUID)[\s\S]{0,80}?\.\s*(?:ext|split|pop)/i.test(code);
   const isPeerDeps = /["']peerDependencies["']/i.test(code);
 
   // Config: check custom auth function names from .guardviberc
@@ -475,10 +478,14 @@ export function analyzeCode(
     // Skip CVE version rules in peerDependencies (ranges, not actual versions)
     if (isPeerDeps && rule.id === "VG903") continue;
 
-    // Skip VG140 (XXE) when file doesn't actually parse XML — just has XML-related imports
+    // Skip VG140 (XXE) when file doesn't actually parse XML or uses browser DOMParser
+    // Browser DOMParser with 'text/html' is safe by design — no external entity processing
     if (rule.id === "VG140") {
-      const hasXmlParsing = /(?:parseString|parseXml|xml2js|DOMParser|XMLParser)\s*\(/i.test(code);
+      const hasXmlParsing = /(?:parseString|parseXml|xml2js|xmldom|libxmljs|XMLParser)\s*\(/i.test(code);
       if (!hasXmlParsing) continue;
+      // Browser DOMParser with text/html is inherently safe
+      const hasBrowserDomParser = /new\s+DOMParser\s*\(\s*\)[\s\S]{0,50}?['"]text\/html['"]/i.test(code);
+      if (hasBrowserDomParser && !hasXmlParsing) continue;
     }
 
     // Skip VG020 (wildcard dependency version) in lock files — engine constraints
@@ -486,11 +493,13 @@ export function analyzeCode(
     if (rule.id === "VG020" && filePath && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
 
     // Skip VG430 (Supabase anon key on server) when file properly separates client/server
-    // Pattern: file exports both a client (anon key) and server (service_role) function
+    // or is a React Native/mobile client (anon key with AsyncStorage is correct pattern)
     if (rule.id === "VG430") {
       const hasServiceRole = /(?:SUPABASE_SERVICE_ROLE|service_role|serviceRole)/i.test(code);
       const hasClientServer = /(?:createClient|createServerClient|createBrowserClient)/i.test(code) && hasServiceRole;
       if (hasClientServer) continue;
+      const isMobileClient = isReactNative || /AsyncStorage/i.test(code) || /EXPO_PUBLIC_/i.test(code);
+      if (isMobileClient) continue;
     }
 
     // Skip VG448 (Supabase RPC bypass RLS) when using service_role key (server-side)

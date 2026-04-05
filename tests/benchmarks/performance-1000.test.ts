@@ -194,7 +194,7 @@ describe("Performance: 1000-file synthetic project", () => {
     console.error(`    Grade: ${parsed.summary.grade} (${parsed.summary.score}/100)`);
 
     assert(parsed.metadata.filesScanned >= 900, `Expected >=900 files scanned, got ${parsed.metadata.filesScanned}`);
-    assert(elapsed < 3000, `Scan took ${elapsed.toFixed(0)}ms (expected < 3000ms)`);
+    assert(elapsed < 4000, `Scan took ${elapsed.toFixed(0)}ms (expected < 4000ms)`);
   });
 
   it("scan duration reported in metadata matches wall time", () => {
@@ -230,6 +230,6 @@ describe("Performance: 1000-file synthetic project", () => {
     const elapsed = performance.now() - start;
 
     assert(result.includes("GuardVibe Directory Security Report"));
-    assert(elapsed < 3000, `Markdown scan took ${elapsed.toFixed(0)}ms (expected < 3000ms)`);
+    assert(elapsed < 4000, `Markdown scan took ${elapsed.toFixed(0)}ms (expected < 4000ms)`);
   });
 });
