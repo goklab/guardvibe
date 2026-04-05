@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 330 security rules, 29 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 334 security rules, 29 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,11 +14,11 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **330 security rules, 29 tools** purpose-built for the stacks AI agents generate
+- **334 security rules, 29 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
-- **CVE version intelligence** — detects 21 known vulnerable package versions in package.json
+- **CVE version intelligence** — detects 23 known vulnerable package versions in package.json
 - **AI agent security** — detects MCP server vulnerabilities, excessive AI permissions, indirect prompt injection
 - **Auto-fix suggestions** — `fix_code` tool returns concrete patches the AI agent can apply
 - **Pre-commit hook** — block insecure code before it reaches your repo
@@ -165,8 +165,8 @@ React Native, Expo — AsyncStorage secrets, deep link token exposure, hardcoded
 ### Firebase
 Firestore security rules, Firebase Admin SDK exposure, storage rules, custom token validation
 
-### CVE Version Intelligence (21 CVEs)
-Next.js (3 CVEs), React, Express, Axios, jsonwebtoken, lodash, node-fetch, tar, xml2js, crypto-js, Prisma (2 CVEs), next-auth (2 CVEs), sharp, ws, undici (2 CVEs)
+### CVE Version Intelligence (23 CVEs)
+Next.js (3 CVEs), React, Express, Axios, jsonwebtoken, lodash, node-fetch, tar, xml2js, crypto-js, Prisma (2 CVEs), next-auth (2 CVEs), sharp, ws, undici (2 CVEs), @anthropic-ai/sdk, defu
 
 ### Deployment & Config
 Vercel (vercel.json, cron secrets, headers), Next.js config, Docker, Docker Compose, Fly.io, Render, Netlify, Cloudflare
@@ -219,7 +219,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 
 All scanning tools support `format: "json"` for machine-readable output.
 
-## Security Rules (330 rules across 25 modules)
+## Security Rules (334 rules across 25 modules)
 
 | Category | Rules | Coverage |
 |----------|-------|----------|
@@ -228,7 +228,7 @@ All scanning tools support `format: "json"` for machine-readable output.
 | Auth (Clerk / Auth.js / Supabase Auth) | 16 | Middleware, secret keys, session storage, role checks, SSR cookies |
 | Database (Supabase / Prisma / Drizzle) | 11 | Raw queries, client exposure, service role leaks, NoSQL injection |
 | OWASP API Security | 10 | BOLA/IDOR, mass assignment, pagination, rate limiting, error leaks |
-| Modern Stack | 37 | Zod, tRPC, Hono, GraphQL, Uploadthing, Turso, Convex, OAuth, CSP, webhooks, AI SDK |
+| Modern Stack | 39 | Zod, tRPC, Hono, GraphQL, Uploadthing, Turso, Convex, OAuth, CSP, webhooks, AI SDK |
 | Deployment Config | 21 | Vercel, Next.js config, Docker Compose, Fly, Render, Netlify, Cloudflare, K8s secrets |
 | Payments (Stripe / Polar / Lemon) | 9 | Webhook signatures, key exposure, price manipulation |
 | Services (Resend / Upstash / Pinecone / PostHog) | 11 | API key leaks, PII tracking, email injection |
@@ -238,7 +238,7 @@ All scanning tools support `format: "json"` for machine-readable output.
 | AI / LLM Security | 16 | Prompt injection, MCP SSRF, excessive agency, indirect injection |
 | **AI Host Security** | **10** | **CVE-2025-59536 hook injection, CVE-2026-21852 base URL hijack, MCP config audit** |
 | **AI Tool Runtime** | **4** | **MCP tool output sanitization, obfuscated descriptions, safety bypass** |
-| CVE Version Intelligence | 21 | Known vulnerable versions in package.json (21 CVEs) |
+| CVE Version Intelligence | 23 | Known vulnerable versions in package.json (23 CVEs) |
 | Shell / Bash | 5 | Pipe to bash, chmod 777, rm -rf, sudo password |
 | SQL | 4 | DROP/DELETE without WHERE, stacked queries, GRANT ALL |
 | Supply Chain | 16 | Malicious install scripts, lockfile integrity, dependency confusion, typosquat detection |
