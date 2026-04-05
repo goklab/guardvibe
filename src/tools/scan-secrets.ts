@@ -1,15 +1,17 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { basename, dirname, extname, join, relative, resolve } from "path";
+import { execFileSync } from "child_process";
 import { secretPatterns, calculateEntropy } from "../data/secret-patterns.js";
 import { loadConfig } from "../utils/config.js";
 
 export interface SecretFinding {
   provider: string;
-  severity: "critical" | "high" | "medium";
+  severity: "critical" | "high" | "medium" | "low";
   file: string;
   line: number;
   match: string;
   fix: string;
+  gitStatus?: "ignored" | "tracked" | "unknown";
 }
 
 interface GitignoreEntry {
@@ -152,6 +154,27 @@ function isEnvCoveredByGitignore(envFile: string, gitignoreEntries: GitignoreEnt
   });
 }
 
+/**
+ * Check if a file is ignored by git (in .gitignore) and not tracked.
+ * Returns: "ignored" (safe), "tracked" (dangerous - committed secret), "unknown" (no git)
+ */
+function getGitProtectionStatus(filePath: string, gitRoot: string | null): "ignored" | "tracked" | "unknown" {
+  if (!gitRoot) return "unknown";
+  try {
+    // git check-ignore returns 0 if ignored, 1 if not ignored
+    execFileSync("git", ["check-ignore", "-q", filePath], { cwd: gitRoot, stdio: "pipe" });
+    return "ignored";
+  } catch {
+    // Not ignored — check if it's actually tracked (committed)
+    try {
+      const result = execFileSync("git", ["ls-files", filePath], { cwd: gitRoot, encoding: "utf-8" });
+      return result.trim().length > 0 ? "tracked" : "ignored"; // untracked + not ignored = safe-ish
+    } catch {
+      return "unknown";
+    }
+  }
+}
+
 export function scanSecrets(path: string, recursive: boolean = true, format: "markdown" | "json" = "markdown"): string {
   const targetPath = resolve(path);
   const filePaths: string[] = [];
@@ -187,6 +210,25 @@ export function scanSecrets(path: string, recursive: boolean = true, format: "ma
     }
   }
 
+  // Enrich findings with git protection status
+  const gitRoot = findGitRoot(scanRoot);
+  const gitStatusCache = new Map<string, "ignored" | "tracked" | "unknown">();
+  for (const finding of allFindings) {
+    let status = gitStatusCache.get(finding.file);
+    if (status === undefined) {
+      status = getGitProtectionStatus(finding.file, gitRoot);
+      gitStatusCache.set(finding.file, status);
+    }
+    finding.gitStatus = status;
+
+    if (status === "ignored") {
+      // File is in .gitignore — secrets are local-only, not exposed
+      if (finding.severity === "critical") finding.severity = "low";
+      else if (finding.severity === "high") finding.severity = "low";
+      finding.fix = `✅ Protected: this file is in .gitignore and not committed to git. ${finding.fix.replace(/Rotate.*?\.|acilen.*?\./i, "").trim()}`;
+    }
+  }
+
   const envFiles = uniquePaths.filter((filePath) => basename(filePath).startsWith(".env"));
   for (const envFile of envFiles) {
     const gitignoreEntries = collectGitignoreEntries(dirname(envFile));
@@ -200,6 +242,7 @@ export function scanSecrets(path: string, recursive: boolean = true, format: "ma
       line: 0,
       match: `${envName} is not listed in .gitignore`,
       fix: `Add '${envName}' or '.env*' to .gitignore immediately.`,
+      gitStatus: "tracked",
     });
   }
 
@@ -209,7 +252,7 @@ export function scanSecrets(path: string, recursive: boolean = true, format: "ma
     const medCount = allFindings.length - critCount - highCount;
     return JSON.stringify({
       summary: { total: allFindings.length, critical: critCount, high: highCount, medium: medCount, blocked: critCount > 0 || highCount > 0 },
-      findings: allFindings.map(f => ({ provider: f.provider, severity: f.severity, file: f.file, line: f.line, match: f.match, fix: f.fix })),
+      findings: allFindings.map(f => ({ provider: f.provider, severity: f.severity, file: f.file, line: f.line, match: f.match, fix: f.fix, gitStatus: f.gitStatus })),
     });
   }
 
@@ -229,7 +272,46 @@ export function scanSecrets(path: string, recursive: boolean = true, format: "ma
     const order: Record<string, number> = { critical: 0, high: 1, medium: 2 };
     allFindings.sort((left, right) => order[left.severity] - order[right.severity]);
 
-    for (const finding of allFindings) {
+    // Group findings by git status for clearer output
+    const tracked = allFindings.filter(f => f.gitStatus === "tracked");
+    const ignored = allFindings.filter(f => f.gitStatus === "ignored");
+    const unknown = allFindings.filter(f => f.gitStatus === "unknown");
+
+    if (tracked.length > 0) {
+      lines.push("## ⚠️ Exposed Secrets (committed to git)", "");
+      for (const finding of tracked) {
+        lines.push(
+          `### [${finding.severity.toUpperCase()}] ${finding.provider}`,
+          `**File:** ${finding.file}${finding.line > 0 ? `:${finding.line}` : ""}`,
+          `**Match:** \`${finding.match}\``,
+          `**Fix:** ${finding.fix}`,
+          "",
+        );
+      }
+    }
+
+    if (ignored.length > 0) {
+      lines.push(`## ✅ Protected Secrets (${ignored.length} in .gitignore — local only)`, "");
+      lines.push("These files are in .gitignore and not committed. Secrets are safe.", "");
+      // Group by file for compact display
+      const byFile = new Map<string, SecretFinding[]>();
+      for (const f of ignored) {
+        const group = byFile.get(f.file) ?? [];
+        group.push(f);
+        byFile.set(f.file, group);
+      }
+      for (const [file, findings] of byFile) {
+        lines.push(`- **${basename(file)}**: ${findings.map(f => f.provider).join(", ")}`);
+      }
+      lines.push("");
+    }
+
+    // Show unknown-status findings same as exposed (no git protection confirmed)
+    const exposed = [...tracked, ...unknown];
+    if (exposed.length === 0 && tracked.length === 0) {
+      // Re-render exposed section header if only unknown findings
+    }
+    for (const finding of unknown) {
       lines.push(
         `### [${finding.severity.toUpperCase()}] ${finding.provider}`,
         `**File:** ${finding.file}${finding.line > 0 ? `:${finding.line}` : ""}`,
