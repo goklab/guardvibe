@@ -126,6 +126,65 @@ describe("full-audit", () => {
     });
   });
 
+  describe("section status", () => {
+    it("section status is ok for successful sections", async () => {
+      const result = await runFullAudit(".");
+      for (const section of result.sections) {
+        assert(
+          section.status === "ok" || section.status === "error" || section.status === "skipped",
+          `Section ${section.name} should have a valid status, got: ${section.status}`,
+        );
+      }
+      // code section should always be ok on our own project
+      const codeSection = result.sections.find(s => s.name === "code");
+      assert(codeSection, "Should have code section");
+      assert.equal(codeSection!.status, "ok", "Code section should be ok");
+    });
+
+    it("section status is skipped for missing deps", async () => {
+      // Run on a temp-like dir with no package.json
+      const os = await import("node:os");
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "gv-test-"));
+      // Create a dummy file so code scan has something
+      fs.writeFileSync(path.join(tmpDir, "index.ts"), "export const x = 1;");
+      try {
+        const result = await runFullAudit(tmpDir);
+        const depSection = result.sections.find(s => s.name === "dependencies");
+        assert(depSection, "Should have dependencies section");
+        assert.equal(depSection!.status, "skipped", "Deps section should be skipped when no package.json");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("truncation", () => {
+    it("truncation fields exist in result", async () => {
+      const result = await runFullAudit(".");
+      assert(typeof result.truncation === "object", "Should have truncation object");
+      assert(typeof result.truncation.truncated === "boolean", "truncated should be boolean");
+      assert(typeof result.truncation.maxFindings === "number", "maxFindings should be number");
+      assert(typeof result.truncation.totalFindings === "number", "totalFindings should be number");
+      assert(typeof result.truncation.taintFileCap === "number", "taintFileCap should be number");
+      assert(typeof result.truncation.taintFilesProcessed === "number", "taintFilesProcessed should be number");
+      assert.equal(result.truncation.taintFileCap, 200, "taintFileCap should be 200");
+    });
+
+    it("audit result includes truncation in JSON format", async () => {
+      const result = await runFullAudit(".");
+      const output = formatAuditResult(result, "json");
+      const parsed = JSON.parse(output);
+      assert(typeof parsed.truncation === "object", "JSON output should have truncation");
+      assert(typeof parsed.truncation.truncated === "boolean");
+      assert(typeof parsed.truncation.maxFindings === "number");
+      assert(typeof parsed.truncation.totalFindings === "number");
+      assert(typeof parsed.truncation.taintFileCap === "number");
+      assert(typeof parsed.truncation.taintFilesProcessed === "number");
+    });
+  });
+
   describe("formatAuditResult", () => {
     it("markdown contains verdict and score", async () => {
       const result = await runFullAudit(".");
@@ -155,7 +214,8 @@ describe("full-audit", () => {
         coverage: { filesScanned: 10, filesSkipped: 2, totalFiles: 12, coveragePercent: 83, rulesApplied: 334 },
         resultHash: "abc123def456gh78",
         timestamp: new Date().toISOString(),
-        sections: [{ name: "code", findings: 3, critical: 1, high: 1, medium: 1, details: "3 issues" }],
+        sections: [{ name: "code", status: "ok", findings: 3, critical: 1, high: 1, medium: 1, details: "3 issues" }],
+        truncation: { truncated: false, maxFindings: 50, totalFindings: 3, taintFileCap: 200, taintFilesProcessed: 0 },
         summary: { totalFindings: 3, critical: 1, high: 1, medium: 1 },
         actionItems: ["Fix 1 critical finding(s) immediately", "Address 1 high severity finding(s)"],
       };

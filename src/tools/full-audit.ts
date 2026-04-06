@@ -40,6 +40,7 @@ export interface FindingRef {
 
 export interface AuditSection {
   name: string;
+  status: "ok" | "error" | "skipped";
   findings: number;
   critical: number;
   high: number;
@@ -55,6 +56,13 @@ export interface AuditResult {
   resultHash: string;
   timestamp: string;
   sections: AuditSection[];
+  truncation: {
+    truncated: boolean;
+    maxFindings: number;
+    totalFindings: number;
+    taintFileCap: number;
+    taintFilesProcessed: number;
+  };
   summary: {
     totalFindings: number;
     critical: number;
@@ -163,6 +171,13 @@ export async function runFullAudit(
   let score = 100;
   let grade = "A";
 
+  // Truncation tracking
+  let scanTruncated = false;
+  let scanTotalFindings = 0;
+  let scanMaxFindings = 50; // MAX_JSON_FINDINGS from scan-directory
+  let taintFilesProcessed = 0;
+  const taintFileCap = 200;
+
   // --- Section 1: Code scan ---
   try {
     const codeJson = scanDirectory(projectRoot, true, [], "json", rules.length > 0 ? rules : undefined);
@@ -173,12 +188,17 @@ export async function runFullAudit(
       filesSkipped = parsed.metadata?.filesSkipped ?? 0;
       score = parsed.summary?.score ?? 100;
       grade = parsed.summary?.grade ?? "A";
-      sections.push({ name: "code", ...counts, details: `Grade ${grade} (${score}/100)` });
+      sections.push({ name: "code", status: "ok", ...counts, details: `Grade ${grade} (${score}/100)` });
       for (const f of parsed.findings ?? []) {
         allFindings.push({ ruleId: f.id ?? "unknown", severity: f.severity, file: f.file ?? "", line: f.line ?? 0 });
       }
+      if (parsed?.summary?.truncated) {
+        scanTruncated = true;
+        scanTotalFindings = parsed.summary.total ?? 0;
+        scanMaxFindings = parsed.summary.showing ?? 50;
+      }
     }
-  } catch { sections.push({ name: "code", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
+  } catch { sections.push({ name: "code", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
 
   // --- Section 2: Secrets ---
   if (!options?.skipSecrets) {
@@ -187,12 +207,12 @@ export async function runFullAudit(
       const parsed = safeJsonParse(secretsJson);
       if (parsed) {
         const counts = parseSectionCounts(parsed);
-        sections.push({ name: "secrets", ...counts, details: counts.findings === 0 ? "No secrets found" : `${counts.findings} secret(s) detected` });
+        sections.push({ name: "secrets", status: "ok", ...counts, details: counts.findings === 0 ? "No secrets found" : `${counts.findings} secret(s) detected` });
         for (const f of parsed.findings ?? []) {
           allFindings.push({ ruleId: `SECRET:${f.provider ?? "unknown"}`, severity: f.severity, file: f.file ?? "", line: f.line ?? 0 });
         }
       }
-    } catch { sections.push({ name: "secrets", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
+    } catch { sections.push({ name: "secrets", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
   }
 
   // --- Section 3: Dependencies ---
@@ -205,16 +225,16 @@ export async function runFullAudit(
         if (parsed) {
           const vuln = parsed.summary?.vulnerable ?? 0;
           const counts = { findings: vuln, critical: parsed.summary?.critical ?? 0, high: parsed.summary?.high ?? 0, medium: parsed.summary?.medium ?? 0 };
-          sections.push({ name: "dependencies", ...counts, details: vuln === 0 ? "No known CVEs" : `${vuln} vulnerable package(s)` });
+          sections.push({ name: "dependencies", status: "ok", ...counts, details: vuln === 0 ? "No known CVEs" : `${vuln} vulnerable package(s)` });
           for (const pkg of parsed.packages ?? []) {
             for (const v of pkg.vulnerabilities ?? []) {
               allFindings.push({ ruleId: `DEP:${v.id ?? "CVE"}`, severity: v.severity, file: "package.json", line: 0 });
             }
           }
         }
-      } catch { sections.push({ name: "dependencies", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
+      } catch { sections.push({ name: "dependencies", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
     } else {
-      sections.push({ name: "dependencies", findings: 0, critical: 0, high: 0, medium: 0, details: "No package.json found" });
+      sections.push({ name: "dependencies", status: "skipped", findings: 0, critical: 0, high: 0, medium: 0, details: "No package.json found" });
     }
   }
 
@@ -224,16 +244,17 @@ export async function runFullAudit(
     const parsed = safeJsonParse(configJson);
     if (parsed) {
       const counts = parseSectionCounts(parsed);
-      sections.push({ name: "config", ...counts, details: counts.findings === 0 ? "Config secure" : `${counts.findings} config issue(s)` });
+      sections.push({ name: "config", status: "ok", ...counts, details: counts.findings === 0 ? "Config secure" : `${counts.findings} config issue(s)` });
       for (const f of parsed.findings ?? []) {
         allFindings.push({ ruleId: f.id ?? f.ruleId ?? "CONFIG", severity: f.severity ?? "medium", file: f.file ?? "", line: f.line ?? 0 });
       }
     }
-  } catch { sections.push({ name: "config", findings: 0, critical: 0, high: 0, medium: 0, details: "No configs found" }); }
+  } catch { sections.push({ name: "config", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "No configs found" }); }
 
   // --- Section 5: Taint analysis ---
   try {
     const jsFiles = collectJsFiles(projectRoot);
+    taintFilesProcessed = jsFiles.length;
     if (jsFiles.length > 0) {
       const { crossFileFindings, perFileFindings } = analyzeCrossFileTaint(jsFiles);
       const perFileCount = Array.from(perFileFindings.values()).reduce((sum, f) => sum + f.length, 0);
@@ -241,23 +262,24 @@ export async function runFullAudit(
       const taintCritical = crossFileFindings.filter(f => f.severity === "critical").length;
       const taintHigh = crossFileFindings.filter(f => f.severity === "high").length;
       const taintMedium = taintTotal - taintCritical - taintHigh;
-      sections.push({ name: "taint", findings: taintTotal, critical: taintCritical, high: taintHigh, medium: taintMedium,
+      sections.push({ name: "taint", status: "ok", findings: taintTotal, critical: taintCritical, high: taintHigh, medium: taintMedium,
         details: taintTotal === 0 ? "No tainted data flows" : `${taintTotal} tainted flow(s)` });
       for (const f of crossFileFindings) {
         allFindings.push({ ruleId: `TAINT:${f.sink.type}`, severity: f.severity, file: f.source.file, line: f.source.line });
       }
     }
-  } catch { sections.push({ name: "taint", findings: 0, critical: 0, high: 0, medium: 0, details: "Analysis error" }); }
+  } catch { sections.push({ name: "taint", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "Analysis error" }); }
 
   // --- Section 6: Auth coverage ---
   try {
     const jsFiles = collectJsFiles(projectRoot);
     const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
+    const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
     if (routeFiles.length > 0) {
       const middlewareFile = jsFiles.find(f => /middleware\.(ts|js)$/.test(f.path));
-      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "");
+      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles);
       const unprotected = report.unprotectedRoutes;
-      sections.push({ name: "auth-coverage", findings: unprotected, critical: 0, high: unprotected > 0 ? unprotected : 0, medium: 0,
+      sections.push({ name: "auth-coverage", status: "ok", findings: unprotected, critical: 0, high: unprotected > 0 ? unprotected : 0, medium: 0,
         details: `${report.protectedRoutes}/${report.totalRoutes} routes protected (${report.middlewareCoveragePercent}% middleware)` });
     }
   } catch { /* auth coverage is optional */ }
@@ -293,6 +315,13 @@ export async function runFullAudit(
     resultHash,
     timestamp: new Date().toISOString(),
     sections,
+    truncation: {
+      truncated: scanTruncated || taintFilesProcessed >= taintFileCap,
+      maxFindings: scanMaxFindings,
+      totalFindings: scanTotalFindings || totalFindings,
+      taintFileCap,
+      taintFilesProcessed,
+    },
     summary: { totalFindings, critical: totalCritical, high: totalHigh, medium: totalMedium },
     actionItems,
   };
@@ -341,12 +370,26 @@ export function formatAuditResult(result: AuditResult, format: "markdown" | "jso
     ``,
     `## Sections`,
     ``,
-    `| Section | Findings | Critical | High | Medium | Details |`,
-    `|---------|----------|----------|------|--------|---------|`,
+    `| Section | Status | Findings | Critical | High | Medium | Details |`,
+    `|---------|--------|----------|----------|------|--------|---------|`,
   ];
 
+  const statusIcon: Record<string, string> = { ok: "ok", error: "ERROR", skipped: "skipped" };
+
   for (const s of result.sections) {
-    lines.push(`| ${s.name} | ${s.findings} | ${s.critical} | ${s.high} | ${s.medium} | ${s.details} |`);
+    lines.push(`| ${s.name} | ${statusIcon[s.status] ?? s.status} | ${s.findings} | ${s.critical} | ${s.high} | ${s.medium} | ${s.details} |`);
+  }
+
+  if (result.truncation.truncated) {
+    lines.push(``);
+    lines.push(`## Truncation Notice`);
+    lines.push(``);
+    if (result.truncation.totalFindings > result.truncation.maxFindings) {
+      lines.push(`- Code scan: showing ${result.truncation.maxFindings} of ${result.truncation.totalFindings} findings (sorted by severity)`);
+    }
+    if (result.truncation.taintFilesProcessed >= result.truncation.taintFileCap) {
+      lines.push(`- Taint analysis: capped at ${result.truncation.taintFileCap} files (${result.truncation.taintFilesProcessed} found)`);
+    }
   }
 
   if (result.actionItems.length > 0) {
