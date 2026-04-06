@@ -263,6 +263,57 @@ describe("cross-file taint analysis", () => {
     });
   });
 
+  // guardvibe-ignore — intentional vulnerable code samples for testing return value taint tracking
+  describe("return value tracking", () => {
+    const processorModule = {
+      path: "src/lib/processor.ts",
+      content: [
+        "export function processInput(raw: string) {",
+        "  const trimmed = raw.trim();",
+        "  return trimmed;",
+        "}",
+      ].join("\n"),
+    };
+
+    const sinkModule = {
+      path: "src/lib/sink.ts",
+      content: [
+        "import { processInput } from './processor';",
+        "",
+        "export function handleRequest(req: any) {",
+        "  const input = req.body.data;",
+        "  const processed = processInput(input);",
+        "  const result = eval(processed);",  // guardvibe-ignore — test sample
+        "  return result;",
+        "}",
+      ].join("\n"),
+    };
+
+    it("tracks taint through function return values", () => {
+      const { crossFileFindings } = analyzeCrossFileTaint([processorModule, sinkModule]);
+      // processInput returns tainted data, which flows to eval sink
+      const allFindings = crossFileFindings.length +
+        Array.from(analyzeCrossFileTaint([processorModule, sinkModule]).perFileFindings.values())
+          .reduce((sum, f) => sum + f.length, 0);
+      assert(allFindings > 0, "Should detect taint flow through return values");
+    });
+  });
+
+  // guardvibe-ignore — intentional vulnerable code for testing deep propagation chains
+  describe("deep propagation (depth 25)", () => {
+    it("tracks 15-step propagation chain", () => {
+      const lines = ["const v0 = req.body.input;"];
+      for (let i = 1; i <= 15; i++) {
+        lines.push(`const v${i} = v${i - 1}.toString();`);
+      }
+      lines.push("const result = eval(v15);");  // guardvibe-ignore — test sample
+      const deepFile = { path: "src/deep.ts", content: lines.join("\n") };
+      const { perFileFindings } = analyzeCrossFileTaint([deepFile]);
+      const findings = perFileFindings.get("src/deep.ts") ?? [];
+      assert(findings.length > 0, "Should track taint through 15 propagation steps");
+    });
+  });
+
   describe("formatCrossFileTaintFindings", () => {
     it("JSON output has correct structure", () => {
       const { crossFileFindings, perFileFindings } = analyzeCrossFileTaint([dbModule, routeModule2]);

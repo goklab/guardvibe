@@ -62,6 +62,10 @@ interface TaintedExport {
   exportName: string;
   /** Which parameter indices receive taint and flow to sinks */
   taintedParams: Map<number, { sinkType: string; sinkLine: number; sinkCode: string }>;
+  /** Whether the function returns a tainted value (param flows to return) */
+  returnsTainted: boolean;
+  /** Which param indices flow through to the return value */
+  taintedReturnParams: number[];
 }
 
 // --- Import/Export Resolution ---
@@ -323,6 +327,46 @@ function checkParamFlowsToSink(paramName: string, body: string, startLine: numbe
   return null;
 }
 
+// Check if a function parameter flows to a return statement (for return value taint tracking).
+// Returns true only if the param (or a derived variable) IS the return value,
+// not merely referenced inside a function call's arguments.
+function checkParamFlowsToReturn(paramName: string, body: string): boolean {
+  const lines = body.split("\n");
+  const taintedNames = new Set([paramName]);
+
+  const assignPattern = /(?:const|let|var)\s+([\w$]+)\s*=\s*(.*)/;
+  for (const line of lines) {
+    const m = assignPattern.exec(line);
+    if (m) {
+      for (const t of taintedNames) {
+        if (m[2].includes(t)) {
+          taintedNames.add(m[1]);
+          break;
+        }
+      }
+    }
+  }
+
+  for (const line of lines) {
+    const returnMatch = /\breturn\s+(.+?)[\s;]*$/.exec(line);
+    if (!returnMatch) continue;
+    const returnExpr = returnMatch[1].trim();
+    // Direct return of tainted variable (e.g., "return trimmed;")
+    for (const t of taintedNames) {
+      if (returnExpr === t) return true;
+    }
+    // Return of expression that uses tainted var directly (e.g., "return x + y;")
+    // but NOT as argument inside a function call (e.g., "return fn(x)" — x is consumed, not returned)
+    // Only match if tainted name appears outside parenthesized call args
+    const withoutCalls = returnExpr.replace(/\w+\s*\([^)]*\)/g, "");
+    for (const t of taintedNames) {
+      if (withoutCalls.includes(t)) return true;
+    }
+  }
+
+  return false;
+}
+
 function findTaintedExports(files: FileEntry[]): TaintedExport[] {
   const taintedExports: TaintedExport[] = [];
 
@@ -347,8 +391,25 @@ function findTaintedExports(files: FileEntry[]): TaintedExport[] {
         }
       }
 
-      if (taintedParams.size > 0) {
-        taintedExports.push({ file: file.path, exportName: exportedName === "default" ? fn.name : exportedName, taintedParams });
+      // Check if any param flows to a return statement
+      const taintedReturnParams: number[] = [];
+      for (let pIdx = 0; pIdx < fn.params.length; pIdx++) {
+        const param = fn.params[pIdx];
+        if (!param) continue;
+        if (checkParamFlowsToReturn(param, fn.body)) {
+          taintedReturnParams.push(pIdx);
+        }
+      }
+      const returnsTainted = taintedReturnParams.length > 0;
+
+      if (taintedParams.size > 0 || (returnsTainted && taintedReturnParams.length > 0)) {
+        taintedExports.push({
+          file: file.path,
+          exportName: exportedName === "default" ? fn.name : exportedName,
+          taintedParams,
+          returnsTainted: returnsTainted && taintedReturnParams.length > 0,
+          taintedReturnParams,
+        });
       }
     }
   }
@@ -404,7 +465,7 @@ function findTaintedCallSites(
     let changed = true;
     let iterations = 0;
     const taintedSet = new Set(taintedVars.map(v => v.name));
-    while (changed && iterations < 10) {
+    while (changed && iterations < 25) {
       changed = false;
       iterations++;
       for (let i = 0; i < lines.length; i++) {
@@ -445,6 +506,25 @@ function findTaintedCallSites(
           if (!callPattern.test(lines[i])) continue;
 
           const args = extractCallArgs(lines[i], localName);
+
+          // Return value tracking: if function returnsTainted and a tainted arg is passed,
+          // mark the receiving variable as tainted
+          if (te.returnsTainted) {
+            const assignMatch = /(?:const|let|var)\s+([\w$]+)\s*=/.exec(lines[i]);
+            if (assignMatch) {
+              const receivingVar = assignMatch[1];
+              const hasTaintedArg = te.taintedReturnParams.some(pIdx => {
+                const arg = args[pIdx];
+                if (!arg) return false;
+                return taintedVars.some(v => arg.includes(v.name)) ||
+                  TAINT_SOURCES.some(src => { src.pattern.lastIndex = 0; return src.pattern.test(arg); });
+              });
+              if (hasTaintedArg && !taintedSet.has(receivingVar)) {
+                taintedSet.add(receivingVar);
+                taintedVars.push({ name: receivingVar, line: i + 1, sourceType: "return-propagated" });
+              }
+            }
+          }
 
           for (const [paramIdx, sinkInfo] of te.taintedParams) {
             const argAtIdx = args[paramIdx];

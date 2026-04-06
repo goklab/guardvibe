@@ -111,7 +111,7 @@ function extractAssignments(lines: string[]): VariableAssignment[] {
 function propagateTaint(assignments: VariableAssignment[], lines: string[]): void {
   let changed = true;
   let iterations = 0;
-  while (changed && iterations < 10) {
+  while (changed && iterations < 25) {
     changed = false;
     iterations++;
     const taintedNames = new Set(assignments.filter(a => a.tainted).map(a => a.name));
