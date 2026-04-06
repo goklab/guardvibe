@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { enumerateRoutes, type RouteInfo } from "../../src/tools/auth-coverage.js";
+import { enumerateRoutes, parseMiddlewareMatchers, routeMatchesMatcher, type RouteInfo } from "../../src/tools/auth-coverage.js";
 
 describe("auth-coverage", () => {
   describe("enumerateRoutes", () => {
@@ -64,6 +64,51 @@ describe("auth-coverage", () => {
         { path: "app/lib/utils.ts", content: "export function helper() {}" },
       ]);
       assert.equal(routes.length, 0);
+    });
+  });
+
+  describe("parseMiddlewareMatchers", () => {
+    it("parses string matcher", () => {
+      const content = `export const config = { matcher: "/dashboard/:path*" };`;
+      const matchers = parseMiddlewareMatchers(content);
+      assert.equal(matchers.length, 1);
+      assert.equal(matchers[0], "/dashboard/:path*");
+    });
+
+    it("parses array matcher", () => {
+      const content = `export const config = { matcher: ["/dashboard/:path*", "/api/:path*"] };`;
+      const matchers = parseMiddlewareMatchers(content);
+      assert.equal(matchers.length, 2);
+      assert(matchers.includes("/dashboard/:path*"));
+      assert(matchers.includes("/api/:path*"));
+    });
+
+    it("returns empty for no matcher", () => {
+      const content = `export default function middleware(req) {}`;
+      const matchers = parseMiddlewareMatchers(content);
+      assert.equal(matchers.length, 0);
+    });
+  });
+
+  describe("routeMatchesMatcher", () => {
+    it("matches route with :path* pattern", () => {
+      assert(routeMatchesMatcher("/dashboard/settings", ["/dashboard/:path*"]));
+    });
+
+    it("matches exact path", () => {
+      assert(routeMatchesMatcher("/api/health", ["/api/:path*"]));
+    });
+
+    it("does not match unrelated route", () => {
+      assert(!routeMatchesMatcher("/public/about", ["/dashboard/:path*", "/api/:path*"]));
+    });
+
+    it("empty matcher covers all routes", () => {
+      assert(routeMatchesMatcher("/anything", []));
+    });
+
+    it("matches root-level path", () => {
+      assert(routeMatchesMatcher("/dashboard", ["/dashboard/:path*"]));
     });
   });
 });

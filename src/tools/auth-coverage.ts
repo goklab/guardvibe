@@ -93,3 +93,48 @@ export function enumerateRoutes(files: FileEntry[]): RouteInfo[] {
 
   return routes;
 }
+
+// --- Middleware Matcher Parsing ---
+
+/**
+ * Parse Next.js middleware config.matcher from middleware file content.
+ * Returns array of matcher patterns.
+ */
+export function parseMiddlewareMatchers(content: string): string[] {
+  const stringMatch = /matcher\s*:\s*"([^"]+)"/.exec(content);
+  if (stringMatch) return [stringMatch[1]];
+
+  const arrayMatch = /matcher\s*:\s*\[([^\]]+)\]/.exec(content);
+  if (arrayMatch) {
+    return arrayMatch[1]
+      .split(",")
+      .map(s => s.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+/**
+ * Convert a Next.js matcher pattern to a regex.
+ * Handles :path* and :param patterns.
+ */
+function matcherToRegex(pattern: string): RegExp {
+  let regexStr = pattern
+    .replace(/\/:[\w]+\*/g, "(?:/.*)?")
+    .replace(/:[\w]+/g, "[^/]+");
+  return new RegExp("^" + regexStr + "$");
+}
+
+/**
+ * Check if a route URL path matches any of the middleware matchers.
+ * Empty matchers = middleware covers all routes.
+ */
+export function routeMatchesMatcher(urlPath: string, matchers: string[]): boolean {
+  if (matchers.length === 0) return true;
+  for (const pattern of matchers) {
+    const regex = matcherToRegex(pattern);
+    if (regex.test(urlPath)) return true;
+  }
+  return false;
+}
