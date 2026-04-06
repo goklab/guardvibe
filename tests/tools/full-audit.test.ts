@@ -4,6 +4,8 @@ import {
   computeVerdict,
   computeCoverage,
   computeResultHash,
+  runFullAudit,
+  type AuditResult,
 } from "../../src/tools/full-audit.js";
 
 describe("full-audit", () => {
@@ -87,6 +89,39 @@ describe("full-audit", () => {
     it("empty findings produce a hash", () => {
       const hash = computeResultHash([]);
       assert.equal(hash.length, 16);
+    });
+  });
+
+  describe("runFullAudit", () => {
+    it("returns complete AuditResult on project root", async () => {
+      // Run on our own project — should produce a valid result
+      const result = await runFullAudit(".");
+      assert(result.verdict === "PASS" || result.verdict === "WARN" || result.verdict === "FAIL");
+      assert(typeof result.score === "number");
+      assert(typeof result.grade === "string");
+      assert(typeof result.resultHash === "string");
+      assert.equal(result.resultHash.length, 16);
+      assert(typeof result.coverage.filesScanned === "number");
+      assert(typeof result.coverage.coveragePercent === "number");
+      assert(result.coverage.coveragePercent >= 0 && result.coverage.coveragePercent <= 100);
+      assert(Array.isArray(result.sections));
+      assert(result.sections.length >= 1, "Should have at least code section");
+      assert(typeof result.summary.totalFindings === "number");
+      assert(typeof result.timestamp === "string");
+    });
+
+    it("produces deterministic hash on same project", async () => {
+      const result1 = await runFullAudit(".");
+      const result2 = await runFullAudit(".");
+      assert.equal(result1.resultHash, result2.resultHash, "Same project should produce same hash");
+    });
+
+    it("has all expected sections", async () => {
+      const result = await runFullAudit(".");
+      const names = result.sections.map(s => s.name);
+      assert(names.includes("code"), "Should have code section");
+      assert(names.includes("secrets"), "Should have secrets section");
+      assert(names.includes("config"), "Should have config section");
     });
   });
 });
