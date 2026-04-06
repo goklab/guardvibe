@@ -15,12 +15,14 @@ import { EXTENSION_MAP, CONFIG_FILE_MAP } from "./constants.js";
  * @param recursive - Whether to descend into subdirectories
  * @param excludes  - Set of directory names to skip
  * @param results   - Accumulator array (mutated in place)
+ * @param unsupportedResults - Optional accumulator for files with unsupported types
  */
 export function walkDirectory(
   dir: string,
   recursive: boolean,
   excludes: Set<string>,
-  results: string[]
+  results: string[],
+  unsupportedResults?: string[]
 ): void {
   let entries;
   try {
@@ -34,17 +36,24 @@ export function walkDirectory(
     const fullPath = join(dir, entry.name);
 
     if (entry.isDirectory() && recursive) {
-      walkDirectory(fullPath, recursive, excludes, results);
+      walkDirectory(fullPath, recursive, excludes, results, unsupportedResults);
     } else if (entry.isFile()) {
       const ext = extname(entry.name).toLowerCase();
+      let matched = false;
       if (EXTENSION_MAP[ext]) {
         results.push(fullPath);
+        matched = true;
       }
       if (entry.name.startsWith("Dockerfile") || entry.name.endsWith(".dockerfile")) {
         if (!results.includes(fullPath)) results.push(fullPath);
+        matched = true;
       }
       if (CONFIG_FILE_MAP[entry.name] && !results.includes(fullPath)) {
         results.push(fullPath);
+        matched = true;
+      }
+      if (!matched && unsupportedResults) {
+        unsupportedResults.push(fullPath);
       }
     }
   }

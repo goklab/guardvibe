@@ -102,12 +102,15 @@ export function scanDirectory(
   const excludes = new Set([...DEFAULT_EXCLUDES, ...exclude, ...config.scan.exclude]);
   const maxSize = config.scan.maxFileSize;
   const filePaths: string[] = [];
-  walkDirectory(scanRoot, recursive, excludes, filePaths);
+  const unsupportedFiles: string[] = [];
+  walkDirectory(scanRoot, recursive, excludes, filePaths, unsupportedFiles);
 
   const scanResults: ScanResult[] = [];
   const skippedFiles: string[] = [];
   const fileHashes: Record<string, string> = {};
   const effectiveRules = rules ?? [];
+
+  const unsupportedTypeCount = unsupportedFiles.length;
 
   for (const filePath of filePaths) {
     try {
@@ -211,7 +214,12 @@ export function scanDirectory(
         low: allFindings.filter(f => f.rule.severity === "low").length,
         blocked: totalCritical > 0 || totalHigh > 0,
         grade, score,
-        ...(truncated ? { truncated: true, showing: MAX_JSON_FINDINGS, message: `Showing top ${MAX_JSON_FINDINGS} of ${allFindings.length} findings (sorted by severity). Use scan_file on individual files for full details.` } : {}),
+        ...(truncated ? { truncated: true, showing: MAX_JSON_FINDINGS, totalBeforeTruncation: allFindings.length, message: `Showing top ${MAX_JSON_FINDINGS} of ${allFindings.length} findings (sorted by severity). Use scan_file on individual files for full details.` } : {}),
+        filesSkippedReasons: {
+          tooLarge: skippedFiles.filter(r => r.includes("too large")).length,
+          readError: skippedFiles.filter(r => r.includes("read error")).length,
+          unsupportedType: unsupportedTypeCount,
+        },
       },
       metadata,
       findings: limitedFindings.map(f => ({
@@ -347,8 +355,15 @@ export function scanDirectory(
     lines.push(`## No Issues Found`, ``, `All files passed security checks.`);
   }
 
-  if (skippedFiles.length > 0) {
-    lines.push(``, `**Skipped files:** ${skippedFiles.length}`);
+  const totalSkipped = skippedFiles.length + unsupportedTypeCount;
+  if (totalSkipped > 0) {
+    const parts: string[] = [];
+    const tooLargeCount = skippedFiles.filter(r => r.includes("too large")).length;
+    const readErrorCount = skippedFiles.filter(r => r.includes("read error")).length;
+    if (tooLargeCount > 0) parts.push(`${tooLargeCount} too large (>${Math.round(maxSize / 1024)}KB)`);
+    if (readErrorCount > 0) parts.push(`${readErrorCount} read error`);
+    if (unsupportedTypeCount > 0) parts.push(`${unsupportedTypeCount} unsupported type`);
+    lines.push(``, `**${totalSkipped} files skipped:** ${parts.join(", ")}`);
   }
 
   // ── Priority Summary Table (always at the end, visible in terminal) ──
