@@ -793,6 +793,10 @@ server.tool(
       "fix_vulnerabilities",
       "compliance_mapping",
       "dependency_check",
+      "merge_to_main",
+      "publish_package",
+      "security_audit",
+      "incident_response",
     ]).describe("What you are currently doing"),
   },
   async ({ task }) => {
@@ -828,7 +832,7 @@ server.tool(
         task: "new_project",
         description: "Set up security for a new project.",
         steps: [
-          { tool: "scan_directory", params: { path: ".", format: "json" }, purpose: "Full project scan to establish baseline." },
+          { tool: "full_audit", params: { path: ".", format: "json" }, purpose: "Full project audit to establish security baseline." },
           { tool: "generate_policy", params: { path: "." }, purpose: "Auto-detect stack and generate security policies (CSP, CORS, RLS)." },
           { tool: "audit_config", params: { path: "." }, purpose: "Audit config files for security misconfigurations." },
           { tool: "guardvibe_doctor", params: { scope: "project" }, purpose: "Audit AI host security (hooks, MCP configs, env)." },
@@ -843,7 +847,7 @@ server.tool(
           { tool: "scan_file", params: { file_path: "<file>", format: "json" }, purpose: "Final scan to confirm file is clean.", condition: "after all fixes" },
         ],
       },
-      compliance_audit: {
+      compliance_mapping: {
         task: "compliance_mapping",
         description: "Map security findings to compliance framework controls. This identifies code-level issues relevant to specific controls — it does not replace professional compliance audits.",
         steps: [
@@ -857,6 +861,43 @@ server.tool(
         steps: [
           { tool: "scan_dependencies", params: { manifest_path: "package.json" }, purpose: "Check all dependencies against OSV database." },
           { tool: "check_package_health", params: { name: "<pkg>" }, purpose: "Check individual packages for typosquatting and maintenance status.", condition: "for suspicious packages" },
+        ],
+      },
+      merge_to_main: {
+        task: "merge_to_main",
+        description: "Security gate before merging to main/production branch.",
+        steps: [
+          { tool: "full_audit", params: { path: ".", format: "json" }, purpose: "Comprehensive audit — PASS verdict required before merge." },
+          { tool: "scan_secrets_history", params: { path: "." }, purpose: "Check git history for accidentally committed secrets." },
+          { tool: "compliance_report", params: { path: ".", framework: "SOC2", format: "json" }, purpose: "Verify compliance controls are maintained.", condition: "if compliance requirements exist" },
+        ],
+      },
+      publish_package: {
+        task: "publish_package",
+        description: "Security checks before publishing to npm/PyPI.",
+        steps: [
+          { tool: "full_audit", params: { path: ".", format: "json" }, purpose: "Full security audit of the package." },
+          { tool: "scan_dependencies", params: { manifest_path: "package.json" }, purpose: "Check all dependencies for known CVEs." },
+          { tool: "check_package_health", params: { name: "<package_name>" }, purpose: "Verify package health and supply chain safety." },
+          { tool: "scan_secrets", params: { path: ".", format: "json" }, purpose: "Ensure no secrets will be published." },
+        ],
+      },
+      security_audit: {
+        task: "security_audit",
+        description: "Comprehensive security audit — single tool covers everything.",
+        steps: [
+          { tool: "full_audit", params: { path: ".", format: "json" }, purpose: "Runs code scan, secret detection, dependency CVE check, config audit, taint analysis, and auth coverage in one call. Returns PASS/FAIL/WARN verdict with deterministic hash." },
+        ],
+      },
+      incident_response: {
+        task: "incident_response",
+        description: "Investigation workflow after a suspected security breach or incident.",
+        steps: [
+          { tool: "scan_secrets_history", params: { path: "." }, purpose: "Check if secrets were exposed in git history." },
+          { tool: "scan_secrets", params: { path: ".", format: "json" }, purpose: "Scan current codebase for exposed secrets." },
+          { tool: "guardvibe_doctor", params: { scope: "host" }, purpose: "Audit host environment for compromise indicators." },
+          { tool: "scan_directory", params: { path: ".", format: "json" }, purpose: "Full code scan for injected vulnerabilities." },
+          { tool: "full_audit", params: { path: ".", format: "json" }, purpose: "Complete audit to assess overall security posture." },
         ],
       },
     };
