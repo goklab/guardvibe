@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 334 security rules, 33 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 334 security rules, 34 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,7 +14,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **334 security rules, 33 tools** purpose-built for the stacks AI agents generate
+- **334 security rules, 34 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -220,6 +220,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 | `security_workflow` | Get recommended tool workflow for your current task (writing, pre-commit, PR review, etc.) |
 | `auth_coverage` | **Auth coverage map** — enumerate routes, parse middleware matchers, detect auth guards, report coverage % |
 | `deep_scan` | **LLM-powered deep analysis** — IDOR, business logic, race conditions, privilege escalation (requires API key) |
+| `full_audit` | **Single source of truth** — runs ALL checks in one call, returns PASS/FAIL/WARN verdict + score + coverage % + deterministic result hash |
 
 All scanning tools support `format: "json"` for machine-readable output.
 
