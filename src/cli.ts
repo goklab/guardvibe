@@ -27,6 +27,7 @@ function printUsage(): void {
     npx guardvibe diff [base]        Scan only changed files since a git ref
     npx guardvibe check <file>       Scan a single file for security issues
     npx guardvibe doctor [path]      Run host security audit
+    npx guardvibe audit [path]       Full security audit with PASS/FAIL verdict
     npx guardvibe init <platform>    Setup MCP server configuration
     npx guardvibe hook install       Install pre-commit security hook
     npx guardvibe hook uninstall     Remove pre-commit security hook
@@ -126,6 +127,9 @@ async function main(): Promise<void> {
   } else if (command === "doctor") {
     const { runDoctor } = await import("./cli/doctor.js");
     await runDoctor(subArgs);
+  } else if (command === "audit") {
+    const { runAudit } = await import("./cli/audit.js");
+    await runAudit(subArgs);
   } else {
     console.error(`  Unknown command: ${command}`);
     printUsage();
