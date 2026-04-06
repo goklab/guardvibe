@@ -44,6 +44,7 @@ import { formatHostFindings, redactSecrets } from "./server/types.js";
 import { verifyFix } from "./tools/verify-fix.js";
 import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js";
 import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
+import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
 
 const server = new McpServer({
   name: "guardvibe",
@@ -878,6 +879,36 @@ server.tool(
   async ({ files, middleware, format }) => {
     const report = analyzeAuthCoverage(files, middleware);
     const output = formatAuthCoverage(report, format);
+    return { content: [{ type: "text", text: output }] };
+  }
+);
+
+// Tool 32: LLM-powered deep scan
+server.tool(
+  "deep_scan",
+  "LLM-powered deep security analysis for vulnerabilities that pattern-matching cannot detect: IDOR, business logic flaws, race conditions, stale auth, mass assignment, privilege escalation. Requires ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable. Run pattern scan first, then use this for deeper analysis.",
+  {
+    code: z.string().describe("Code to analyze"),
+    language: z.string().describe("Programming language"),
+    context: z.string().optional().describe("Additional context (e.g., 'This is a payment endpoint')"),
+    existingFindings: z.array(z.string()).default([]).describe("Already-detected findings to avoid duplicating"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+  },
+  async ({ code, language, context, existingFindings, format }) => {
+    const prompt = buildDeepScanPrompt(code, language, existingFindings);
+    const llmResponse = await callLLM(context ? `${prompt}\n\nAdditional context: ${context}` : prompt);
+
+    if (llmResponse === null) {
+      return {
+        content: [{
+          type: "text",
+          text: "## Deep Scan — Setup Required\n\nNo LLM API key found. Set one of:\n- `ANTHROPIC_API_KEY` — uses Claude\n- `OPENAI_API_KEY` — uses GPT-4o\n\nThe deep scan sends code to the LLM API for semantic vulnerability analysis.",
+        }],
+      };
+    }
+
+    const findings = parseDeepScanResult(llmResponse);
+    const output = formatDeepScanFindings(findings, format);
     return { content: [{ type: "text", text: output }] };
   }
 );
