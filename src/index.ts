@@ -49,7 +49,7 @@ import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callL
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: "Security MCP for vibe coding. 334 security rules and 31 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, and host environment hardening. Scans code, dependencies, secrets, configs, and git history. Maps security findings to compliance controls (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration. Note: GuardVibe is a security scanner, not a compliance auditor — it helps identify code-level issues relevant to compliance frameworks but does not replace professional compliance audits.",
+  description: "Security MCP for vibe coding. 334 security rules and 33 tools covering OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host environment hardening, auth coverage mapping, and LLM-powered deep scan. Scans code, dependencies, secrets, configs, and git history. Maps security findings to compliance controls (SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act). Runs 100% locally with zero configuration (deep_scan requires optional API key). Note: GuardVibe is a security scanner, not a compliance auditor — it helps identify code-level issues relevant to compliance frameworks but does not replace professional compliance audits.",
 });
 
 // Tool 1: Analyze code for security vulnerabilities
