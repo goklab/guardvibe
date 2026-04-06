@@ -155,6 +155,20 @@ describe("cross-file taint analysis", () => {
       const imports = parseImports("src/routes/users.ts", "import { runQuery } from '../lib/db';");
       assert.equal(imports[0].source, "src/lib/db");
     });
+
+    it("parses CommonJS default require", () => {
+      const imports = parseImports("src/a.ts", "const db = require('./db');");
+      assert.equal(imports.length, 1);
+      assert.equal(imports[0].defaultName, "db");
+      assert.equal(imports[0].source, "src/db");
+    });
+
+    it("parses CommonJS destructured require", () => {
+      const imports = parseImports("src/a.ts", "const { runQuery, safeQuery } = require('./db');");
+      assert.equal(imports.length, 1);
+      assert.equal(imports[0].names.get("runQuery"), "runQuery");
+      assert.equal(imports[0].names.get("safeQuery"), "safeQuery");
+    });
   });
 
   describe("parseExports", () => {
@@ -178,6 +192,24 @@ describe("cross-file taint analysis", () => {
       const exp = parseExports("index.ts", "export { foo, bar as baz }");
       assert.equal(exp.names.get("foo"), "foo");
       assert.equal(exp.names.get("baz"), "bar");
+    });
+
+    it("parses CommonJS module.exports object", () => {
+      const exp = parseExports("db.ts", "module.exports = { runQuery, safeQuery }");
+      assert.equal(exp.names.get("runQuery"), "runQuery");
+      assert.equal(exp.names.get("safeQuery"), "safeQuery");
+    });
+
+    it("parses CommonJS module.exports function", () => {
+      const exp = parseExports("db.ts", "module.exports = handler;");
+      assert.equal(exp.hasDefault, true);
+      assert.equal(exp.defaultLocal, "handler");
+    });
+
+    it("parses CommonJS exports.name", () => {
+      const exp = parseExports("db.ts", "exports.runQuery = runQuery;\nexports.helper = helper;");
+      assert.equal(exp.names.get("runQuery"), "runQuery");
+      assert.equal(exp.names.get("helper"), "helper");
     });
   });
 
@@ -260,6 +292,40 @@ describe("cross-file taint analysis", () => {
       const pyFile = { path: "script.py", content: "print('hello')" };
       const { perFileFindings } = analyzeCrossFileTaint([pyFile, dbModule]);
       assert.equal(perFileFindings.has("script.py"), false);
+    });
+  });
+
+  // guardvibe-ignore — intentional vulnerable code samples for testing CommonJS cross-file taint flow
+  describe("CommonJS cross-file taint flow", () => {
+    it("detects taint across require() boundaries", () => {
+      const cjsDb = {
+        path: "lib/db.js",
+        content: [
+          "async function runQuery(sql) {",
+          "  const result = await pool.query(`${sql}`);",
+          "  return result.rows;",
+          "}",
+          "module.exports = { runQuery };",
+        ].join("\n"),
+      };
+
+      const cjsRoute = {
+        path: "routes/search.js",
+        content: [
+          "const { runQuery } = require('../lib/db');",
+          "",
+          "async function handler(req) {",
+          "  const query = req.query.q;",
+          "  const results = await runQuery(query);",
+          "  return results;",
+          "}",
+        ].join("\n"),
+      };
+
+      const { crossFileFindings } = analyzeCrossFileTaint([cjsDb, cjsRoute]);
+      assert(crossFileFindings.length > 0, "should detect taint across require() boundaries");
+      const finding = crossFileFindings.find(f => f.source.file === "routes/search.js");
+      assert(finding, "should find taint originating from CJS route");
     });
   });
 

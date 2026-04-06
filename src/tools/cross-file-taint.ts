@@ -168,6 +168,42 @@ function parseImports(file: string, content: string): ImportInfo[] {
         });
       }
     }
+
+    // CommonJS: const X = require('./mod') — default require
+    {
+      const re = /(?:const|let|var)\s+([\w$]+)\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(line)) !== null) {
+        imports.push({
+          importer: file,
+          source: normalizePath(file, m[2]),
+          names: new Map(),
+          defaultName: m[1].trim(),
+          line: i + 1,
+        });
+      }
+    }
+
+    // CommonJS: const { a, b } = require('./mod') — destructured require
+    {
+      const re = /(?:const|let|var)\s+\{([^}]+)\}\s*=\s*require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(line)) !== null) {
+        const names = new Map<string, string>();
+        for (const spec of m[1].split(",")) {
+          const parts = spec.trim().split(/\s*:\s*/);
+          const exported = parts[0].trim();
+          const local = (parts[1] ?? parts[0]).trim();
+          if (exported) names.set(local, exported);
+        }
+        imports.push({
+          importer: file,
+          source: normalizePath(file, m[2]),
+          names,
+          line: i + 1,
+        });
+      }
+    }
   }
 
   return imports;
@@ -221,6 +257,41 @@ function parseExports(file: string, content: string): ExportInfo {
       const m = re.exec(line);
       if (m && !/export\s+default/.test(line)) {
         names.set(m[1], m[1]);
+      }
+    }
+
+    // CommonJS: module.exports = { a, b }
+    {
+      const re = /module\.exports\s*=\s*\{([^}]+)\}/;
+      const m = re.exec(line);
+      if (m) {
+        for (const spec of m[1].split(",")) {
+          const parts = spec.trim().split(/\s*:\s*/);
+          const name = parts[0].trim();
+          const local = (parts[1] ?? parts[0]).trim();
+          if (name) names.set(name, local);
+        }
+      }
+    }
+
+    // CommonJS: module.exports = funcName (default export)
+    {
+      const re = /module\.exports\s*=\s*([\w$]+)\s*;?\s*$/;
+      const m = re.exec(line);
+      if (m && !line.includes("{")) {
+        hasDefault = true;
+        defaultLocal = m[1];
+      }
+    }
+
+    // CommonJS: exports.name = funcName
+    {
+      const re = /exports\.([\w$]+)\s*=\s*([\w$]+)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(line)) !== null) {
+        if (!line.startsWith("module.")) {
+          names.set(m[1], m[2]);
+        }
       }
     }
   }
