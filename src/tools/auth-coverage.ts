@@ -138,3 +138,124 @@ export function routeMatchesMatcher(urlPath: string, matchers: string[]): boolea
   }
   return false;
 }
+
+// --- Auth Guard Detection ---
+
+/**
+ * Detect if code contains an auth guard pattern (naming-agnostic).
+ * Reuses the same heuristics as check-code.ts.
+ */
+function hasAuthGuard(code: string): boolean {
+  // Auth library calls
+  if (/(?:getServerSession|getSession|getToken|auth|currentUser|getAuth)\s*\(/.test(code)) return true;
+  // Clerk, NextAuth, Supabase auth patterns
+  if (/(?:clerkClient|useAuth|useUser|createServerClient)/.test(code)) return true;
+  // Session/token checks
+  if (/(?:session|token|user)\s*(?:&&|!==?\s*null|\?\.)/.test(code)) return true;
+  // 401/403 responses indicating auth enforcement
+  if (/(?:status:\s*(?:401|403)|new\s+Response\s*\([^)]*(?:401|403)|Unauthorized|Forbidden)/.test(code)) return true;
+  // Broad: any function name containing auth/session/permission/guard
+  if (/await\s+(?:\w+\.)*\w*(?:auth|Auth|session|Session|permission|Permission|guard|Guard|verify|Verify|protect|Protect)\w*\s*\(/i.test(code)) return true;
+  return false;
+}
+
+// --- Coverage Report ---
+
+export interface AuthCoverageReport {
+  totalRoutes: number;
+  protectedRoutes: number;
+  unprotectedRoutes: number;
+  middlewareCoveragePercent: number;
+  routes: RouteInfo[];
+  unprotectedList: RouteInfo[];
+}
+
+/**
+ * Analyze auth coverage across all route files.
+ */
+export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: string): AuthCoverageReport {
+  const routes = enumerateRoutes(routeFiles);
+  const matchers = parseMiddlewareMatchers(middlewareContent);
+  const hasMiddleware = middlewareContent.length > 0;
+
+  // Map file content by path for auth detection
+  const contentByPath = new Map<string, string>();
+  for (const f of routeFiles) contentByPath.set(f.path, f.content);
+
+  let middlewareCoveredCount = 0;
+
+  for (const route of routes) {
+    // Auth guard detection on the route's source code
+    const content = contentByPath.get(route.filePath) ?? "";
+    route.hasAuthGuard = hasAuthGuard(content);
+
+    // Middleware coverage
+    if (hasMiddleware) {
+      route.middlewareCovered = routeMatchesMatcher(route.urlPath, matchers);
+      if (route.middlewareCovered) middlewareCoveredCount++;
+    }
+  }
+
+  const protectedRoutes = routes.filter(r => r.hasAuthGuard || r.middlewareCovered).length;
+  const unprotectedList = routes.filter(r => !r.hasAuthGuard && !r.middlewareCovered);
+
+  return {
+    totalRoutes: routes.length,
+    protectedRoutes,
+    unprotectedRoutes: unprotectedList.length,
+    middlewareCoveragePercent: routes.length > 0 ? Math.round((middlewareCoveredCount / routes.length) * 100) : 0,
+    routes,
+    unprotectedList,
+  };
+}
+
+/**
+ * Format auth coverage report as markdown or JSON.
+ */
+export function formatAuthCoverage(report: AuthCoverageReport, format: "markdown" | "json"): string {
+  if (format === "json") {
+    return JSON.stringify({
+      totalRoutes: report.totalRoutes,
+      protectedRoutes: report.protectedRoutes,
+      unprotectedRoutes: report.unprotectedRoutes,
+      middlewareCoveragePercent: report.middlewareCoveragePercent,
+      routes: report.routes.map(r => ({
+        urlPath: r.urlPath, method: r.method, hasAuthGuard: r.hasAuthGuard, middlewareCovered: r.middlewareCovered,
+      })),
+      unprotectedList: report.unprotectedList.map(r => ({
+        urlPath: r.urlPath, method: r.method, filePath: r.filePath,
+      })),
+    });
+  }
+
+  const lines = [
+    `## Auth Coverage Report`,
+    ``,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Total routes | ${report.totalRoutes} |`,
+    `| Protected (auth guard or middleware) | ${report.protectedRoutes} |`,
+    `| **Unprotected** | **${report.unprotectedRoutes}** |`,
+    `| Middleware coverage | ${report.middlewareCoveragePercent}% |`,
+    ``,
+  ];
+
+  if (report.unprotectedList.length > 0) {
+    lines.push(`### Unprotected Routes`);
+    lines.push(``);
+    for (const r of report.unprotectedList) {
+      lines.push(`- **${r.method}** \`${r.urlPath}\` — \`${r.filePath}\``);
+    }
+    lines.push(``);
+  }
+
+  lines.push(`### All Routes`);
+  lines.push(``);
+  lines.push(`| Route | Method | Auth Guard | Middleware |`);
+  lines.push(`|-------|--------|------------|-----------|`);
+  for (const r of report.routes) {
+    lines.push(`| \`${r.urlPath}\` | ${r.method} | ${r.hasAuthGuard ? "yes" : "no"} | ${r.middlewareCovered ? "yes" : "no"} |`);
+  }
+
+  return lines.join("\n");
+}

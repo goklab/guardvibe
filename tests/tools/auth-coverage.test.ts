@@ -1,6 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { enumerateRoutes, parseMiddlewareMatchers, routeMatchesMatcher, type RouteInfo } from "../../src/tools/auth-coverage.js";
+import {
+  enumerateRoutes,
+  parseMiddlewareMatchers,
+  routeMatchesMatcher,
+  analyzeAuthCoverage,
+  formatAuthCoverage,
+  type RouteInfo,
+} from "../../src/tools/auth-coverage.js";
 
 describe("auth-coverage", () => {
   describe("enumerateRoutes", () => {
@@ -109,6 +116,75 @@ describe("auth-coverage", () => {
 
     it("matches root-level path", () => {
       assert(routeMatchesMatcher("/dashboard", ["/dashboard/:path*"]));
+    });
+  });
+
+  describe("analyzeAuthCoverage", () => {
+    const routeFiles = [
+      { path: "app/api/users/route.ts", content: "import { auth } from '@clerk/nextjs';\nexport async function GET() {\n  const session = await auth();\n  if (!session) return new Response('Unauthorized', { status: 401 });\n}" },
+      { path: "app/api/public/route.ts", content: "export function GET() { return Response.json({ ok: true }); }" },
+      { path: "app/dashboard/page.tsx", content: "export default function Dashboard() { return <div />; }" },
+    ];
+    const middlewareContent = 'export const config = { matcher: ["/dashboard/:path*"] };';
+
+    it("produces coverage report with protected/unprotected counts", () => {
+      const report = analyzeAuthCoverage(routeFiles, middlewareContent);
+      assert(typeof report.totalRoutes === "number");
+      assert(typeof report.protectedRoutes === "number");
+      assert(typeof report.unprotectedRoutes === "number");
+      assert(report.totalRoutes >= 3);
+    });
+
+    it("detects auth guard in route with auth() call", () => {
+      const report = analyzeAuthCoverage(routeFiles, middlewareContent);
+      const usersRoute = report.routes.find(r => r.urlPath === "/api/users");
+      assert(usersRoute?.hasAuthGuard, "Route with auth() should be detected as protected");
+    });
+
+    it("flags route without auth guard as unprotected", () => {
+      const report = analyzeAuthCoverage(routeFiles, middlewareContent);
+      const publicRoute = report.routes.find(r => r.urlPath === "/api/public");
+      assert(!publicRoute?.hasAuthGuard, "Route without auth should be unprotected");
+    });
+
+    it("marks middleware-covered routes", () => {
+      const report = analyzeAuthCoverage(routeFiles, middlewareContent);
+      const dashboardRoute = report.routes.find(r => r.urlPath === "/dashboard");
+      assert(dashboardRoute?.middlewareCovered, "Dashboard should be middleware-covered");
+    });
+
+    it("flags routes outside middleware matcher", () => {
+      const report = analyzeAuthCoverage(routeFiles, middlewareContent);
+      const apiRoute = report.routes.find(r => r.urlPath === "/api/public");
+      assert(!apiRoute?.middlewareCovered, "API route outside matcher should not be middleware-covered");
+    });
+
+    it("provides middleware coverage percentage", () => {
+      const report = analyzeAuthCoverage(routeFiles, middlewareContent);
+      assert(typeof report.middlewareCoveragePercent === "number");
+      assert(report.middlewareCoveragePercent >= 0 && report.middlewareCoveragePercent <= 100);
+    });
+  });
+
+  describe("formatAuthCoverage", () => {
+    it("markdown format includes summary", () => {
+      const routeFiles = [
+        { path: "app/api/test/route.ts", content: "export function GET() {}" },
+      ];
+      const report = analyzeAuthCoverage(routeFiles, "");
+      const output = formatAuthCoverage(report, "markdown");
+      assert(output.includes("Auth Coverage"));
+    });
+
+    it("json format is valid", () => {
+      const routeFiles = [
+        { path: "app/api/test/route.ts", content: "export function GET() {}" },
+      ];
+      const report = analyzeAuthCoverage(routeFiles, "");
+      const output = formatAuthCoverage(report, "json");
+      const parsed = JSON.parse(output);
+      assert(typeof parsed.totalRoutes === "number");
+      assert(Array.isArray(parsed.routes));
     });
   });
 });
