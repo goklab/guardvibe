@@ -166,6 +166,61 @@ describe("auth-coverage", () => {
     });
   });
 
+  describe("layout-level auth detection", () => {
+    it("layout with auth() protects all child routes", () => {
+      const routeFiles = [
+        { path: "app/dashboard/settings/page.tsx", content: "export default function Settings() { return <div />; }" },
+        { path: "app/dashboard/profile/page.tsx", content: "export default function Profile() { return <div />; }" },
+      ];
+      const layoutFiles = [
+        { path: "app/dashboard/layout.tsx", content: "import { auth } from '@clerk/nextjs';\nexport default async function Layout({ children }) {\n  const session = await auth();\n  if (!session) redirect('/login');\n  return <div>{children}</div>;\n}" },
+      ];
+      const report = analyzeAuthCoverage(routeFiles, "", layoutFiles);
+      assert.equal(report.protectedRoutes, 2, "both child routes should be protected by layout");
+      assert.equal(report.unprotectedRoutes, 0);
+      const settingsRoute = report.routes.find(r => r.urlPath === "/dashboard/settings");
+      assert.equal(settingsRoute?.protectionSource, "layout");
+    });
+
+    it("layout without auth does not protect children", () => {
+      const routeFiles = [
+        { path: "app/dashboard/page.tsx", content: "export default function Dashboard() { return <div />; }" },
+      ];
+      const layoutFiles = [
+        { path: "app/dashboard/layout.tsx", content: "export default function Layout({ children }) { return <div>{children}</div>; }" },
+      ];
+      const report = analyzeAuthCoverage(routeFiles, "", layoutFiles);
+      assert.equal(report.unprotectedRoutes, 1, "route should remain unprotected");
+    });
+
+    it("nested layout with auth overrides parent", () => {
+      const routeFiles = [
+        { path: "app/admin/users/page.tsx", content: "export default function Users() { return <div />; }" },
+        { path: "app/public/page.tsx", content: "export default function Public() { return <div />; }" },
+      ];
+      const layoutFiles = [
+        { path: "app/admin/layout.tsx", content: "const session = await auth();\nexport default function Layout({ children }) { return <div>{children}</div>; }" },
+      ];
+      const report = analyzeAuthCoverage(routeFiles, "", layoutFiles);
+      const adminRoute = report.routes.find(r => r.urlPath === "/admin/users");
+      assert.equal(adminRoute?.protectionSource, "layout", "admin route protected by layout");
+      const publicRoute = report.routes.find(r => r.urlPath === "/public");
+      assert.equal(publicRoute?.protectionSource, "none", "public route not protected");
+    });
+
+    it("route with direct auth guard keeps auth-guard source", () => {
+      const routeFiles = [
+        { path: "app/api/admin/route.ts", content: "import { auth } from '@clerk/nextjs';\nexport async function GET() { const s = await auth(); }" },
+      ];
+      const layoutFiles = [
+        { path: "app/api/layout.tsx", content: "const session = await auth();\nexport default function Layout({ children }) { return children; }" },
+      ];
+      const report = analyzeAuthCoverage(routeFiles, "", layoutFiles);
+      const route = report.routes.find(r => r.urlPath === "/api/admin");
+      assert.equal(route?.protectionSource, "auth-guard", "direct auth guard takes precedence");
+    });
+  });
+
   describe("formatAuthCoverage", () => {
     it("markdown format includes summary", () => {
       const routeFiles = [

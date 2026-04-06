@@ -9,6 +9,7 @@ export interface RouteInfo {
   method: string; // GET, POST, PUT, DELETE, PATCH, PAGE, LAYOUT
   hasAuthGuard: boolean;
   middlewareCovered: boolean;
+  protectionSource: "auth-guard" | "middleware" | "layout" | "none";
 }
 
 export interface FileEntry {
@@ -78,6 +79,7 @@ export function enumerateRoutes(files: FileEntry[]): RouteInfo[] {
           method,
           hasAuthGuard: false,
           middlewareCovered: false,
+          protectionSource: "none",
         });
       }
     } else if (isPage) {
@@ -87,6 +89,7 @@ export function enumerateRoutes(files: FileEntry[]): RouteInfo[] {
         method: "PAGE",
         hasAuthGuard: false,
         middlewareCovered: false,
+        protectionSource: "none",
       });
     }
   }
@@ -173,7 +176,7 @@ export interface AuthCoverageReport {
 /**
  * Analyze auth coverage across all route files.
  */
-export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: string): AuthCoverageReport {
+export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: string, layoutFiles?: FileEntry[]): AuthCoverageReport {
   const routes = enumerateRoutes(routeFiles);
   const matchers = parseMiddlewareMatchers(middlewareContent);
   const hasMiddleware = middlewareContent.length > 0;
@@ -188,11 +191,52 @@ export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: 
     // Auth guard detection on the route's source code
     const content = contentByPath.get(route.filePath) ?? "";
     route.hasAuthGuard = hasAuthGuard(content);
+    if (route.hasAuthGuard) route.protectionSource = "auth-guard";
 
     // Middleware coverage
     if (hasMiddleware) {
       route.middlewareCovered = routeMatchesMatcher(route.urlPath, matchers);
-      if (route.middlewareCovered) middlewareCoveredCount++;
+      if (route.middlewareCovered) {
+        middlewareCoveredCount++;
+        if (route.protectionSource === "none") route.protectionSource = "middleware";
+      }
+    }
+  }
+
+  // Layout-level auth detection
+  if (layoutFiles && layoutFiles.length > 0) {
+    const layoutAuth = new Map<string, boolean>();
+    for (const layout of layoutFiles) {
+      const dir = layout.path.replace(/\/layout\.(ts|tsx|js|jsx)$/, "");
+      layoutAuth.set(dir, hasAuthGuard(layout.content));
+    }
+
+    for (const route of routes) {
+      if (route.hasAuthGuard || route.middlewareCovered) continue;
+
+      // Walk up the directory tree looking for layout with auth
+      const routeDir = route.filePath.replace(/\/(?:route|page)\.(ts|tsx|js|jsx)$/, "");
+      let checkDir = routeDir;
+      while (checkDir) {
+        if (layoutAuth.get(checkDir)) {
+          route.hasAuthGuard = true;
+          route.protectionSource = "layout";
+          break;
+        }
+        const lastSlash = checkDir.lastIndexOf("/");
+        if (lastSlash <= 0) break;
+        checkDir = checkDir.substring(0, lastSlash);
+      }
+      // Also check if any layout directory is a prefix of the route path
+      if (!route.hasAuthGuard && !route.middlewareCovered) {
+        for (const [dir, hasAuth] of layoutAuth) {
+          if (hasAuth && route.filePath.startsWith(dir + "/")) {
+            route.hasAuthGuard = true;
+            route.protectionSource = "layout";
+            break;
+          }
+        }
+      }
     }
   }
 
@@ -220,7 +264,7 @@ export function formatAuthCoverage(report: AuthCoverageReport, format: "markdown
       unprotectedRoutes: report.unprotectedRoutes,
       middlewareCoveragePercent: report.middlewareCoveragePercent,
       routes: report.routes.map(r => ({
-        urlPath: r.urlPath, method: r.method, hasAuthGuard: r.hasAuthGuard, middlewareCovered: r.middlewareCovered,
+        urlPath: r.urlPath, method: r.method, hasAuthGuard: r.hasAuthGuard, middlewareCovered: r.middlewareCovered, protectionSource: r.protectionSource,
       })),
       unprotectedList: report.unprotectedList.map(r => ({
         urlPath: r.urlPath, method: r.method, filePath: r.filePath,
