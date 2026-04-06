@@ -263,6 +263,11 @@ npx guardvibe scan . --format json   # JSON output for automation
 npx guardvibe check <file>           # Scan a single file
 npx guardvibe diff [base]            # Scan only changed files since git ref
 
+# Full security audit
+npx guardvibe audit [path]           # Full audit with PASS/FAIL verdict + hash
+npx guardvibe audit . --format json  # JSON output for CI pipelines
+npx guardvibe audit --skip-deps      # Skip dependency CVE check
+
 # Host security audit
 npx guardvibe doctor                 # Host hardening audit (project scope)
 npx guardvibe doctor --scope host    # + shell profiles, global MCP configs
