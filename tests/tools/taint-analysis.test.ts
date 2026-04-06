@@ -136,4 +136,51 @@ describe("taint analysis", () => {
     const findings = analyzeTaint(sqlInjectionViaVar, "typescript");
     assert(findings.every(f => ["critical", "high", "medium"].includes(f.severity)));
   });
+
+  // --- Sanitizer awareness ---
+  // guardvibe-ignore — test strings contain intentional vulnerable patterns for sanitizer detection testing
+
+  it("DOMPurify.sanitize clears taint for XSS sink", () => {
+    const code = [
+      "const raw = req.body.content;",
+      "const safe = DOMPurify.sanitize(raw);",
+      'document.getElementById("out").innerHTML = safe;',
+    ].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(!findings.some(f => f.sink.type === "xss" && f.source.variable === "safe"),
+      "Sanitized variable should not be flagged for XSS");
+  });
+
+  it("parseInt clears taint for SQL sink", () => {
+    const code = [
+      "const raw = req.params.id;",
+      "const id = parseInt(raw);",
+      "const result = await db.query(`SELECT * FROM users WHERE id = ${id}`);",
+    ].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(!findings.some(f => f.source.variable === "id"),
+      "parseInt-sanitized variable should not be flagged");
+  });
+
+  it("encodeURIComponent clears taint", () => {
+    const code = [
+      "const raw = req.body.input;",
+      "const encoded = encodeURIComponent(raw);",
+      'document.getElementById("out").innerHTML = encoded;',
+    ].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(!findings.some(f => f.source.variable === "encoded"),
+      "encodeURIComponent should clear taint");
+  });
+
+  it("unsanitized variable still flagged", () => {
+    const code = [
+      "const raw = req.body.content;",
+      "const trimmed = raw.trim();",
+      'document.getElementById("out").innerHTML = trimmed;',
+    ].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(findings.some(f => f.sink.type === "xss"),
+      "Unsanitized data should still be flagged");
+  });
 });

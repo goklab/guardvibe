@@ -54,6 +54,20 @@ const TAINT_SINKS = [
     fix: "Validate file paths against an allowlist. Use path.resolve() and check prefix." },
 ];
 
+// Known sanitizers that neutralize taint
+const SANITIZERS = [
+  /DOMPurify\.sanitize\s*\(/,
+  /escapeHtml\s*\(/,
+  /encodeURIComponent\s*\(/,
+  /encodeURI\s*\(/,
+  /parseInt\s*\(/,
+  /Number\s*\(/,
+  /parseFloat\s*\(/,
+  /validator\.escape\s*\(/,
+  /sanitizeHtml\s*\(/,
+  /xss\s*\(/,
+];
+
 interface VariableAssignment {
   name: string;
   line: number;
@@ -72,14 +86,19 @@ function extractAssignments(lines: string[]): VariableAssignment[] {
     const varName = match[1];
     const value = match[2];
 
+    // Check if value is wrapped in a known sanitizer — if so, it's not tainted
+    const isSanitized = SANITIZERS.some(s => s.test(value));
+
     let tainted = false;
     let sourceType: string | undefined;
-    for (const source of TAINT_SOURCES) {
-      source.pattern.lastIndex = 0;
-      if (source.pattern.test(value)) {
-        tainted = true;
-        sourceType = source.type;
-        break;
+    if (!isSanitized) {
+      for (const source of TAINT_SOURCES) {
+        source.pattern.lastIndex = 0;
+        if (source.pattern.test(value)) {
+          tainted = true;
+          sourceType = source.type;
+          break;
+        }
       }
     }
 
@@ -100,6 +119,9 @@ function propagateTaint(assignments: VariableAssignment[], lines: string[]): voi
     for (const assignment of assignments) {
       if (assignment.tainted) continue;
       const lineContent = lines[assignment.line - 1] ?? "";
+      // Skip propagation if the value is wrapped in a sanitizer
+      const isSanitized = SANITIZERS.some(s => s.test(lineContent));
+      if (isSanitized) continue;
       for (const name of taintedNames) {
         if (lineContent.includes(name) && name !== assignment.name) {
           assignment.tainted = true;
