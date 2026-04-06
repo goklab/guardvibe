@@ -213,10 +213,9 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
     console.log(result);
   }
 
-  if (flags["fail-on"]) {
-    const failOn = getStringFlag(flags, "fail-on") ?? "critical";
-    if (shouldFail(result, failOn)) process.exit(1);
-  }
+  // check command defaults to --fail-on critical (security tool should exit 1 for critical findings)
+  const failOn = getStringFlag(flags, "fail-on") ?? "critical";
+  if (shouldFail(result, failOn)) process.exit(1);
 }
 
 export async function handleScanCommand(args: string[]): Promise<void> {
