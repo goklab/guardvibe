@@ -2,7 +2,7 @@
   "name": "guardvibe",
   "version": "3.0.1",
   "mcpName": "io.github.goklab/guardvibe",
-  "description": "Security MCP for vibe coding. 334 rules, 31 tools, CLI + doctor. Host security: CVE-2025-59536 hook injection, CVE-2026-21852 base URL hijack, MCP config audit, AI host hardening. Plus Next.js, Supabase, Clerk, Stripe, Prisma, tRPC, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK, and the full AI-generated stack.",
+  "description": "Security MCP for vibe coding. 334 rules, 33 tools, CLI + doctor. Host security, auth coverage mapping, LLM-powered deep scan (IDOR/business logic), taint analysis. Plus Next.js, Supabase, Clerk, Stripe, Prisma, tRPC, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK, and the full AI-generated stack.",
   "type": "module",
   "bin": {
     "guardvibe": "build/cli.js",
