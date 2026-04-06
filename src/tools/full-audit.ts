@@ -14,8 +14,8 @@ import { scanDirectory } from "./scan-directory.js";
 import { scanSecrets } from "./scan-secrets.js";
 import { scanDependencies } from "./scan-dependencies.js";
 import { auditConfig } from "./audit-config.js";
-import { analyzeCrossFileTaint, formatCrossFileTaintFindings } from "./cross-file-taint.js";
-import { analyzeAuthCoverage, formatAuthCoverage } from "./auth-coverage.js";
+import { analyzeCrossFileTaint } from "./cross-file-taint.js";
+import { analyzeAuthCoverage } from "./auth-coverage.js";
 import { getRules } from "../utils/rule-registry.js";
 
 // --- Types ---

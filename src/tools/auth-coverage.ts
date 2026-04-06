@@ -123,7 +123,7 @@ export function parseMiddlewareMatchers(content: string): string[] {
  * Handles :path* and :param patterns.
  */
 function matcherToRegex(pattern: string): RegExp {
-  let regexStr = pattern
+  const regexStr = pattern
     .replace(/\/:[\w]+\*/g, "(?:/.*)?")
     .replace(/:[\w]+/g, "[^/]+");
   return new RegExp("^" + regexStr + "$");
