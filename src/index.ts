@@ -43,6 +43,7 @@ import { doctor } from "./tools/doctor.js";
 import { formatHostFindings, redactSecrets } from "./server/types.js";
 import { verifyFix } from "./tools/verify-fix.js";
 import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js";
+import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
 
 const server = new McpServer({
   name: "guardvibe",
@@ -859,6 +860,25 @@ server.tool(
     };
 
     return { content: [{ type: "text", text: JSON.stringify(workflows[task]) }] };
+  }
+);
+
+// Tool 31: Auth coverage map
+server.tool(
+  "auth_coverage",
+  "Analyze authentication coverage across all Next.js App Router routes. Enumerates API routes and pages, parses middleware matchers, detects auth guards (Clerk, NextAuth, Supabase, custom), and reports which routes are protected vs unprotected. Use this to find gaps in your auth layer.",
+  {
+    files: z.array(z.object({
+      path: z.string().describe("File path relative to project root (e.g. app/api/users/route.ts)"),
+      content: z.string().describe("File source code"),
+    })).describe("Route and page files from app/ directory"),
+    middleware: z.string().default("").describe("Content of middleware.ts file (empty if none)"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+  },
+  async ({ files, middleware, format }) => {
+    const report = analyzeAuthCoverage(files, middleware);
+    const output = formatAuthCoverage(report, format);
+    return { content: [{ type: "text", text: output }] };
   }
 );
 
