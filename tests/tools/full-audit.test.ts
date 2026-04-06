@@ -5,6 +5,7 @@ import {
   computeCoverage,
   computeResultHash,
   runFullAudit,
+  formatAuditResult,
   type AuditResult,
 } from "../../src/tools/full-audit.js";
 
@@ -122,6 +123,45 @@ describe("full-audit", () => {
       assert(names.includes("code"), "Should have code section");
       assert(names.includes("secrets"), "Should have secrets section");
       assert(names.includes("config"), "Should have config section");
+    });
+  });
+
+  describe("formatAuditResult", () => {
+    it("markdown contains verdict and score", async () => {
+      const result = await runFullAudit(".");
+      const output = formatAuditResult(result, "markdown");
+      assert(output.includes(result.verdict), "Should contain verdict");
+      assert(output.includes("Score"), "Should contain score");
+      assert(output.includes("Coverage"), "Should contain coverage");
+      assert(output.includes(result.resultHash), "Should contain result hash");
+    });
+
+    it("json format is valid and complete", async () => {
+      const result = await runFullAudit(".");
+      const output = formatAuditResult(result, "json");
+      const parsed = JSON.parse(output);
+      assert.equal(parsed.verdict, result.verdict);
+      assert.equal(parsed.resultHash, result.resultHash);
+      assert(Array.isArray(parsed.sections));
+      assert(typeof parsed.coverage === "object");
+    });
+
+    it("markdown shows action items when findings exist", async () => {
+      // Create a mock result with findings
+      const mockResult: AuditResult = {
+        verdict: "FAIL",
+        score: 45,
+        grade: "D",
+        coverage: { filesScanned: 10, filesSkipped: 2, totalFiles: 12, coveragePercent: 83, rulesApplied: 334 },
+        resultHash: "abc123def456gh78",
+        timestamp: new Date().toISOString(),
+        sections: [{ name: "code", findings: 3, critical: 1, high: 1, medium: 1, details: "3 issues" }],
+        summary: { totalFindings: 3, critical: 1, high: 1, medium: 1 },
+        actionItems: ["Fix 1 critical finding(s) immediately", "Address 1 high severity finding(s)"],
+      };
+      const output = formatAuditResult(mockResult, "markdown");
+      assert(output.includes("FAIL"), "Should show FAIL verdict");
+      assert(output.includes("Action"), "Should show action items");
     });
   });
 });

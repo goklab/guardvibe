@@ -297,3 +297,71 @@ export async function runFullAudit(
     actionItems,
   };
 }
+
+// --- Formatter ---
+
+/**
+ * Format audit result as markdown or JSON.
+ */
+export function formatAuditResult(result: AuditResult, format: "markdown" | "json"): string {
+  if (format === "json") {
+    return JSON.stringify(result);
+  }
+
+  const verdictLabel: Record<AuditVerdict, string> = {
+    PASS: "PASS — Project verified secure",
+    WARN: "WARN — High severity issues found",
+    FAIL: "FAIL — Critical security issues detected",
+  };
+
+  const lines = [
+    `# GuardVibe Full Audit Report`,
+    ``,
+    `## Verdict: ${result.verdict}`,
+    ``,
+    `**${verdictLabel[result.verdict]}**`,
+    ``,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Score | ${result.grade} (${result.score}/100) |`,
+    `| Total findings | ${result.summary.totalFindings} |`,
+    `| Critical | ${result.summary.critical} |`,
+    `| High | ${result.summary.high} |`,
+    `| Medium | ${result.summary.medium} |`,
+    `| Result hash | \`${result.resultHash}\` |`,
+    ``,
+    `## Coverage`,
+    ``,
+    `| Metric | Value |`,
+    `|--------|-------|`,
+    `| Files scanned | ${result.coverage.filesScanned} |`,
+    `| Files skipped | ${result.coverage.filesSkipped} |`,
+    `| Coverage | ${result.coverage.coveragePercent}% |`,
+    `| Rules applied | ${result.coverage.rulesApplied} |`,
+    ``,
+    `## Sections`,
+    ``,
+    `| Section | Findings | Critical | High | Medium | Details |`,
+    `|---------|----------|----------|------|--------|---------|`,
+  ];
+
+  for (const s of result.sections) {
+    lines.push(`| ${s.name} | ${s.findings} | ${s.critical} | ${s.high} | ${s.medium} | ${s.details} |`);
+  }
+
+  if (result.actionItems.length > 0) {
+    lines.push(``);
+    lines.push(`## Action Items`);
+    lines.push(``);
+    for (const item of result.actionItems) {
+      lines.push(`- ${item}`);
+    }
+  }
+
+  lines.push(``);
+  lines.push(`---`);
+  lines.push(`Timestamp: ${result.timestamp}`);
+  lines.push(`Result hash: \`${result.resultHash}\` (same code + same GuardVibe version = same hash)`);
+
+  return lines.join("\n");
+}
