@@ -57,21 +57,33 @@ describe("Modern Stack Security Rules", () => {
   // Server-Only
   // =====================================================
   describe("VG964 - Missing server-only import", () => {
-    it("detects server code without server-only guard", () => {
+    it("detects server code without server-only guard in Next.js context", () => {
       assert(hasRule(
-        `const key = process.env.SECRET_KEY;\nconst users = await prisma.user.findMany();`,
+        `import { NextResponse } from 'next/server';\nconst key = process.env.SECRET_KEY;\nconst users = await prisma.user.findMany();`,
         "VG964"
       ));
     });
     it("allows code with server-only import", () => {
       assert(!hasRule(
-        `import "server-only";\nconst key = process.env.SECRET_KEY;\nconst users = await prisma.user.findMany();`,
+        `import { NextResponse } from 'next/server';\nimport "server-only";\nconst key = process.env.SECRET_KEY;\nconst users = await prisma.user.findMany();`,
         "VG964"
       ));
     });
     it('allows code with "use server" directive', () => {
       assert(!hasRule(
-        `"use server";\nconst key = process.env.SECRET_KEY;\nconst users = await prisma.user.findMany();`,
+        `"use server";\nimport { NextResponse } from 'next/server';\nconst key = process.env.SECRET_KEY;\nconst users = await prisma.user.findMany();`,
+        "VG964"
+      ));
+    });
+    it("does NOT fire on plain Node.js (no Next.js imports)", () => {
+      assert(!hasRule(
+        `require('dotenv').config();\nconst key = process.env.SECRET_KEY;\nmodule.exports = { db: prisma };`,
+        "VG964"
+      ));
+    });
+    it("does NOT fire on CommonJS Node.js with prisma", () => {
+      assert(!hasRule(
+        `const prisma = require('@prisma/client');\nconst key = process.env.SECRET_KEY;\nawait prisma.user.findMany();`,
         "VG964"
       ));
     });

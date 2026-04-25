@@ -19,8 +19,8 @@ const GUARDVIBE_MCP_CONFIG = {
 
 const platforms: Record<string, { path: string; description: string }> = {
   claude: {
-    path: join(process.cwd(), ".claude.json"),
-    description: "Claude Code (.claude.json)",
+    path: join(process.cwd(), ".mcp.json"),
+    description: "Claude Code (.mcp.json)",
   },
   gemini: {
     path: join(homedir(), ".gemini", "settings.json"),
@@ -164,7 +164,7 @@ function setupSecurityGuide(platformName: string): void {
   else if (platformName === "gemini") setupGeminiGuide();
 
   const gitignoreEntries: Record<string, string[]> = {
-    claude: [".claude.json", ".claude/", "CLAUDE.md"],
+    claude: [".mcp.json", ".claude/", "CLAUDE.md"],
     cursor: [".cursor/", ".cursorrules"],
     gemini: ["GEMINI.md"],
   };

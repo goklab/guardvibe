@@ -161,7 +161,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "Authentication or API endpoints without rate limiting are vulnerable to brute force attacks.",
     pattern:
-      /(?:app|router)\.\s*(?:get|post|put|delete|patch|use)\s*\(\s*['"](?:\/login|\/auth|\/signin|\/register|\/signup|\/forgot-password)/gi,
+      /(?:app|router)\.\s*(?:get|post|put|delete|patch|use)\s*\(\s*['"](?:\/login|\/auth|\/signin|\/register|\/signup|\/forgot-password)['"]\s*,(?!\s*(?:\w*[Ll]imiter|\w*[Tt]hrottle|\w*[Rr]ate[Ll]imit|\w*[Bb]rute|\w*[Ss]low[Dd]own))/gi,
     languages: ["javascript", "typescript", "python", "go"],
     fix: "Add rate limiting middleware. Express: npm install express-rate-limit. FastAPI: use slowapi. Apply stricter limits on auth endpoints (e.g. 5 requests/minute).",
     fixCode: "// Express rate limiting\nimport rateLimit from 'express-rate-limit';\napp.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));",
@@ -226,7 +226,7 @@ export const coreRules: SecurityRule[] = [
     severity: "high",
     owasp: "A07:2025 Auth Failures",
     description: "JWT token created without expiration time.",
-    pattern: /jwt\.sign\s*\([^)]*(?!\bexpiresIn\b)[^)]*\)/gi,
+    pattern: /jwt\.sign\s*\((?:(?!\bexpiresIn\b)[^)])*\)/gi,
     languages: ["javascript", "typescript"],
     fix: "Always set token expiration: jwt.sign(payload, secret, { expiresIn: '15m' }).",
     fixCode: "// Always set expiration\nconst token = jwt.sign(payload, secret, { expiresIn: '15m' });",

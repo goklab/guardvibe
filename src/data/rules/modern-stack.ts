@@ -78,7 +78,7 @@ export const modernStackRules: SecurityRule[] = [
     owasp: "A01:2025 Broken Access Control",
     description:
       'File contains sensitive server-side logic (database queries, secret access) but does not import "server-only". Without this guard, the module can be accidentally imported by a Client Component, leaking server code to the browser bundle.',
-    pattern: /^(?![\s\S]*?(?:['"]server-only['"]|['"]use server['"]|['"]use client['"])[\s\S]*?)[\s\S]*?(?:process\.env\.(?!NEXT_PUBLIC_)\w+(?:_KEY|_SECRET|_TOKEN)|(?:prisma|db|supabase)\.(?:query|from|\$queryRaw))/g,
+    pattern: /^(?=[\s\S]*?(?:from\s+['"]next(?:\/[^'"]*)?['"]|require\s*\(\s*['"]next(?:\/[^'"]*)?['"]))(?![\s\S]*?(?:['"]server-only['"]|['"]use server['"]|['"]use client['"])[\s\S]*?)[\s\S]*?(?:process\.env\.(?!NEXT_PUBLIC_)\w+(?:_KEY|_SECRET|_TOKEN)|(?:prisma|db|supabase)\.(?:query|from|\$queryRaw))/g,
     languages: ["javascript", "typescript"],
     fix: 'Add import "server-only" at the top of files that contain server-side logic.',
     fixCode:
