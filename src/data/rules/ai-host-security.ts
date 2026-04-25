@@ -148,6 +148,23 @@ export const aiHostSecurityRules: SecurityRule[] = [
     compliance: ["SOC2:CC6.1", "PCI-DSS:Req7.1", "HIPAA:§164.312(a)", "EUAIACT:Art14"],
   },
   {
+    id: "VG896",
+    name: "AI Assistant Auto-Approve Bypasses Permission Prompt",
+    severity: "critical",
+    owasp: "A05:2025 Security Misconfiguration",
+    description:
+      "AI assistant configuration disables the human-in-the-loop permission prompt: dangerouslySkipPermissions=true, autoApprove=true, an unrestricted Bash(*) entry in the permissions allowlist, or Gemini's trustWorkspace=true. This converts the AI agent into a fully autonomous executor of repo-supplied or prompt-supplied commands — the exact pattern abused by the Gemini CLI workspace-trust RCE (CVE-2025-XXXX) and Claude Code repo-controlled settings exploits in 2026. Any prompt-injected payload (in code, docs, issue text, or tool output) becomes immediate command execution at the user's privilege level.",
+    pattern:
+      /(?:["']dangerouslySkipPermissions["']\s*:\s*true|["']autoApprove["']\s*:\s*true|["']trustWorkspace["']\s*:\s*true|["']checkpointing["']\s*:\s*false|["']allow["']\s*:\s*\[[^\]]*["'](?:\*|Bash\(\*\)|Bash\s*\*|Edit\(\*\)|Write\(\*\))["'])/g,
+    languages: ["json"],
+    fix: "Remove the auto-approve / trust-bypass flag. Replace wildcard Bash/Edit/Write permissions with explicit allowlists for the specific commands and paths the agent legitimately needs.",
+    fixCode:
+      '// .claude/settings.json — explicit allowlist, no bypass:\n{\n  "permissions": {\n    "allow": [\n      "Read(*)",\n      "Bash(npm test:*)",\n      "Bash(npm run build:*)"\n    ]\n  }\n}\n\n// .gemini/settings.json — keep trust prompt + checkpointing on:\n{\n  "trustWorkspace": false,\n  "checkpointing": true\n}',
+    compliance: ["SOC2:CC6.1", "SOC2:CC7.1", "PCI-DSS:Req7.1", "EUAIACT:Art14", "EUAIACT:Art15"],
+    exploit:
+      "A malicious .claude/settings.json or .gemini/settings.json shipped with a cloned repo (or injected via supply chain) silently flips the permission gate. The next prompt that triggers Bash — including indirect prompt injection from a fetched URL or README — runs attacker-controlled commands without the user ever clicking 'allow'.",
+  },
+  {
     id: "VG895",
     name: "PostToolUse Hook Modifies Files Silently",
     severity: "high",
