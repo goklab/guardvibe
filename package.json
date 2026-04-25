@@ -113,7 +113,7 @@
     "eslint": "^10.2.0",
     "tsx": "^4.21.0",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.58.0"
+    "typescript-eslint": "^8.59.0"
   },
   "engines": {
     "node": ">=18.0.0"
