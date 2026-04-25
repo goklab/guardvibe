@@ -143,6 +143,12 @@ describe("Core Rules", () => {
     it("ignores non-auth route", () => {
       testRule("VG030", "app.get('/api/items', handler)", "javascript", false);
     });
+    it("does NOT match login route with rate limiter middleware", () => {
+      testRule("VG030", "app.post('/login', loginLimiter, handler)", "javascript", false);
+    });
+    it("does NOT match login route with rateLimit middleware", () => {
+      testRule("VG030", "app.post('/login', rateLimit({ max: 5 }), handler)", "javascript", false);
+    });
   });
 
   describe("VG040 - CORS wildcard", () => {
@@ -221,8 +227,11 @@ describe("Core Rules", () => {
     it("detects jwt.sign without expiresIn", () => {
       testRule("VG061", "jwt.sign(payload, secret)", "javascript", true);
     });
-    it("also matches jwt.sign with expiresIn (regex backtracking)", () => {
-      testRule("VG061", "jwt.sign(payload, secret, { expiresIn: '15m' })", "javascript", true);
+    it("does NOT match jwt.sign with expiresIn", () => {
+      testRule("VG061", "jwt.sign(payload, secret, { expiresIn: '15m' })", "javascript", false);
+    });
+    it("does NOT match jwt.sign with expiresIn on multi-arg call", () => {
+      testRule("VG061", "jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '1h' })", "javascript", false);
     });
   });
 

@@ -144,7 +144,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     description:
       "Password is compared using direct string equality (=== or ==) instead of a hashing function. This means passwords are stored or transmitted in plaintext.",
     pattern:
-      /(?:password|passwd|pwd)\s*(?:===|!==|==|!=)\s*(?:(?:req|request|body|input|data|form|user)[\.\[]|["'])/gi,
+      /(?<!typeof\s)(?:password|passwd|pwd)\s*(?:===|!==|==|!=)\s*(?:(?:req|request|body|input|data|form|user)[\.\[]|["'](?!(?:string|number|boolean|undefined|object|function|symbol|bigint)["']))/gi,
     languages: ["javascript", "typescript", "python"],
     fix: "Never compare passwords directly. Use bcrypt.compare() or argon2.verify() to compare against hashed passwords.",
     fixCode:
@@ -314,7 +314,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     description:
       "Login/authentication endpoint compares passwords without rate limiting or account lockout. Attackers can try unlimited password combinations.",
     pattern:
-      /(?:signIn|login|authenticate|logIn)\b[\s\S]{0,500}?(?:bcrypt\.compare|argon2\.verify|compare|verify)[\s\S]{0,300}?(?:(?!rateLimit|limiter|throttle|lockout|maxAttempts|failedAttempts|loginAttempts|Ratelimit)[\s\S]){5,}?(?:return|Response|res\.)/gi,
+      /(?:signIn|login|authenticate|logIn)\b(?:(?!rateLimit|limiter|throttle|lockout|maxAttempts|failedAttempts|loginAttempts|Ratelimit|brute)[\s\S]){0,500}?(?:bcrypt\.compare|argon2\.verify|compare|verify)(?:(?!rateLimit|limiter|throttle|lockout|maxAttempts|failedAttempts|loginAttempts|Ratelimit|brute)[\s\S]){5,300}?(?:return|Response|res\.)/gi,
     languages: ["javascript", "typescript"],
     fix: "Add rate limiting and account lockout to login endpoints.",
     fixCode:

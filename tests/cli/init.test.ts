@@ -35,11 +35,11 @@ describe("CLI - Init Claude", () => {
   beforeEach(() => mkdirSync(TEST_DIR, { recursive: true }));
   afterEach(() => rmSync(TEST_DIR, { recursive: true, force: true }));
 
-  it("creates .claude.json with MCP server", () => {
+  it("creates .mcp.json with MCP server (Claude Code v2.x project-scope filename)", () => {
     const { stdout } = runCLI(["init", "claude"]);
     assert(stdout.includes("[OK]"), "should confirm setup");
-    const configPath = join(TEST_DIR, ".claude.json");
-    assert(existsSync(configPath), ".claude.json should exist");
+    const configPath = join(TEST_DIR, ".mcp.json");
+    assert(existsSync(configPath), ".mcp.json should exist");
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
     assert(config.mcpServers?.guardvibe, "should have guardvibe MCP server");
     assert.equal(config.mcpServers.guardvibe.command, "npx");

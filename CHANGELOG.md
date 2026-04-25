@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.26] - 2026-04-25
+
+### Fixed
+- `init claude` now writes `.mcp.json` (Claude Code v2.x project-scope filename) instead of `.claude.json` — fixes silent install failure where MCP server was never loaded
+- VG964 (server-only missing) now requires Next.js context (`from 'next/...'` or `require('next/...')`) — no longer fires on plain CommonJS Node files
+- VG138 (plaintext password compare) no longer matches `typeof password !== 'string'` type guards
+- VG148 (login brute-force) now detects rate-limit middleware passed as positional argument before bcrypt.compare
+- VG061 (JWT no expiry) now correctly recognizes `expiresIn` anywhere in the `jwt.sign` argument list
+- VG030 (missing rate limit) no longer fires when route declaration includes a `*Limiter`, `*Throttle`, `*RateLimit`, `*Brute`, or `*SlowDown` middleware
+
 ## [2.7.1] - 2026-04-04
 
 ### Fixed
