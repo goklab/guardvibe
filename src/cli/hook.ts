@@ -13,7 +13,7 @@ const HOOK_SCRIPT = `#!/bin/sh
 echo "🔒 GuardVibe: scanning staged files..."
 
 # Run guardvibe scan on staged files
-RESULT=$(npx -y guardvibe scan --staged 2>&1)
+RESULT=$(npx -y guardvibe@latest scan --staged 2>&1)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then

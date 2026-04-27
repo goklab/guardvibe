@@ -14,7 +14,7 @@ interface McpConfig {
 
 const GUARDVIBE_MCP_CONFIG = {
   command: "npx",
-  args: ["-y", "guardvibe"],
+  args: ["-y", "guardvibe@latest"],
 };
 
 const platforms: Record<string, { path: string; description: string }> = {
@@ -109,7 +109,7 @@ function setupClaudeGuide(): void {
         matcher: "Edit|Write",
         hooks: [{
           type: "command",
-          command: "jq -r '.tool_input.file_path' | xargs npx -y guardvibe check --format buddy 2>/dev/null || true"
+          command: "jq -r '.tool_input.file_path' | xargs npx -y guardvibe@latest check --format buddy 2>/dev/null || true"
         }]
       }
     ];
