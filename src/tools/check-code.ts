@@ -383,6 +383,16 @@ export function analyzeCode(
     const isCronRoute = filePath && /(?:cron|scheduled|jobs?)\//i.test(filePath);
     const isAdminRoute = filePath && /\/admin\//i.test(filePath);
 
+    // Skip rate-limit rules when the file installs a global rate limiter via app.use().
+    // Covers `app.use(rateLimit({...}))`, `app.use(limiter)`, `app.use('/api', rateLimit({...}))`,
+    // and named middleware vars matching limiter naming conventions.
+    if (rateLimitRuleIds.has(rule.id)) {
+      const hasGlobalRateLimit =
+        /(?:app|router)\.use\s*\(\s*(?:[^,)]*,\s*)?(?:rateLimit|slowDown|expressRateLimit|expressSlowDown|RateLimit|Throttle|throttle)\s*\(/i.test(code) ||
+        /(?:app|router)\.use\s*\(\s*(?:[^,)]*,\s*)?\w*(?:[Ll]imiter|[Tt]hrottle|[Rr]ate[Ll]imit|[Ss]low[Dd]own|[Bb]rute)\w*\s*\)/.test(code);
+      if (hasGlobalRateLimit) continue;
+    }
+
     // Skip auth rules when code has any auth guard pattern (naming-agnostic)
     if (codeHasAuthGuard && authRuleIds.has(rule.id)) continue;
 
