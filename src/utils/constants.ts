@@ -35,3 +35,17 @@ export const DEFAULT_EXCLUDES = new Set([
   ".vercel", ".clerk", ".wrangler", ".netlify", ".amplify",
   ".serverless", ".firebase", ".expo", ".output",
 ]);
+
+/** File-name patterns excluded from scans — minified bundles, vendor libs, generated artifacts. */
+export const DEFAULT_FILE_PATTERN_EXCLUDES: RegExp[] = [
+  /\.min\.(js|mjs|cjs|css)$/i,
+  /\.bundle\.(js|mjs|cjs)$/i,
+  /-bundle\.(js|mjs|cjs)$/i,
+  /\.production(\.min)?\.(js|mjs|cjs)$/i,
+  /\.umd(\.min)?\.(js|mjs|cjs)$/i,
+  /\.esm(\.min)?\.(js|mjs|cjs)$/i,
+];
+
+export function isExcludedFilename(name: string): boolean {
+  return DEFAULT_FILE_PATTERN_EXCLUDES.some((pattern) => pattern.test(name));
+}

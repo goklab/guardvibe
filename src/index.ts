@@ -64,7 +64,7 @@ function mergeStatsIntoOutput(results: string, summary: string, format: string):
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: "Security MCP for vibe coding — single source of truth for AI assistants. 335 security rules and 36 tools. Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.",
+  description: "Security MCP for vibe coding — single source of truth for AI assistants. 365 security rules and 36 tools. Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.",
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -1059,7 +1059,7 @@ server.tool(
 // Tool 33: Full audit — single source of truth
 server.tool(
   "full_audit",
-  "Single command that runs ALL checks: code scan (341 rules), secret detection, dependency CVEs, config audit, taint analysis, and auth coverage. Returns PASS/FAIL/WARN verdict with deterministic hash. IMPORTANT: If verdict is FAIL or WARN, you MUST call remediation_plan next to get a section-by-section fix checklist — do NOT skip any section. After fixing, call verify_remediation to confirm ALL sections are addressed. Example: full_audit({path: '.'})",
+  "Single command that runs ALL checks: code scan (365 rules), secret detection, dependency CVEs, config audit, taint analysis, and auth coverage. Returns PASS/FAIL/WARN verdict with deterministic hash. IMPORTANT: If verdict is FAIL or WARN, you MUST call remediation_plan next to get a section-by-section fix checklist — do NOT skip any section. After fixing, call verify_remediation to confirm ALL sections are addressed. Example: full_audit({path: '.'})",
   {
     path: z.string().default(".").describe("Project root directory"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),

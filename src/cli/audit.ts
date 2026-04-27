@@ -7,6 +7,8 @@ import { writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { parseArgs, getStringFlag, getOutputPath, shouldFail, validateFormat } from "./args.js";
 import { runFullAudit, formatAuditResult } from "../tools/full-audit.js";
+import { setRules } from "../utils/rule-registry.js";
+import { builtinRules } from "../data/rules/index.js";
 
 export async function runAudit(args: string[]): Promise<void> {
   const { flags, positional } = parseArgs(args);
@@ -16,6 +18,8 @@ export async function runAudit(args: string[]): Promise<void> {
   const failOn = getStringFlag(flags, "fail-on") ?? "critical";
   const skipDeps = flags["skip-deps"] === true;
   const skipSecrets = flags["skip-secrets"] === true;
+
+  setRules(builtinRules);
 
   // Terminal format by default when outputting to TTY, unless --format is specified
   const isTerminal = !outputFile && process.stdout.isTTY && !flags["format"];

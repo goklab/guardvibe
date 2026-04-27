@@ -644,9 +644,21 @@ export function analyzeCode(
  * Prefers framework-specific rules (VG4xx, VG9xx) over generic core rules (VG0xx).
  */
 function deduplicateFindings(findings: Finding[]): Finding[] {
+  // First pass: drop exact duplicates — same rule firing on the same line.
+  // Happens when a rule has multiple regex variants that all match the same position,
+  // typical on minified single-line files where many patterns hit line 2 or 3.
+  const seenExact = new Set<string>();
+  const exactDeduped: Finding[] = [];
+  for (const f of findings) {
+    const key = `${f.rule.id}:${f.line}`;
+    if (seenExact.has(key)) continue;
+    seenExact.add(key);
+    exactDeduped.push(f);
+  }
+
   // Group findings by line number
   const byLine = new Map<number, Finding[]>();
-  for (const f of findings) {
+  for (const f of exactDeduped) {
     const group = byLine.get(f.line);
     if (group) group.push(f);
     else byLine.set(f.line, [f]);

@@ -5,7 +5,7 @@
 
 import { readdirSync } from "fs";
 import { join, extname } from "path";
-import { EXTENSION_MAP, CONFIG_FILE_MAP } from "./constants.js";
+import { EXTENSION_MAP, CONFIG_FILE_MAP, isExcludedFilename } from "./constants.js";
 
 /**
  * Recursively walk a directory, collecting file paths that match
@@ -38,6 +38,7 @@ export function walkDirectory(
     if (entry.isDirectory() && recursive) {
       walkDirectory(fullPath, recursive, excludes, results, unsupportedResults);
     } else if (entry.isFile()) {
+      if (isExcludedFilename(entry.name)) continue;
       const ext = extname(entry.name).toLowerCase();
       let matched = false;
       if (EXTENSION_MAP[ext]) {

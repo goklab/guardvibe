@@ -3,6 +3,7 @@ import { basename, dirname, extname, join, relative, resolve } from "path";
 import { execFileSync } from "child_process";
 import { secretPatterns, calculateEntropy } from "../data/secret-patterns.js";
 import { loadConfig } from "../utils/config.js";
+import { isExcludedFilename } from "../utils/constants.js";
 
 export interface SecretFinding {
   provider: string;
@@ -95,6 +96,7 @@ function walkForSecrets(dir: string, recursive: boolean, results: string[], excl
     if (!entry.isFile()) continue;
 
     const name = entry.name;
+    if (isExcludedFilename(name)) continue;
     const ext = extname(name).toLowerCase();
 
     if (name.startsWith(".env") || CONFIG_FILE_EXTENSIONS.has(ext) || SOURCE_FILE_EXTENSIONS.has(ext)) {

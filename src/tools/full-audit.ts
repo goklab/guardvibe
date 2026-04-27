@@ -271,25 +271,33 @@ export async function runFullAudit(
         const depsJson = await scanDependencies(manifestPath, "json");
         const parsed = safeJsonParse(depsJson);
         if (parsed) {
-          const vuln = parsed.summary?.vulnerable ?? 0;
-          const counts = { findings: vuln, critical: parsed.summary?.critical ?? 0, high: parsed.summary?.high ?? 0, medium: parsed.summary?.medium ?? 0 };
+          const vulnPackages = parsed.summary?.vulnerable ?? 0;
           const depFindings: SectionFinding[] = [];
+          let depCritical = 0, depHigh = 0, depMedium = 0;
           for (const pkg of parsed.packages ?? []) {
             for (const v of (pkg as Record<string, unknown[]>).vulnerabilities ?? []) {
               const vuln2 = v as Record<string, unknown>;
+              const sev = (vuln2.severity ?? "high") as string;
+              if (sev === "critical") depCritical++;
+              else if (sev === "high") depHigh++;
+              else depMedium++;
               depFindings.push({
                 ruleId: `DEP:${(vuln2.id ?? "CVE") as string}`,
-                severity: (vuln2.severity ?? "high") as string,
+                severity: sev,
                 file: "package.json",
                 line: 0,
                 name: `${(pkg as Record<string, unknown>).name ?? "unknown"}: ${(vuln2.id ?? "CVE") as string}`,
                 description: (vuln2.summary ?? vuln2.details ?? "") as string,
                 fix: `Run: npm update ${(pkg as Record<string, unknown>).name ?? ""}`,
               });
-              allFindings.push({ ruleId: `DEP:${vuln2.id ?? "CVE"}` as string, severity: vuln2.severity as string, file: "package.json", line: 0 });
+              allFindings.push({ ruleId: `DEP:${vuln2.id ?? "CVE"}` as string, severity: sev, file: "package.json", line: 0 });
             }
           }
-          sections.push({ name: "dependencies", status: "ok", ...counts, details: vuln === 0 ? "No known CVEs" : `${vuln} vulnerable package(s)`, sectionFindings: depFindings });
+          const counts = { findings: depFindings.length, critical: depCritical, high: depHigh, medium: depMedium };
+          const detailText = depFindings.length === 0
+            ? "No known CVEs"
+            : `${depFindings.length} CVE(s) across ${vulnPackages} vulnerable package(s)`;
+          sections.push({ name: "dependencies", status: "ok", ...counts, details: detailText, sectionFindings: depFindings });
         }
       } catch { sections.push({ name: "dependencies", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }
     } else {
@@ -393,7 +401,7 @@ export async function runFullAudit(
   const totalHigh = sections.reduce((s, sec) => s + sec.high, 0);
   const totalMedium = sections.reduce((s, sec) => s + sec.medium, 0);
   const totalFindings = sections.reduce((s, sec) => s + sec.findings, 0);
-  const rulesApplied = rules.length > 0 ? rules.length : 335;
+  const rulesApplied = rules.length > 0 ? rules.length : 365;
 
   // Adjust score to reflect ALL sections, not just code
   // Each critical finding deducts 5 points, high deducts 3, medium deducts 1
