@@ -31,7 +31,7 @@ export const dockerfileRules: SecurityRule[] = [
     severity: "medium",
     owasp: "A03:2025 Software Supply Chain Failures",
     description: "Using :latest tag or no tag makes builds non-reproducible and vulnerable to supply chain attacks.",
-    pattern: /FROM\s+\S+(?::latest\s|(?!:)\s)/gi,
+    pattern: /^FROM\s+[^\s:@]+(?::latest)?(?=\s)/gim,
     languages: ["dockerfile"],
     fix: "Pin to a specific version tag: FROM node:20-alpine instead of FROM node:latest.",
     fixCode: "# Pin to specific version\nFROM node:20-alpine\n# Not: FROM node:latest\n# Not: FROM node",

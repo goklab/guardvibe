@@ -652,7 +652,8 @@ export function analyzeCode(
         const hasPublishingFields = /"(?:bin|exports|module|types|typings)"\s*:/i.test(code);
         const mainPointsToBuild = /"main"\s*:\s*"(?:dist|build|lib|out)\//i.test(code);
         const runtimeNames = "node|nodemon|tsx|ts-node|next|nest|vite|remix|astro";
-        const startsAsApp = new RegExp('"start"\\s*:\\s*"(?:' + runtimeNames + ')\\b', "i").test(code);
+        // Allow leading env-var assignments: NODE_OPTIONS=..., NODE_ENV=production, PORT=3000, etc.
+        const startsAsApp = new RegExp('"start"\\s*:\\s*"(?:[A-Z_][A-Z0-9_]*=\\S+\\s+)*(?:' + runtimeNames + ')\\b', "i").test(code);
         if (!hasPublishingFields && !mainPointsToBuild && startsAsApp) continue;
       }
 

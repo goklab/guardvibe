@@ -195,7 +195,7 @@ export const webSecurityRules: SecurityRule[] = [
     owasp: "A05:2021 Security Misconfiguration",
     description:
       "Response serving user-uploaded files does not set X-Content-Type-Options: nosniff. Browsers may MIME-sniff the content and execute uploaded files as HTML/JavaScript, enabling stored XSS via file uploads.",
-    pattern: /(?:createReadStream|sendFile|send\s*\(|pipe\s*\(|res\.download|res\.sendFile|getSignedUrl|getPublicUrl)[\s\S]{0,500}?(?:(?!X-Content-Type-Options|nosniff)[\s\S]){10,}?(?:res\.end|\.pipe|return|response)/gi,
+    pattern: /(?:res\.sendFile|res\.download|createReadStream|getSignedUrl|getPublicUrl|\.pipe\s*\(\s*res)[\s\S]{0,500}?(?:(?!X-Content-Type-Options|nosniff)[\s\S]){10,}?(?:res\.end|\.pipe|return|response)/gi,
     languages: ["javascript", "typescript"],
     fix: "Set X-Content-Type-Options: nosniff on all responses serving user-uploaded content.",
     fixCode:
