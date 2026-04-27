@@ -94,16 +94,16 @@ describe("policy_check", () => {
         frameworks: ["SOC2"],
         failOn: "high",
         exceptions: [
-          { ruleId: "VG001", reason: "Test file", files: ["*test*"] },
+          { ruleId: "VG001", reason: "Legacy module", files: ["*legacy*"] },
         ],
       },
     });
     writeFileSync(join(dir, "vuln.ts"), `const password = "hunter2";`);
-    writeFileSync(join(dir, "vuln.test.ts"), `const password = "hunter2";`);
+    writeFileSync(join(dir, "vuln.legacy.ts"), `const password = "hunter2";`);
     const result = JSON.parse(policyCheck(dir, "json", owaspRules));
-    // vuln.test.ts should be excepted, vuln.ts should not
-    assert(result.summary.excepted > 0, "Test file should be excepted");
-    assert(result.summary.blocking > 0, "Non-test file should still block");
+    // vuln.legacy.ts should be excepted, vuln.ts should not
+    assert(result.summary.excepted > 0, "Legacy file should be excepted");
+    assert(result.summary.blocking > 0, "Non-legacy file should still block");
   });
 
   it("required controls report pass/fail status", () => {

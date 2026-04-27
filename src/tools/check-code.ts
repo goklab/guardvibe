@@ -349,6 +349,20 @@ export function analyzeCode(
     if (rule.id.startsWith("VG21") && filePath && !filePath.includes(".github/workflows")) continue;
     if (rule.id.startsWith("VG21") && !filePath && language !== "yaml") continue;
 
+    // Skip credential rules in test files — fixtures and assertions intentionally use fake values.
+    const isTestFile = filePath && /(?:\.(?:spec|test|e2e|stories)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
+    if (isTestFile && (rule.id === "VG001" || rule.id === "VG062")) continue;
+
+    // Skip Expo-specific rule (VG708) when project is not an Expo app.
+    // The rule's regex incorrectly matches the literal strings "app.json"/"app.config.ts"
+    // appearing in unrelated configs (e.g. angular.json's tsConfig field).
+    if (rule.id === "VG708" && filePath) {
+      const fileName = filePath.split("/").pop() ?? "";
+      const isExpoConfigFile = /^app\.(json|config\.(js|ts|mjs|cjs))$/.test(fileName);
+      const importsExpo = /(?:from\s+['"]expo[\w-]*['"]|require\s*\(\s*['"]expo[\w-]*['"])/i.test(code);
+      if (!isExpoConfigFile && !importsExpo) continue;
+    }
+
     // ── Context-aware rule skipping (pattern-agnostic) ──────────────
     const authRuleIds = new Set(["VG420", "VG952", "VG002", "VG402"]);
     const adminRoleRuleIds = new Set(["VG426", "VG957"]);
@@ -582,6 +596,27 @@ export function analyzeCode(
         if (isHumanReadableString(lines, lineNumber)) continue;
       }
 
+      // Skip credential rules when the variable name signals test/example/mock intent.
+      // e.g. `testingPassword`, `examplePassword`, `mockApiKey`, `placeholderSecret`.
+      if (rule.id === "VG001" || rule.id === "VG062") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/(?:^|\s|\b)(?:testing|example|mock|placeholder|sample|demo|fake|dummy|stub|fixture)[A-Z_]/.test(matchedLine)) continue;
+      }
+
+      // Skip VG010 (SQL injection) on Angular HTTP service calls — http.get/post/etc.
+      // are HTTP client methods, not SQL. The existing pattern's `get` keyword catches them.
+      if (rule.id === "VG010") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        const isHttpClientCall = /(?:this\.)?(?:http|httpClient|httpService|api|client)\.(?:get|post|put|delete|patch|head|options)\s*\(/i.test(matchedLine);
+        const importsHttpClient = /from\s+['"]@angular\/common\/http['"]/i.test(code) || /import\s+.*HttpClient/i.test(code);
+        const fileIsAngularService = filePath ? /\.(?:service|component|directive|pipe|guard|resolver|interceptor)\.ts$/i.test(filePath) : false;
+        if (isHttpClientCall && (importsHttpClient || fileIsAngularService)) continue;
+        // Also skip when matched call has no SQL keyword anywhere on the line — covers fetch/axios template-literal URLs.
+        const hasSqlKeyword = /\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|UNION|DROP|TRUNCATE|ALTER|CREATE\s+TABLE)\b/i.test(matchedLine);
+        const isFetchOrAxios = /(?:fetch|axios|got|ky|undici|request)\s*[.\(]|axios\.(?:get|post|put|delete|patch)/i.test(matchedLine);
+        if (isFetchOrAxios && !hasSqlKeyword) continue;
+      }
+
       // Skip supply chain rules for known legitimate packages
       if (["VG872", "VG873"].includes(rule.id)) {
         const pkgMatch = /"([\w@/-]+)"/.exec(match[0]);
@@ -697,6 +732,10 @@ function deduplicateFindings(findings: Finding[]): Finding[] {
 function isDuplicatePair(a: Finding, b: Finding): boolean {
   // Same rule name = same vulnerability
   if (a.rule.name === b.rule.name) return true;
+  // Both are SQL injection variants — VG010 (generic) and VG123 (template literal specific) overlap.
+  // VG123 is more specific so it should dominate. isMoreSpecific handles the prefix order.
+  const sqlInjectionRules = new Set(["VG010", "VG123"]);
+  if (sqlInjectionRules.has(a.rule.id) && sqlInjectionRules.has(b.rule.id)) return true;
   // Both are XSS/innerHTML related — the core VG012+VG408 duplicate case
   if (a.rule.name.includes("innerHTML") && b.rule.name.includes("innerHTML")) return true;
   if (a.rule.name.includes("XSS via innerHTML") && b.rule.name.includes("Unsafe innerHTML")) return true;
