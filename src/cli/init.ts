@@ -3,18 +3,24 @@
  * Sets up MCP server configuration for AI coding hosts.
  */
 
+import { createRequire } from "module";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { homedir } from "os";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json") as { version: string };
 
 interface McpConfig {
   mcpServers?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
+// Pin to the version that ran `init` for fast, deterministic startup.
+// Users upgrade by re-running init. Avoids slow npx-cache misses on each session start.
 const GUARDVIBE_MCP_CONFIG = {
   command: "npx",
-  args: ["-y", "guardvibe@latest"],
+  args: ["-y", `guardvibe@${pkg.version}`],
 };
 
 const platforms: Record<string, { path: string; description: string }> = {
