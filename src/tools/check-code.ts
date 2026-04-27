@@ -180,6 +180,18 @@ function hasAuthGuardPattern(code: string): boolean {
     return true;
   }
 
+  // Pattern 4: Express-style middleware function with auth-related name (sync, takes req/res/next).
+  // e.g. `function requireAuth(req, res, next)` or `const authMiddleware = (req, res, next) => {`
+  if (/(?:function\s+(?:require|auth|protect|verify|guard|ensure|check|assert|authorize)\w*\s*\(\s*req\b|(?:const|let)\s+(?:require|auth|protect|verify|guard|ensure|check|assert|authorize)\w*\s*=\s*(?:async\s+)?\(\s*req\b)/i.test(code)) {
+    return true;
+  }
+
+  // Pattern 5: middleware passed inline to express route registration.
+  // e.g. `app.get('/x', requireAuth, handler)` or `router.post('/y', authMiddleware, ...)`.
+  if (/(?:app|router)\.(?:get|post|put|delete|patch|all|use)\s*\([^,)]+,\s*(?:require|auth|protect|verify|guard|ensure|check|assert|authorize|isAuthenticated|isLoggedIn|hasPermission)\w*\s*[,\)]/i.test(code)) {
+    return true;
+  }
+
   return false;
 }
 
@@ -621,6 +633,17 @@ export function analyzeCode(
       if (["VG872", "VG873"].includes(rule.id)) {
         const pkgMatch = /"([\w@/-]+)"/.exec(match[0]);
         if (pkgMatch && isLegitimatePackage(pkgMatch[1])) continue;
+      }
+
+      // Skip VG863 for non-publishable apps. Signals that this is an application, not a library:
+      // no publishing fields (bin/exports/module/types), main does not point at a build dir,
+      // and start script runs a runtime/framework directly.
+      if (rule.id === "VG863") {
+        const hasPublishingFields = /"(?:bin|exports|module|types|typings)"\s*:/i.test(code);
+        const mainPointsToBuild = /"main"\s*:\s*"(?:dist|build|lib|out)\//i.test(code);
+        const runtimeNames = "node|nodemon|tsx|ts-node|next|nest|vite|remix|astro";
+        const startsAsApp = new RegExp('"start"\\s*:\\s*"(?:' + runtimeNames + ')\\b', "i").test(code);
+        if (!hasPublishingFields && !mainPointsToBuild && startsAsApp) continue;
       }
 
       // Skip VG106 for non-secret variable names (TokenCount, tokenBalance, hashMap, etc.)

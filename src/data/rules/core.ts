@@ -38,7 +38,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "API route handler without authentication middleware or auth check.",
     pattern:
-      /(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['"](?!(?:\/(?:api\/)?)?(?:health|status|ping|ready|live|metrics|public|favicon|robots|sitemap)\b)[^'"]*['"]\s*,\s*(?:async\s+)?\(?(?:req|request)/gi,
+      /(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['"](?!(?:\/(?:api\/)?)?(?:health|status|ping|ready|live|metrics|public|favicon|robots|sitemap)\b)[^'"]*['"]\s*,\s*(?:async\s+)?\(?\b(?:req|request)\b/gi,
     languages: ["javascript", "typescript"],
     fix: "Add authentication middleware before route handlers: app.get('/api/data', authMiddleware, handler). Use frameworks like Passport.js, Clerk, or Auth0.",
     fixCode: "// Add auth middleware before handler\napp.get('/api/data', authMiddleware, async (req, res) => {\n  // handler code\n});",
