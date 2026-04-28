@@ -59,6 +59,10 @@ export interface AuditSection {
   details: string;
   /** Individual findings for this section — enables AI to see exactly what to fix */
   sectionFindings?: SectionFinding[];
+  /** True when sectionFindings array is shorter than findings (response-size cap). Read findings for the real count. */
+  truncated?: boolean;
+  /** Hint message when truncated — tells the agent how to retrieve the rest */
+  truncationHint?: string;
 }
 
 export interface AuditResult {
@@ -210,7 +214,20 @@ export async function runFullAudit(
         name: f.name as string | undefined,
         fix: f.fix as string | undefined,
       }));
-      sections.push({ name: "code", status: "ok", ...counts, details: `Code ${codeGrade} (${codeScore}/100)`, sectionFindings: codeSectionFindings });
+      const codeTruncated = (counts.findings ?? 0) > codeSectionFindings.length;
+      sections.push({
+        name: "code",
+        status: "ok",
+        ...counts,
+        details: `Code ${codeGrade} (${codeScore}/100)`,
+        sectionFindings: codeSectionFindings,
+        ...(codeTruncated
+          ? {
+              truncated: true,
+              truncationHint: `Showing top ${codeSectionFindings.length} of ${counts.findings} findings (sorted by severity). Call check_code on individual files for the rest, or use the CLI: npx guardvibe scan --format json.`,
+            }
+          : {}),
+      });
       for (const f of parsed.findings ?? []) {
         allFindings.push({ ruleId: f.id ?? "unknown", severity: f.severity, file: f.file ?? "", line: f.line ?? 0 });
       }
