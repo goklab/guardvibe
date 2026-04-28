@@ -427,6 +427,11 @@ export function analyzeCode(
     // for batch processing, not for serving to clients.
     if (rule.id === "VG955" && (isBatchScriptFile || isCronRoute)) continue;
 
+    // Skip VG132 (Missing Request Body Size Limit) on Next.js route handlers and
+    // pages/api endpoints — Next.js/Vercel apply a default 4.5MB body limit at the
+    // platform layer, which is what the rule is checking for.
+    if (rule.id === "VG132" && filePath && /(?:\/route\.(?:ts|tsx|js|jsx)$|\/pages\/api\/)/i.test(filePath)) continue;
+
     // Skip VG955 in bulk-* server actions (bulk-archive, bulk-approve, bulk-ban etc.)
     // These intentionally process a caller-provided list of IDs.
     if (rule.id === "VG955" && filePath && /\/bulk-[\w-]+\.(?:ts|tsx|js|jsx)$/i.test(filePath)) continue;
