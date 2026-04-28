@@ -138,7 +138,7 @@ export const authRules: SecurityRule[] = [
     compliance: ["SOC2:CC6.1"],
   },
   {
-    id: "VG430",
+    id: "VG449",
     name: "Clerk SSRF via clerkFrontendApiProxy",
     severity: "critical",
     owasp: "A10:2025 Server-Side Request Forgery",

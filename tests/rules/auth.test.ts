@@ -118,19 +118,19 @@ describe("Auth Rules", () => {
     });
   });
 
-  // VG430 - Clerk SSRF via clerkFrontendApiProxy
-  describe("VG430 - Clerk SSRF via clerkFrontendApiProxy", () => {
+  // VG449 - Clerk SSRF via clerkFrontendApiProxy
+  describe("VG449 - Clerk SSRF via clerkFrontendApiProxy", () => {
     it("detects clerkFrontendApiProxy in config", () => {
-      testRule("VG430", 'clerkFrontendApiProxy: "/api/__clerk"', true);
+      testRule("VG449", 'clerkFrontendApiProxy: "/api/__clerk"', true);
     });
     it("detects CLERK_FRONTEND_API_PROXY env var", () => {
-      testRule("VG430", "CLERK_FRONTEND_API_PROXY=/api/__clerk", true);
+      testRule("VG449", "CLERK_FRONTEND_API_PROXY=/api/__clerk", true);
     });
     it("detects frontendApiProxy option", () => {
-      testRule("VG430", 'frontendApiProxy: "/api/clerk-proxy"', true);
+      testRule("VG449", 'frontendApiProxy: "/api/clerk-proxy"', true);
     });
     it("ignores normal Clerk middleware", () => {
-      testRule("VG430", 'import { clerkMiddleware } from "@clerk/nextjs/server";', false);
+      testRule("VG449", 'import { clerkMiddleware } from "@clerk/nextjs/server";', false);
     });
   });
 

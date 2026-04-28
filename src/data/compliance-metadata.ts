@@ -137,7 +137,7 @@ export const complianceMetadata: Record<string, ComplianceExtension> = {
     audit: "Review Server Action return values. Verify select/pick is used to return only necessary fields.",
   },
 
-  // === AUTH RULES (VG420-VG430) ===
+  // === AUTH RULES (VG420-VG449) ===
   VG420: {
     gdpr: ["GDPR:Art32(1)(b)", "GDPR:Art32(1)(d)"],
     iso27001: ["ISO27001:A.5.15", "ISO27001:A.8.5"],

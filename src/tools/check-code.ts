@@ -788,6 +788,11 @@ function isDuplicatePair(a: Finding, b: Finding): boolean {
   const aIsAdmin = adminPatterns.some(p => a.rule.name.includes(p));
   const bIsAdmin = adminPatterns.some(p => b.rule.name.includes(p));
   if (aIsAdmin && bIsAdmin) return true;
+  // Both are open-redirect rules — VG101 (core) + VG409 (nextjs) duplicate case
+  const redirectPatterns = ["Unvalidated redirect", "Open Redirect"];
+  const aIsRedirect = redirectPatterns.some(p => a.rule.name.includes(p));
+  const bIsRedirect = redirectPatterns.some(p => b.rule.name.includes(p));
+  if (aIsRedirect && bIsRedirect) return true;
   return false;
 }
 
