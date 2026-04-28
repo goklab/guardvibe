@@ -1040,7 +1040,7 @@ function formatBuddyOutput(findings: Finding[], filePath?: string): string {
   score -= counts.medium * 3;
   score -= counts.low * 1;
   score = Math.max(0, Math.min(100, score));
-  const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 60 ? "C" : score >= 40 ? "D" : "F";
+  const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 50 ? "C" : score >= 25 ? "D" : "F";
 
   const faces: Record<string, string> = {
     A: "\\[^_^]/",

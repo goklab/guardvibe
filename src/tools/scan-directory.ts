@@ -180,7 +180,8 @@ export function scanDirectory(
   // density 0 = 100, uses log scale so medium findings don't dominate
   // density 0.5 ≈ 85 (B), density 2.0 ≈ 60 (C), density 5.0 ≈ 30 (D)
   const score = Math.max(0, Math.min(100, Math.round(100 - Math.min(density, 5) * 20)));
-  const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 60 ? "C" : score >= 40 ? "D" : "F";
+  // Grade boundaries match full-audit so the section sub-grade and overall verdict agree.
+  const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 50 ? "C" : score >= 25 ? "D" : "F";
 
   // Baseline comparison
   let baselineDiff: BaselineDiff | null = null;
