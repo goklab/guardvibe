@@ -368,8 +368,8 @@ export function analyzeCode(
     // - VG010/VG011/VG013/VG014: injection rules trigger on payload strings like
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
-    const isTestFile = filePath && /(?:\.(?:spec|test|e2e|stories)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG678"].includes(rule.id)) continue;
+    const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
+    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG130", "VG678"].includes(rule.id)) continue;
 
     // Skip Expo-specific rule (VG708) when project is not an Expo app.
     // The rule's regex incorrectly matches the literal strings "app.json"/"app.config.ts"
@@ -671,7 +671,9 @@ export function analyzeCode(
       // Skip VG863 for non-publishable apps. Signals that this is an application, not a library:
       // no publishing fields (bin/exports/module/types), main does not point at a build dir,
       // and start script runs a runtime/framework directly.
+      // Also skip when "private": true — npm refuses to publish private packages outright.
       if (rule.id === "VG863") {
+        if (/"private"\s*:\s*true\b/.test(code)) continue;
         const hasPublishingFields = /"(?:bin|exports|module|types|typings)"\s*:/i.test(code);
         const mainPointsToBuild = /"main"\s*:\s*"(?:dist|build|lib|out)\//i.test(code);
         const runtimeNames = "node|nodemon|tsx|ts-node|next|nest|vite|remix|astro";
@@ -683,11 +685,13 @@ export function analyzeCode(
       // Skip VG955 (Missing Pagination) when the query is bounded by ID(s):
       // findMany({ where: { id: x } }) returns at most 1; findMany({ where: { id: { in: [...] } } })
       // is bounded by the caller-provided list. Same applies to *Id fields like partnerId, userId.
+      // Shorthand form { userId } / { teamId } counts as bound — these are tenant-scoped queries.
       if (rule.id === "VG955") {
         const matched = match[0];
         if (/\bin\s*:\s*\[/i.test(matched)) continue; // where: { x: { in: [...] } }
         if (/\b(?:id|[a-zA-Z]+Id)\s*:\s*\{?\s*in\s*:/i.test(matched)) continue; // where: { partnerId: { in: ids } }
         if (/\b(?:id|[a-zA-Z]+Id)\s*:\s*[a-zA-Z_$]/i.test(matched)) continue; // where: { id: someVar }
+        if (/\b(?:id|[a-zA-Z]+Id)\s*[,}]/i.test(matched)) continue; // where: { userId } shorthand
       }
 
       // Skip VG106 for non-secret variable names (TokenCount, tokenBalance, hashMap, etc.)

@@ -12,7 +12,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     description:
       "User input is interpolated into HTTP response headers. Attackers can inject CRLF characters to add arbitrary headers (Set-Cookie, Location) or split the response.",
     pattern:
-      /(?:setHeader|set|append|headers\.set)\s*\(\s*["'][^"']+["']\s*,\s*(?:`[^`]*\$\{|[^"']*\+\s*(?:req\.|request\.|params\.|query\.|searchParams|input|body|user))/gi,
+      /(?:res(?:ponse)?\.(?:setHeader|set|append)|headers\.(?:set|append)|setHeader|appendHeader)\s*\(\s*["'][^"']+["']\s*,\s*(?:`[^`]*\$\{|[^"']*\+\s*(?:req\.|request\.|params\.|query\.|searchParams|input|body|user))/gi,
     languages: ["javascript", "typescript"],
     fix: "Never interpolate user input into response headers. Sanitize by removing \\r and \\n characters.",
     fixCode:
