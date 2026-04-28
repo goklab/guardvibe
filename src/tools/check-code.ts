@@ -664,9 +664,15 @@ export function analyzeCode(
       }
 
       // Skip VG106 for non-secret variable names (TokenCount, tokenBalance, hashMap, etc.)
+      // and for comparisons against literals/null/undefined that are emptiness checks,
+      // not timing-sensitive secret equality (e.g. token !== '' or apiKey == null).
       if (rule.id === "VG106") {
         const varName = match[0].split(/\s*(?:===|!==|==|!=)/)[0].trim();
         if (/(?:Count|Length|Balance|Map|List|Array|Index|Size|Total|Num|Id|Type|Name|Status|Data|Info|Error|Result|Response|Config|Option|Url|Path|Provider|Model|Limit|Quota|Rate|Max|Min)/i.test(varName)) continue;
+        // Look at what comes after the operator. If it's a string literal, null, undefined,
+        // or a number — this is an emptiness/type check, not a secret comparison.
+        const afterOp = code.substring(match.index + match[0].length).trimStart();
+        if (/^(?:''|""|``|null\b|undefined\b|\d|0x|true\b|false\b)/.test(afterOp)) continue;
       }
 
       // Skip VG1005 (.or() filter injection) when all interpolated variables are
