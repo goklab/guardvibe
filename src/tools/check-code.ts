@@ -388,6 +388,9 @@ export function analyzeCode(
     const isWebhookRoute = filePath && /webhook/i.test(filePath);
     const isCronRoute = filePath && /(?:cron|scheduled|jobs?)\//i.test(filePath);
     const isAdminRoute = filePath && /\/admin\//i.test(filePath);
+    // Server-side batch context: scripts, migrations, seeds. These run offline or
+    // on-deploy, not against user requests, so DoS-from-unbounded-results doesn't apply.
+    const isBatchScriptFile = filePath && /\/(?:scripts?|migrations?|seeds?|fixtures?)\//i.test(filePath);
 
     // Skip rate-limit rules when the file installs a global rate limiter via app.use().
     // Covers `app.use(rateLimit({...}))`, `app.use(limiter)`, `app.use('/api', rateLimit({...}))`,
@@ -418,6 +421,15 @@ export function analyzeCode(
 
     // Skip rate limiting for cron and webhook routes
     if (isCronRoute && rateLimitRuleIds.has(rule.id)) continue;
+
+    // Skip VG955 (Missing Pagination) in non-user-facing contexts:
+    // scripts, migrations, seeds, cron jobs. These read all records by design
+    // for batch processing, not for serving to clients.
+    if (rule.id === "VG955" && (isBatchScriptFile || isCronRoute)) continue;
+
+    // Skip VG955 in bulk-* server actions (bulk-archive, bulk-approve, bulk-ban etc.)
+    // These intentionally process a caller-provided list of IDs.
+    if (rule.id === "VG955" && filePath && /\/bulk-[\w-]+\.(?:ts|tsx|js|jsx)$/i.test(filePath)) continue;
     if (isWebhookRoute && rateLimitRuleIds.has(rule.id)) continue;
 
     // Skip rate limiting for admin routes with auth guard
@@ -661,6 +673,16 @@ export function analyzeCode(
         // Allow leading env-var assignments: NODE_OPTIONS=..., NODE_ENV=production, PORT=3000, etc.
         const startsAsApp = new RegExp('"start"\\s*:\\s*"(?:[A-Z_][A-Z0-9_]*=\\S+\\s+)*(?:' + runtimeNames + ')\\b', "i").test(code);
         if (!hasPublishingFields && !mainPointsToBuild && startsAsApp) continue;
+      }
+
+      // Skip VG955 (Missing Pagination) when the query is bounded by ID(s):
+      // findMany({ where: { id: x } }) returns at most 1; findMany({ where: { id: { in: [...] } } })
+      // is bounded by the caller-provided list. Same applies to *Id fields like partnerId, userId.
+      if (rule.id === "VG955") {
+        const matched = match[0];
+        if (/\bin\s*:\s*\[/i.test(matched)) continue; // where: { x: { in: [...] } }
+        if (/\b(?:id|[a-zA-Z]+Id)\s*:\s*\{?\s*in\s*:/i.test(matched)) continue; // where: { partnerId: { in: ids } }
+        if (/\b(?:id|[a-zA-Z]+Id)\s*:\s*[a-zA-Z_$]/i.test(matched)) continue; // where: { id: someVar }
       }
 
       // Skip VG106 for non-secret variable names (TokenCount, tokenBalance, hashMap, etc.)
