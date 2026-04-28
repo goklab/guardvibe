@@ -361,9 +361,15 @@ export function analyzeCode(
     if (rule.id.startsWith("VG21") && filePath && !filePath.includes(".github/workflows")) continue;
     if (rule.id.startsWith("VG21") && !filePath && language !== "yaml") continue;
 
-    // Skip credential rules in test files — fixtures and assertions intentionally use fake values.
+    // Skip noisy rules in test files — fixtures, payload strings, and HTTP test helpers
+    // generate FPs for credential, injection, and HTTP-header rules without representing
+    // real exploitable code.
+    // - VG001/VG062: hardcoded credentials (test fixtures use fake values intentionally)
+    // - VG010/VG011/VG013/VG014: injection rules trigger on payload strings like
+    //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
+    // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:spec|test|e2e|stories)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && (rule.id === "VG001" || rule.id === "VG062")) continue;
+    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG678"].includes(rule.id)) continue;
 
     // Skip Expo-specific rule (VG708) when project is not an Expo app.
     // The rule's regex incorrectly matches the literal strings "app.json"/"app.config.ts"
