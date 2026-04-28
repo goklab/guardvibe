@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 365 security rules, 38 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 365 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,7 +14,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **365 security rules, 38 tools** purpose-built for the stacks AI agents generate
+- **365 security rules, 36 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -441,7 +441,7 @@ If your AI agent cannot connect to GuardVibe:
 
 1. **Restart your IDE/agent.** MCP servers are started by the host application. After running `npx guardvibe init`, restart Claude Code, Cursor, or Gemini CLI for the config to take effect.
 2. **Check the config path.** Run `npx guardvibe init claude` again and verify the output shows the correct config file location (`.mcp.json` in your project root for Claude Code, `.cursor/mcp.json` for Cursor).
-3. **Re-run `init` to upgrade.** When upgrading GuardVibe, re-run `npx guardvibe init claude` — `.mcp.json` is pinned to a specific version (e.g. `guardvibe@3.0.33`) at init time for fast deterministic startup. Stale pins won't auto-update.
+3. **Re-run `init` to upgrade.** When upgrading GuardVibe, re-run `npx guardvibe init claude` — `.mcp.json` is pinned to a specific version (e.g. `guardvibe@3.0.41`) at init time for fast deterministic startup. Stale pins won't auto-update.
 4. **Verify Node.js version.** GuardVibe requires Node.js >= 18.0.0. Check with `node --version`.
 5. **Check npx cache.** If you upgraded GuardVibe and the old version is cached, run `npx -y guardvibe@latest` to force the latest version.
 
