@@ -19,7 +19,10 @@ const TAINT_SOURCES = [
   { pattern: /(?:formData|searchParams)\.get\s*\(/g, type: "form-input" },
   { pattern: /(?:params|searchParams)\s*[\.\[]/g, type: "url-params" },
   { pattern: /(?:await\s+)?(?:request|req)\.(?:json|text|formData)\s*\(\)/g, type: "request-body" },
-  { pattern: /new\s+URL\s*\([\s\S]*?(?:req|request)/g, type: "url-input" },
+  // Only treat new URL(...) as tainted when req/request appears in the FIRST argument (path).
+  // The second argument (base) only contributes the origin — when the first arg is a literal
+  // string like "/verified", the resolved path is fixed regardless of the base.
+  { pattern: /new\s+URL\s*\(\s*[^,)]*?(?:req|request)/g, type: "url-input" },
   { pattern: /(?:event|e)\.(?:target|currentTarget)\.(?:value|textContent|innerHTML)/g, type: "dom-input" },
 ];
 
