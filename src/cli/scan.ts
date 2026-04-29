@@ -52,6 +52,7 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
   const outputFile = getOutputPath(flags);
   const baselinePath = getStringFlag(flags, "baseline");
   const saveBaseline = flags["save-baseline"] === true || typeof flags["save-baseline"] === "string";
+  const full = flags["full"] === true;
   const scanPath = resolve(targetPath);
 
   let result: string;
@@ -60,7 +61,7 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
     const { exportSarif } = await import("../tools/export-sarif.js");
     result = exportSarif(scanPath);
   } else {
-    result = scanDirectory(scanPath, true, [], format === "json" ? "json" : "markdown", undefined, baselinePath ?? undefined);
+    result = scanDirectory(scanPath, true, [], format === "json" ? "json" : "markdown", undefined, baselinePath ?? undefined, full);
   }
 
   if (outputFile) {

@@ -18,6 +18,7 @@ export async function runAudit(args: string[]): Promise<void> {
   const failOn = getStringFlag(flags, "fail-on") ?? "critical";
   const skipDeps = flags["skip-deps"] === true;
   const skipSecrets = flags["skip-secrets"] === true;
+  const full = flags["full"] === true;
 
   setRules(builtinRules);
 
@@ -25,7 +26,7 @@ export async function runAudit(args: string[]): Promise<void> {
   const isTerminal = !outputFile && process.stdout.isTTY && !flags["format"];
   const format = isTerminal ? "terminal" as const : rawFormat as "markdown" | "json";
 
-  const result = await runFullAudit(targetPath, { skipDeps, skipSecrets });
+  const result = await runFullAudit(targetPath, { skipDeps, skipSecrets, full });
   const output = formatAuditResult(result, format);
   // For shouldFail, always use JSON-parseable format
   const failCheckOutput = formatAuditResult(result, "json");

@@ -93,7 +93,8 @@ export function scanDirectory(
   exclude: string[] = [],
   format: "markdown" | "json" = "markdown",
   rules?: SecurityRule[],
-  baselinePath?: string
+  baselinePath?: string,
+  full: boolean = false
 ): string {
   const startTime = performance.now();
   const scanId = randomUUID();
@@ -203,8 +204,10 @@ export function scanDirectory(
 
   // MCP output size limit — large projects can produce 300K+ characters which
   // exceeds Claude Code's max allowed tokens for tool results.
-  const MAX_JSON_FINDINGS = 50;
-  const MAX_MD_FINDINGS = 30;
+  // `full=true` (CLI --full flag) bypasses these caps for local debugging where
+  // size budget doesn't apply.
+  const MAX_JSON_FINDINGS = full ? Number.POSITIVE_INFINITY : 50;
+  const MAX_MD_FINDINGS = full ? Number.POSITIVE_INFINITY : 30;
 
   if (format === "json") {
     const findingsWithFiles = scanResults.flatMap(r =>

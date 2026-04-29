@@ -148,6 +148,7 @@ function collectJsFiles(dir: string, maxFiles = 200): Array<{ path: string; cont
     "node_modules", ".git", ".next", "build", "dist", ".turbo", "coverage",
     ...config.scan.exclude,
   ]);
+  // `maxFiles = Infinity` is the contract for full mode (CLI --full flag): scan everything.
 
   function walk(d: string) {
     if (files.length >= maxFiles) return;
@@ -181,27 +182,28 @@ function collectJsFiles(dir: string, maxFiles = 200): Array<{ path: string; cont
  */
 export async function runFullAudit(
   path: string,
-  options?: { skipDeps?: boolean; skipSecrets?: boolean },
+  options?: { skipDeps?: boolean; skipSecrets?: boolean; full?: boolean },
 ): Promise<AuditResult> {
   const projectRoot = resolve(path);
   const rules = getRules();
   const allFindings: FindingRef[] = [];
   const sections: AuditSection[] = [];
+  const full = options?.full === true;
   let filesScanned = 0;
   let filesSkipped = 0;
   let score = 100;
   let grade = "A";
 
-  // Truncation tracking
+  // Truncation tracking — `full` mode (CLI --full flag) bypasses caps for local debugging.
   let scanTruncated = false;
   let scanTotalFindings = 0;
-  let scanMaxFindings = 50; // MAX_JSON_FINDINGS from scan-directory
+  let scanMaxFindings = full ? Number.POSITIVE_INFINITY : 50;
   let taintFilesProcessed = 0;
-  const taintFileCap = 200;
+  const taintFileCap = full ? Number.POSITIVE_INFINITY : 200;
 
   // --- Section 1: Code scan ---
   try {
-    const codeJson = scanDirectory(projectRoot, true, [], "json", rules.length > 0 ? rules : undefined);
+    const codeJson = scanDirectory(projectRoot, true, [], "json", rules.length > 0 ? rules : undefined, undefined, full);
     const parsed = safeJsonParse(codeJson);
     if (parsed) {
       const counts = parseSectionCounts(parsed);
@@ -353,7 +355,7 @@ export async function runFullAudit(
 
   // --- Section 5: Taint analysis ---
   try {
-    const jsFiles = collectJsFiles(projectRoot);
+    const jsFiles = collectJsFiles(projectRoot, taintFileCap);
     taintFilesProcessed = jsFiles.length;
     if (jsFiles.length > 0) {
       const { crossFileFindings, perFileFindings } = analyzeCrossFileTaint(jsFiles);
@@ -395,7 +397,7 @@ export async function runFullAudit(
 
   // --- Section 6: Auth coverage ---
   try {
-    const jsFiles = collectJsFiles(projectRoot);
+    const jsFiles = collectJsFiles(projectRoot, taintFileCap);
     const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
     const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
     if (routeFiles.length > 0) {
