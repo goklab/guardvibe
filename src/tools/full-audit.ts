@@ -143,7 +143,11 @@ function parseSectionCounts(parsed: any): { findings: number; critical: number; 
 
 function collectJsFiles(dir: string, maxFiles = 200): Array<{ path: string; content: string }> {
   const files: Array<{ path: string; content: string }> = [];
-  const skip = new Set(["node_modules", ".git", ".next", "build", "dist", ".turbo", "coverage"]);
+  const config = loadConfig(resolve(dir));
+  const skip = new Set([
+    "node_modules", ".git", ".next", "build", "dist", ".turbo", "coverage",
+    ...config.scan.exclude,
+  ]);
 
   function walk(d: string) {
     if (files.length >= maxFiles) return;

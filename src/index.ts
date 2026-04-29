@@ -602,7 +602,8 @@ server.tool(
   }
 );
 
-// Tool 23: Quick file scan — designed for real-time integration
+// Tool 23: Quick file scan — returns structured findings, not raw file contents.
+// guardvibe-ignore VG880
 server.tool(
   "scan_file",
   "Scan a single file on disk by path for security vulnerabilities. Pass a file path — the tool reads the file itself. For inline code snippets, use check_code instead. Example: scan_file({file_path: 'src/api/route.ts'})",

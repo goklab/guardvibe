@@ -378,7 +378,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     owasp: "A03:2025 Injection",
     description:
       "User-controlled input is used as an object property key via bracket notation (obj[userInput]). Attackers can access __proto__, constructor, or prototype to pollute object prototypes and bypass security checks.",
-    pattern: /(?:(?:req|request|body|query|params|input|data)\.\w+|(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*(?:await\s+)?(?:req|request)[\s\S]{0,50}?)[\s\S]{0,100}?\w+\s*\[\s*(?:key|field|prop|name|column|attr|param)\s*\]/gi,
+    pattern: /(?:(?:req|request|body|query|params)\.\w+|(?:const|let|var)\s+(?:\{[^}]*\}|\w+)\s*=\s*(?:await\s+)?(?:req|request)[\s\S]{0,50}?)[\s\S]{0,100}?\w+\s*\[\s*(?:key|field|prop|name|column|attr|param)\s*\]/gi,
     languages: ["javascript", "typescript"],
     fix: "Validate property names against an allowlist, or use Map instead of plain objects.",
     fixCode:
@@ -394,7 +394,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     owasp: "A04:2025 Insecure Design",
     description:
       "Regular expression contains nested quantifiers ((a+)+), overlapping alternation with quantifiers (([a-z]+)*), or other patterns that cause catastrophic backtracking. Attackers can send crafted input to freeze the event loop.",
-    pattern: /\/(?:[^/\\]|\\.)*(?:\([^)]*[+*][^)]*\)\s*[+*]|\(\?:[^)]*[+*][^)]*\)\s*[+*])(?:[^/\\]|\\.)*\//g,
+    pattern: /\/(?:[^/\\\n]|\\.)*(?:\([^)\n]*[+*][^)\n]*\)\s*[+*]|\(\?:[^)\n]*[+*][^)\n]*\)\s*[+*])(?:[^/\\\n]|\\.)*\//g,
     languages: ["javascript", "typescript"],
     fix: "Rewrite the regex to avoid nested quantifiers. Use atomic groups or possessive quantifiers if available, or use the 'safe-regex' library to validate patterns.",
     fixCode:

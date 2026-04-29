@@ -97,6 +97,8 @@ function matchGlob(pattern: string, path: string): boolean {
   }
 
   try {
+    // regexStr is built from explicitly escaped glob chars (see line 90), not raw input.
+    // guardvibe-ignore VG126
     return new RegExp(regexStr).test(normalizedPath);
   } catch {
     return false;

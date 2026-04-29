@@ -4,6 +4,8 @@
  * Not a full AST/CFG analysis, but follows variable assignments through lines.
  */
 
+import { isRuleDefinitionFile } from "./check-code.js";
+
 export interface TaintFinding {
   source: { type: string; line: number; variable: string };
   sink: { type: string; line: number; code: string };
@@ -137,8 +139,12 @@ function propagateTaint(assignments: VariableAssignment[], lines: string[]): voi
   }
 }
 
-export function analyzeTaint(code: string, language: string): TaintFinding[] {
+export function analyzeTaint(code: string, language: string, filePath?: string): TaintFinding[] {
   if (!["javascript", "typescript"].includes(language)) return [];
+
+  // Skip security rule definition files — they intentionally contain vulnerable
+  // code snippets in pattern regexes, fixCode strings, and exploit examples.
+  if (isRuleDefinitionFile(code, filePath)) return [];
 
   const lines = code.split("\n");
   const findings: TaintFinding[] = [];

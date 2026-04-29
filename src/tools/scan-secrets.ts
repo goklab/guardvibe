@@ -4,6 +4,7 @@ import { execFileSync } from "child_process";
 import { secretPatterns, calculateEntropy } from "../data/secret-patterns.js";
 import { loadConfig } from "../utils/config.js";
 import { isExcludedFilename } from "../utils/constants.js";
+import { isRuleDefinitionFile } from "./check-code.js";
 
 export interface SecretFinding {
   provider: string;
@@ -31,6 +32,10 @@ const CONFIG_FILE_EXTENSIONS = new Set([".yml", ".yaml", ".toml", ".json", ".cfg
 
 export function scanContent(content: string, filename: string): SecretFinding[] {
   const findings: SecretFinding[] = [];
+
+  // Skip security rule definition files — pattern strings inside them frequently
+  // resemble real secret formats by design.
+  if (isRuleDefinitionFile(content, filename)) return findings;
 
   for (const sp of secretPatterns) {
     sp.pattern.lastIndex = 0;

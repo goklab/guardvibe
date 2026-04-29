@@ -16,6 +16,11 @@ interface Suppression {
   ruleId: string | null; // null = suppress all rules
 }
 
+/** CVE version-pin rule IDs are VG900-VG931 (and only these). Other VG9xx IDs
+ * (VG983 Turso, VG990 SVG, VG998 OpenAI browser flag, etc.) are regular code-pattern
+ * rules and should NOT be exempted from comment / string-literal skip logic. */
+const CVE_VERSION_RULE = /^VG9(?:0\d|1\d|2\d|3[01])$/;
+
 function parseSuppressionsFromCode(lines: string[]): Suppression[] {
   const suppressions: Suppression[] = [];
   const pattern = /(?:\/\/|#|<!--)\s*guardvibe-ignore(?:-next-line)?\s*(VG\d+)?(?:\s.*)?(?:-->)?/i;
@@ -94,10 +99,7 @@ function isInsideStringLiteral(lines: string[], lineNumber: number, code: string
   if (/^\s*\+\s*["']/.test(line)) return true; // + "string continuation"
 
   // 3. Line contains escaped newlines (\n) suggesting it's inside a string value
-  const _quotesBefore = line.substring(0, line.indexOf(trimmed.charAt(0)));
   if (/\\n/.test(line) && /["'`].*\\n/.test(line)) {
-    // Extra check: is the match portion inside quotes on this line?
-    const _matchEnd = matchIndex + 20; // approximate
     const lineStart = code.lastIndexOf("\n", matchIndex) + 1;
     const col = matchIndex - lineStart;
     const beforeCol = line.substring(0, col);
@@ -107,10 +109,12 @@ function isInsideStringLiteral(lines: string[], lineNumber: number, code: string
   }
 
   // 4. Look backwards for property assignment context (fixCode, description, etc.)
+  // Includes display-string props (title, message, label) used by audit / report
+  // tools to surface findings — these contain mention of vulnerable patterns by name.
+  const PROP_RE = /^(?:fixCode|fix|description|exploit|audit|title|message|label|reason|details|summary|hint)\s*[:=]/;
   for (let i = lineNumber - 1; i >= Math.max(0, lineNumber - 20); i--) {
     const prev = lines[i]?.trimStart() || "";
-    if (/^(?:fixCode|fix|description|exploit|audit)\s*[:=]/.test(prev)) return true;
-    if (/^(?:fixCode|fix|description|exploit|audit)\s*:\s*$/.test(prev)) return true;
+    if (PROP_RE.test(prev)) return true;
     // Hit a rule boundary — stop looking
     if (/^\s*id\s*:\s*["']VG/.test(prev)) break;
     if (/^\s*\{/.test(prev) && i < lineNumber - 2) break;
@@ -144,7 +148,7 @@ function isHumanReadableString(lines: string[], lineNumber: number): boolean {
  * These files intentionally contain vulnerable code patterns
  * as regex matchers and fixCode examples — scanning them is meaningless.
  */
-function isRuleDefinitionFile(code: string, filePath?: string): boolean {
+export function isRuleDefinitionFile(code: string, filePath?: string): boolean {
   // Path-based: known rule definition directories
   if (filePath && /(?:\/rules\/|\/data\/rules\/)/.test(filePath)) {
     // Confirm it actually exports SecurityRule objects
@@ -152,6 +156,9 @@ function isRuleDefinitionFile(code: string, filePath?: string): boolean {
       return true;
     }
   }
+  // Path-based: framework guides and similar pure-documentation files that hold
+  // example code inside markdown template literals
+  if (filePath && /(?:^|\/)framework-guides\.ts$/.test(filePath)) return true;
   // Content-based: file defines multiple VG rules with pattern: regex
   if (/id:\s*["']VG\d+["']/g.test(code) && /pattern:\s*\//.test(code)) {
     const ruleCount = (code.match(/id:\s*["']VG\d+["']/g) || []).length;
@@ -585,7 +592,7 @@ export function analyzeCode(
     // to match top-level dependency declarations in package.json. Lock files contain
     // sub-package peer dependency ranges (e.g. "next": ">=13.2.0" from a transitive dep)
     // which look like vulnerable pins but represent peer requirements, not installed versions.
-    if (filePath && /^VG9(?:0\d|1\d|2\d|3[01])$/.test(rule.id) && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
+    if (filePath && CVE_VERSION_RULE.test(rule.id) && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
 
     // Skip VG430 (Supabase anon key on server) when file properly separates client/server
     // or is a React Native/mobile client (anon key with AsyncStorage is correct pattern)
@@ -653,16 +660,28 @@ export function analyzeCode(
 
       if (isLineSuppressed(suppressions, lineNumber, rule.id)) continue;
 
-      // Skip matches on comment lines for code-pattern rules.
-      // CVE version rules (VG9xx) scan package.json so they're exempt.
-      if (!rule.id.startsWith("VG9")) {
-        if (isInComment(lines, lineNumber)) continue;
+      // Skip matches on comment lines and inside string literals.
+      // CVE version-pin rules (VG900-VG931) are exempt — they scan package.json
+      // dependency declarations where these contexts don't apply.
+      // For multi-line matches, only string-literal skip is applied: the match's
+      // starting line may legitimately be a comment while the vulnerable code is
+      // on a later line (e.g. VG966 OAuth callback comment + handler).
+      if (!CVE_VERSION_RULE.test(rule.id)) {
+        const isMultiLineMatch = match[0].includes("\n");
+        if (!isMultiLineMatch && isInComment(lines, lineNumber)) continue;
+        if (isInsideStringLiteral(lines, lineNumber, code, match.index)) continue;
       }
 
-      // Skip matches inside string literals (fixCode, description, template strings)
-      // This prevents rule definition files and docs from triggering false positives
-      if (!rule.id.startsWith("VG9")) {
-        if (isInsideStringLiteral(lines, lineNumber, code, match.index)) continue;
+      // VG020 (wildcard dep version) on package.json: skip the `engines` block —
+      // `"node": ">=18.0.0"` is a runtime constraint, not a dependency range.
+      if (rule.id === "VG020" && filePath && /package\.json$/.test(filePath)) {
+        let inEngines = false;
+        for (let j = lineNumber - 1; j >= Math.max(0, lineNumber - 6); j--) {
+          const prev = lines[j] ?? "";
+          if (/"engines"\s*:\s*\{/.test(prev)) { inEngines = true; break; }
+          if (/^\s*\}/.test(prev)) break; // closed a previous block — not in engines
+        }
+        if (inEngines) continue;
       }
 
       // Skip hardcoded-credential rules when the value is a human-readable sentence
@@ -707,6 +726,7 @@ export function analyzeCode(
         const mainPointsToBuild = /"main"\s*:\s*"(?:dist|build|lib|out)\//i.test(code);
         const runtimeNames = "node|nodemon|tsx|ts-node|next|nest|vite|remix|astro";
         // Allow leading env-var assignments: NODE_OPTIONS=..., NODE_ENV=production, PORT=3000, etc.
+        // guardvibe-ignore VG153
         const startsAsApp = new RegExp('"start"\\s*:\\s*"(?:[A-Z_][A-Z0-9_]*=\\S+\\s+)*(?:' + runtimeNames + ')\\b', "i").test(code);
         if (!hasPublishingFields && !mainPointsToBuild && startsAsApp) continue;
       }

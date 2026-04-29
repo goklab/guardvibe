@@ -705,6 +705,7 @@ function deriveSeverity(sinkType: string): "critical" | "high" | "medium" {
 }
 
 function getSinkFix(sinkType: string): string {
+  // guardvibe-ignore VG014
   const fixes: Record<string, string> = {
     "sql-injection": "Use parameterized queries instead of string interpolation.",
     "code-injection": "Never pass user input to eval() or Function constructor.",
@@ -725,7 +726,7 @@ export function analyzeCrossFileTaint(files: FileEntry[]): {
   for (const file of files) {
     const lang = detectLang(file.path);
     if (lang === "unknown") continue;
-    const findings = analyzeTaint(file.content, lang);
+    const findings = analyzeTaint(file.content, lang, file.path);
     if (findings.length > 0) perFileFindings.set(file.path, findings);
   }
 
