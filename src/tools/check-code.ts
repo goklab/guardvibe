@@ -694,6 +694,21 @@ export function analyzeCode(
         if (/\b(?:id|[a-zA-Z]+Id)\s*[,}]/i.test(matched)) continue; // where: { userId } shorthand
       }
 
+      // Skip VG154 (Supabase race condition) for count-only or list queries — these don't
+      // produce a value-checked-then-mutated pattern. count: 'exact', head: true returns no
+      // rows; .order/.limit/.range chains are paginated reads, not single-record check-then-act.
+      if (rule.id === "VG154") {
+        const matched = match[0];
+        if (/\bhead\s*:\s*true\b/i.test(matched)) continue;
+        if (/\.(?:order|range|limit)\s*\(/i.test(matched)) continue;
+      }
+
+      // Skip VG155 (CSRF) in Next.js App Router route handlers (app/.../route.{ts,tsx,js,jsx}).
+      // App Router protects state-changing requests by default: SameSite=Lax cookies block
+      // cross-site cookie attachment, and JSON Content-Type triggers CORS preflight. Bearer-token
+      // auth (Clerk, Auth0) is also CSRF-immune since tokens aren't browser-attached automatically.
+      if (rule.id === "VG155" && filePath && /\/app\/.+\/route\.(?:ts|tsx|js|jsx)$/i.test(filePath)) continue;
+
       // Skip VG106 for non-secret variable names (TokenCount, tokenBalance, hashMap, etc.)
       // and for comparisons against literals/null/undefined that are emptiness checks,
       // not timing-sensitive secret equality (e.g. token !== '' or apiKey == null).
