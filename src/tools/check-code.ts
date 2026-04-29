@@ -580,8 +580,14 @@ export function analyzeCode(
       if (isMobileClient) continue;
     }
 
-    // Skip VG448 (Supabase RPC bypass RLS) when using service_role key (server-side)
-    if (rule.id === "VG448" && /(?:SUPABASE_SERVICE_ROLE|service_role|createServerSupabaseClient|createServerClient)/i.test(code)) continue;
+    // Skip VG448 (Supabase RPC bypass RLS) when the file is on a server-side codepath
+    // using a service-role / admin Supabase client. RLS bypass is intentional in those
+    // contexts and is identical in posture to direct .from(...).update(...) writes that
+    // already bypass RLS via the same key — flagging only .rpc() syntax produces FPs.
+    // Naming variants covered: createServerClient (Supabase docs), createServerSupabaseClient,
+    // createServiceClient / createServiceRoleClient (common project conventions),
+    // createAdminClient (Clerk-adjacent and DIY).
+    if (rule.id === "VG448" && /(?:SUPABASE_SERVICE_ROLE|service_role|createServerSupabaseClient|createServerClient|createService(?:Role)?Client|createAdminClient|createServiceSupabase)/i.test(code)) continue;
 
     // VG872/VG873 legitimate package filtering is handled at match level below
 
