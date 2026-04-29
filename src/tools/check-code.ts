@@ -31,8 +31,19 @@ function parseSuppressionsFromCode(lines: string[]): Suppression[] {
     if (isNextLine) {
       suppressions.push({ line: i + 2, ruleId });
     } else if (isCommentOnlyLine) {
+      // Comment-only line: suppress the comment's own line plus the next several
+      // lines, stopping early at a blank line or a new comment block. This makes
+      // suppress comments work for multi-line method chains (common Supabase / ORM
+      // builders span 3-5 lines from `.from(...)` through `.select(...).order(...)`).
       suppressions.push({ line: i + 1, ruleId });
-      suppressions.push({ line: i + 2, ruleId });
+      for (let j = 1; j <= 5; j++) {
+        const nextLine = lines[i + j];
+        if (nextLine === undefined) break;
+        const trimmed = nextLine.trim();
+        if (trimmed === "") break;
+        if (/^\s*(?:\/\/|#|<!--)/.test(nextLine)) break;
+        suppressions.push({ line: i + 1 + j, ruleId });
+      }
     } else {
       suppressions.push({ line: i + 1, ruleId });
     }
@@ -427,6 +438,12 @@ export function analyzeCode(
     // for batch processing, not for serving to clients.
     if (rule.id === "VG955" && (isBatchScriptFile || isCronRoute)) continue;
 
+    // Skip VG1006 (select('*') exposes columns) in batch/script paths — debug scripts,
+    // migrations, seeds, and fixtures run under service-role and write/log data
+    // server-side; '*' doesn't expose anything to a client. Application routes that
+    // do expose data still get flagged.
+    if (rule.id === "VG1006" && isBatchScriptFile) continue;
+
     // Skip VG132 (Missing Request Body Size Limit) on Next.js route handlers and
     // pages/api endpoints — Next.js/Vercel apply a default 4.5MB body limit at the
     // platform layer, which is what the rule is checking for.
@@ -713,6 +730,16 @@ export function analyzeCode(
         const matched = match[0];
         if (/\bhead\s*:\s*true\b/i.test(matched)) continue;
         if (/\.(?:order|range|limit)\s*\(/i.test(matched)) continue;
+      }
+
+      // Skip VG1006 (select('*') exposes columns) for count-only queries —
+      // .select('*', { count: 'exact', head: true }) returns only a row count, never
+      // materializes rows, so '*' doesn't expose any columns. The rule's pattern
+      // truncates at the `*` quote, so we look at the next ~120 chars for the head
+      // option (typical select(...) options object fits in that window).
+      if (rule.id === "VG1006") {
+        const tail = code.substring(match.index, match.index + (match[0].length + 120));
+        if (/\bhead\s*:\s*true\b/i.test(tail)) continue;
       }
 
       // Skip VG155 (CSRF) in Next.js App Router route handlers (app/.../route.{ts,tsx,js,jsx}).
