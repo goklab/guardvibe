@@ -564,6 +564,12 @@ export function analyzeCode(
     // like "node": ">=6" are not dependency versions
     if (rule.id === "VG020" && filePath && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
 
+    // Skip all CVE version-pin rules (VG900-VG931) in lock files. The patterns are designed
+    // to match top-level dependency declarations in package.json. Lock files contain
+    // sub-package peer dependency ranges (e.g. "next": ">=13.2.0" from a transitive dep)
+    // which look like vulnerable pins but represent peer requirements, not installed versions.
+    if (filePath && /^VG9(?:0\d|1\d|2\d|3[01])$/.test(rule.id) && /(?:package-lock\.json|yarn\.lock|pnpm-lock\.yaml|npm-shrinkwrap\.json)$/.test(filePath)) continue;
+
     // Skip VG430 (Supabase anon key on server) when file properly separates client/server
     // or is a React Native/mobile client (anon key with AsyncStorage is correct pattern)
     if (rule.id === "VG430") {
