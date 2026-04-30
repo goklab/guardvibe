@@ -278,6 +278,7 @@ npx guardvibe diff [base]            # Scan only changed files since git ref
 npx guardvibe audit [path]           # Full audit with PASS/FAIL verdict + hash
 npx guardvibe audit . --format json  # JSON output for CI pipelines
 npx guardvibe audit --skip-deps      # Skip dependency CVE check
+npx guardvibe audit --full           # Disable MCP-output truncation (full finding set)
 
 # Host security audit
 npx guardvibe doctor                 # Host hardening audit (project scope)
@@ -299,6 +300,7 @@ npx guardvibe-scan --format sarif --output results.sarif  # CI mode
 #   --format markdown|json|sarif|buddy
 #   --output <file>     Write results to file
 #   --fail-on <level>   Exit 1 on findings: critical|high|medium|low|none
+#   --full              Bypass response-size caps (50 JSON / 30 markdown / 200-file taint)
 ```
 
 ## Plugin System
@@ -514,6 +516,9 @@ Create a `.guardviberc` JSON file in your project root to customize GuardVibe be
       }
     ],
     "requiredControls": ["SOC2:CC6.1"]
+  },
+  "scoring": {
+    "densityModel": "exponential"
   }
 }
 ```
@@ -531,6 +536,7 @@ Create a `.guardviberc` JSON file in your project root to customize GuardVibe be
 | `compliance.failOn` | `string` | `"high"` | Minimum severity that causes compliance failure |
 | `compliance.exceptions` | `PolicyException[]` | `[]` | Approved exceptions with expiration dates |
 | `compliance.requiredControls` | `string[]` | -- | Controls that must pass regardless of exceptions |
+| `scoring.densityModel` | `"linear" \| "exponential"` | `"linear"` | Score decay curve. `linear` matches pre-v3.0.50 (cliff at density 5). `exponential` keeps resolution past density 5 — smoother decay for large repos. Severity caps (1+ critical → max C/60, 1+ high → max B/75) apply under both. |
 
 ## Security
 
