@@ -240,6 +240,7 @@ const LEGITIMATE_PREFIXED_PACKAGES = new Set([
   "fast-glob", "fast-deep-equal", "fast-json-stable-stringify", "fast-json-stringify",
   "fast-xml-parser", "fast-diff", "fast-levenshtein", "fast-redact", "fast-check",
   "fast-uri", "fast-querystring", "fast-decode-uri-component", "fast-content-type-parse",
+  "fast-equals", "fast-fifo", "fast-shallow-equal", "fast-safe-stringify",
   "safe-array-concat", "safe-stable-stringify", "safe-buffer", "safe-regex",
   "safe-regex-test", "safe-push-apply",
   "simple-git", "simple-update-notifier", "simple-swizzle", "simple-concat",
@@ -450,6 +451,11 @@ export function analyzeCode(
     // server-side; '*' doesn't expose anything to a client. Application routes that
     // do expose data still get flagged.
     if (rule.id === "VG1006" && isBatchScriptFile) continue;
+
+    // Skip VG1008 (Admin Role Elevation Without Authorization Check) in batch scripts —
+    // CLI scripts under scripts/ run by the operator at the terminal; there is no HTTP
+    // request handler to authorize. Rule still fires inside route handlers and Server Actions.
+    if (rule.id === "VG1008" && isBatchScriptFile) continue;
 
     // Skip VG132 (Missing Request Body Size Limit) on Next.js route handlers and
     // pages/api endpoints — Next.js/Vercel apply a default 4.5MB body limit at the
@@ -674,14 +680,16 @@ export function analyzeCode(
 
       // VG020 (wildcard dep version) on package.json: skip the `engines` block —
       // `"node": ">=18.0.0"` is a runtime constraint, not a dependency range.
+      // Also skip the `overrides` block — that's npm's mechanism for *forcing* a
+      // minimum transitive version (security tightening), not a loose dep range.
       if (rule.id === "VG020" && filePath && /package\.json$/.test(filePath)) {
-        let inEngines = false;
+        let inExemptBlock = false;
         for (let j = lineNumber - 1; j >= Math.max(0, lineNumber - 6); j--) {
           const prev = lines[j] ?? "";
-          if (/"engines"\s*:\s*\{/.test(prev)) { inEngines = true; break; }
-          if (/^\s*\}/.test(prev)) break; // closed a previous block — not in engines
+          if (/"(?:engines|overrides|resolutions|pnpm)"\s*:\s*\{/.test(prev)) { inExemptBlock = true; break; }
+          if (/^\s*\}/.test(prev)) break; // closed a previous block — not in exempt
         }
-        if (inEngines) continue;
+        if (inExemptBlock) continue;
       }
 
       // Skip hardcoded-credential rules when the value is a human-readable sentence
@@ -705,6 +713,37 @@ export function analyzeCode(
         // Skip SCREAMING_SNAKE error/status codes whose value is digits-only.
         // e.g. `INVALID_PASSWORD = "5020"` — error code, not a credential.
         if (/\b[A-Z][A-Z0-9_]*\s*=\s*["']\d+["']/.test(matchedLine)) continue;
+      }
+
+      // VG106 (Timing-Unsafe Secret Comparison): skip when one operand is a React useRef
+      // pattern (`*Ref.current`). Refs hold local component state, not user-provided input,
+      // so timing attacks don't apply — there's no remote attacker controlling the comparand.
+      if (rule.id === "VG106") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/\b\w*Ref\.current\b/.test(matchedLine)) continue;
+      }
+
+      // VG126 (Dynamic RegExp from User Input): skip when the variable name signals it has
+      // already been escaped/sanitized (e.g. `escapedElement`, `safeQuery`, `sanitizedInput`).
+      if (rule.id === "VG126") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/\bnew\s+RegExp\s*\(\s*(?:escaped|escape\w*|sanitized|sanitiz\w*|safe[A-Z_]\w*|validated)\w*\b/.test(matchedLine)) continue;
+      }
+
+      // VG1009 (Supabase ilike/like Pattern Injection): skip when the interpolated variable
+      // name signals it has already been escaped (e.g. `escaped`, `safeQuery`, `sanitized`).
+      if (rule.id === "VG1009") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/\$\{\s*(?:escaped|escape\w*|sanitized|sanitiz\w*|safe[A-Z_]\w*|validated)/.test(matchedLine)) continue;
+      }
+
+      // VG426 (Missing Role Check on Admin Route): skip when the matched line is inside a
+      // JSDoc comment (`* GET /api/admin/...`) — the actual handler code below the doc block
+      // gets evaluated separately. Without this, every documented admin route fires twice
+      // (once on the doc-comment line, once on the handler).
+      if (rule.id === "VG426") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/^\s*\*\s/.test(matchedLine) || /^\s*\/\*\*/.test(matchedLine) || /^\s*\*\//.test(matchedLine)) continue;
       }
 
       // Skip VG010 (SQL injection) on Angular HTTP service calls — http.get/post/etc.

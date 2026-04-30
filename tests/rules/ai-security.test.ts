@@ -245,17 +245,16 @@ describe("AI Security Rules", () => {
   });
 
   describe("VG878 - AI Output Rendered as Markdown Image Without Validation", () => {
-    it("detects marked rendering of AI completion", () => {
-      // Note: uses marked() + AI variable to trigger the pattern
-      const code = "const rendered = marked(completion);\nconst x = message.content;";
+    it("detects dangerouslySetInnerHTML rendering AI completion", () => {
+      const code = "<div dangerouslySetInnerHTML={{ __html: completion }} />";
       testRule("VG878", code, true);
     });
-    it("detects rehype with aiResponse", () => {
-      const code = "const rendered = rehype().process(aiResponse);\nconst out = response.text;";
+    it("detects ReactMarkdown rendering aiResponse", () => {
+      const code = "<ReactMarkdown>{aiResponse}</ReactMarkdown>";
       testRule("VG878", code, true);
     });
-    it("ignores rendering static content without AI references", () => {
-      const code = "const html = marked(staticContent);";
+    it("ignores dangerouslySetInnerHTML with safe JSON.stringify (JSON-LD SEO)", () => {
+      const code = '<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />';
       testRule("VG878", code, false);
     });
   });

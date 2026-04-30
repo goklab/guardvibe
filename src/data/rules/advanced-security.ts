@@ -394,7 +394,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     owasp: "A04:2025 Insecure Design",
     description:
       "Regular expression contains nested quantifiers ((a+)+), overlapping alternation with quantifiers (([a-z]+)*), or other patterns that cause catastrophic backtracking. Attackers can send crafted input to freeze the event loop.",
-    pattern: /\/(?:[^/\\\n]|\\.)*(?:\([^)\n]*[+*][^)\n]*\)\s*[+*]|\(\?:[^)\n]*[+*][^)\n]*\)\s*[+*])(?:[^/\\\n]|\\.)*\//g,
+    pattern: /\/(?:[^/\\\n]|\\.)*(?:\([^)\n]*[+*][^)\n]*\)[+*]|\(\?:[^)\n]*[+*][^)\n]*\)[+*])(?:[^/\\\n]|\\.)*\//g,
     languages: ["javascript", "typescript"],
     fix: "Rewrite the regex to avoid nested quantifiers. Use atomic groups or possessive quantifiers if available, or use the 'safe-regex' library to validate patterns.",
     fixCode:
@@ -506,7 +506,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     owasp: "A07:2025 Cross-Site Scripting",
     description:
       "User-provided URL is used directly in an href attribute without checking for dangerous protocols. Attackers can inject javascript:alert(document.cookie) to execute XSS when the link is clicked.",
-    pattern: /href\s*=\s*\{(?:user|profile|author|post|comment|data|item|record)[\w.]*\.(?:url|website|link|href|homepage)\}/gi,
+    pattern: /href\s*=\s*\{(?:user|profile|author|post|comment|record|input|formData|payload)[\w.]*\.(?:url|website|link|href|homepage)\}/gi,
     languages: ["javascript", "typescript"],
     fix: "Validate that URLs start with https:// or http:// before using in href.",
     fixCode:

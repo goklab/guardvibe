@@ -73,6 +73,38 @@ describe("VG001/VG062 false-positive narrows", () => {
   });
 });
 
+describe("VG106 false-positive narrows", () => {
+  it("does NOT flag React useRef.current comparisons (local state, not user input)", () => {
+    const findings = analyzeCode(
+      "if (signature === lastQuotaDeductedSignatureRef.current) { return; }",
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG106").length, 0);
+  });
+});
+
+describe("VG126 false-positive narrows", () => {
+  it("does NOT flag RegExp from already-escaped variable", () => {
+    const findings = analyzeCode(
+      "const r = new RegExp(escapedElement, 'g');",
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG126").length, 0);
+  });
+});
+
+describe("VG020 false-positive narrows", () => {
+  it("does NOT flag overrides block (npm security tightening)", () => {
+    const findings = analyzeCode(
+      '{\n  "overrides": {\n    "minimatch": ">=10.2.1"\n  }\n}',
+      "json",
+      undefined,
+      "/proj/package.json",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG020").length, 0);
+  });
+});
+
 describe("VG010 false-positive narrows", () => {
   it("does NOT flag service-class HTTP wrappers like this.get(`/api/...`)", () => {
     const findings = analyzeCode(
