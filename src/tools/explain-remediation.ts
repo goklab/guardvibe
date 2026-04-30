@@ -84,7 +84,8 @@ function getImpact(rule: SecurityRule): string {
 function getBreakingRisk(rule: SecurityRule): string {
   const id = rule.id;
   if (["VG001", "VG062", "VG060"].includes(id)) return "LOW — Moving to env vars requires .env setup but no code logic changes.";
-  if (["VG402", "VG010", "VG952"].includes(id)) return "MEDIUM — Adding auth checks may break unauthenticated flows that were working. Test all affected endpoints.";
+  if (["VG402", "VG952"].includes(id)) return "MEDIUM — Adding auth checks may break unauthenticated flows that were working. Test all affected endpoints.";
+  if (["VG010", "VG011", "VG013", "VG014"].includes(id)) return "LOW — Parameterized queries are drop-in replacements for most drivers/ORMs. Manual string-concat call sites may need light refactoring; run query coverage after the swap.";
   if (["VG401", "VG960"].includes(id)) return "MEDIUM — Adding schema validation will reject previously accepted invalid input. Test with real user data.";
   if (["VG403", "VG500", "VG510"].includes(id)) return "HIGH — Restricting CORS will break cross-origin requests from unlisted domains. Verify all frontend origins.";
   if (["VG405"].includes(id)) return "LOW — Adding security headers rarely breaks functionality. CSP may block inline scripts — test thoroughly.";
@@ -98,7 +99,8 @@ function getBreakingRisk(rule: SecurityRule): string {
 function getTestStrategy(rule: SecurityRule): string {
   const id = rule.id;
   if (["VG001", "VG062", "VG060"].includes(id)) return "1. Move value to .env\n2. Verify app still reads from env\n3. Confirm old hardcoded value removed from git history";
-  if (["VG402", "VG010"].includes(id)) return "1. Call endpoint without auth token → expect 401\n2. Call with valid token → expect success\n3. Call with expired token → expect 401";
+  if (["VG402"].includes(id)) return "1. Call endpoint without auth token → expect 401\n2. Call with valid token → expect success\n3. Call with expired token → expect 401";
+  if (["VG010", "VG011", "VG013", "VG014"].includes(id)) return "1. Replace concatenated SQL with parameterized query / prepared statement\n2. Submit a malicious payload (`' OR 1=1--`, `;DROP TABLE--`, `UNION SELECT`) → expect literal match, no row exposure, no execution\n3. Re-run normal-input regression tests to confirm queries still return correct results";
   if (["VG401", "VG960"].includes(id)) return "1. Submit valid data → expect success\n2. Submit empty/malformed data → expect 400 with validation error\n3. Submit oversized data → expect rejection";
   if (["VG403", "VG500"].includes(id)) return "1. Request from allowed origin → expect CORS headers\n2. Request from unlisted origin → expect no CORS headers\n3. Preflight OPTIONS → expect correct headers";
   if (["VG440"].includes(id)) return "1. Query as authenticated user → expect own rows only\n2. Query as anon → expect rejection\n3. Try to access other user's rows → expect empty result";

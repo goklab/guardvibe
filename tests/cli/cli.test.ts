@@ -52,7 +52,10 @@ describe("CLI - Hook Commands", () => {
   it("detects already installed hook", () => {
     runCLI(["hook", "install"]);
     const { stdout } = runCLI(["hook", "install"]);
-    assert(stdout.includes("already installed"), `should detect existing hook, got: ${stdout.slice(0, 300)}`);
+    assert(
+      stdout.includes("already up-to-date") || stdout.includes("already installed"),
+      `should detect existing hook, got: ${stdout.slice(0, 300)}`,
+    );
   });
 
   it("uninstalls pre-commit hook", () => {
@@ -87,7 +90,10 @@ describe("CLI - CI Commands", () => {
   it("detects existing workflow", () => {
     runCLI(["ci", "github"]);
     const { stdout } = runCLI(["ci", "github"]);
-    assert(stdout.includes("already exists"), `should detect existing workflow, got: ${stdout.slice(0, 300)}`);
+    assert(
+      stdout.includes("already up-to-date") || stdout.includes("already exists"),
+      `should detect existing workflow, got: ${stdout.slice(0, 300)}`,
+    );
   });
 });
 

@@ -23,8 +23,8 @@ export const complianceMetadata: Record<string, ComplianceExtension> = {
   VG002: {
     gdpr: ["GDPR:Art32(1)(b)"],
     iso27001: ["ISO27001:A.8.3", "ISO27001:A.8.24"],
-    exploit: "Attacker sends crafted SQL input through unvalidated form fields or URL parameters to extract, modify, or delete database records.",
-    audit: "Demonstrate that all database queries use parameterized statements or ORM methods. Show code review checklist that includes SQL injection testing.",
+    exploit: "Attacker accesses API endpoints or resources without authentication, reading or modifying data belonging to other users.",
+    audit: "Show middleware/auth layer that protects all sensitive endpoints. Demonstrate that unauthenticated requests return 401/403.",
   },
   VG003: {
     gdpr: ["GDPR:Art32(1)(a)"],
@@ -35,8 +35,8 @@ export const complianceMetadata: Record<string, ComplianceExtension> = {
   VG010: {
     gdpr: ["GDPR:Art32(1)(b)", "GDPR:Art25"],
     iso27001: ["ISO27001:A.8.3", "ISO27001:A.5.15"],
-    exploit: "Attacker accesses API endpoints or resources without authentication, reading or modifying data belonging to other users.",
-    audit: "Show middleware/auth layer that protects all sensitive endpoints. Demonstrate that unauthenticated requests return 401/403.",
+    exploit: "Attacker sends crafted SQL input (e.g., ' OR 1=1--, UNION SELECT, ;DROP TABLE) through unvalidated form fields, URL parameters, or JSON body to extract, modify, or delete database records.",
+    audit: "Demonstrate that all database queries use parameterized statements or ORM methods. Show code review checklist that includes SQL injection testing.",
   },
   VG042: {
     gdpr: ["GDPR:Art32(1)(a)"],

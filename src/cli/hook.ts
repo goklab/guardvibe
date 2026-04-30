@@ -3,17 +3,26 @@
  * Manages pre-commit security hooks.
  */
 
+import { createRequire } from "module";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync, unlinkSync } from "fs";
 import { join } from "path";
 
-const HOOK_SCRIPT = `#!/bin/sh
-# GuardVibe pre-commit security hook
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json") as { version: string };
+
+const GUARDVIBE_BLOCK_START = "# GuardVibe pre-commit security hook";
+const GUARDVIBE_BLOCK_END = "✅ GuardVibe: all checks passed.";
+
+function buildHookScript(version: string): string {
+  return `#!/bin/sh
+${GUARDVIBE_BLOCK_START}
 # Installed by: npx guardvibe hook install
+# Pinned to v${version} for reproducible CI/local behavior. Re-run install to upgrade.
 
 echo "🔒 GuardVibe: scanning staged files..."
 
 # Run guardvibe scan on staged files
-RESULT=$(npx -y guardvibe@latest scan --staged 2>&1)
+RESULT=$(npx -y guardvibe@${version} scan --staged 2>&1)
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
@@ -24,8 +33,33 @@ if [ $EXIT_CODE -ne 0 ]; then
   exit 1
 fi
 
-echo "✅ GuardVibe: all checks passed."
+echo "${GUARDVIBE_BLOCK_END}"
 `;
+}
+
+/**
+ * Extract the pinned GuardVibe version from an existing pre-commit hook.
+ * Returns the version string, "latest" for legacy unpinned hooks, or null if no GuardVibe block found.
+ */
+function extractPinnedVersionFromHook(content: string): string | null {
+  const pinnedMatch = content.match(/guardvibe@(\d+\.\d+\.\d+(?:-[\w.]+)?)/);
+  if (pinnedMatch) return pinnedMatch[1];
+  if (/guardvibe@latest|npx\s+-y\s+guardvibe(?:\s|\b)/.test(content) && content.includes("GuardVibe")) {
+    return "latest";
+  }
+  return null;
+}
+
+function replaceGuardVibeBlock(existing: string, fresh: string): string {
+  // Strip any prior GuardVibe block (with or without leading shebang) and append the fresh one.
+  const cleaned = existing
+    .replace(/\n?# GuardVibe pre-commit security hook[\s\S]*?GuardVibe: all checks passed[."]*\n?/g, "")
+    .trimEnd();
+  if (!cleaned || cleaned === "#!/bin/sh") return fresh;
+  // Splice the GuardVibe section in (without its shebang) onto the existing hook.
+  const freshNoShebang = fresh.replace(/^#!\/bin\/sh\n/, "");
+  return cleaned + "\n\n" + freshNoShebang;
+}
 
 function installHook(): void {
   const gitDir = join(process.cwd(), ".git");
@@ -40,19 +74,37 @@ function installHook(): void {
   }
 
   const hookPath = join(hooksDir, "pre-commit");
+  const freshScript = buildHookScript(pkg.version);
 
   if (existsSync(hookPath)) {
     const existing = readFileSync(hookPath, "utf-8");
-    if (existing.includes("GuardVibe")) {
-      console.log("  [OK] GuardVibe pre-commit hook already installed.");
+    const existingPin = extractPinnedVersionFromHook(existing);
+
+    if (existingPin === pkg.version) {
+      console.log(`  [OK] GuardVibe pre-commit hook already up-to-date (v${pkg.version}).`);
       return;
     }
-    writeFileSync(hookPath, existing + "\n" + HOOK_SCRIPT, "utf-8");
+
+    if (existingPin && existingPin !== "latest") {
+      writeFileSync(hookPath, replaceGuardVibeBlock(existing, freshScript), "utf-8");
+      chmodSync(hookPath, 0o755);
+      console.log(`  [OK] Upgraded GuardVibe pre-commit hook (${existingPin} → ${pkg.version}).`);
+      return;
+    }
+
+    if (existingPin === "latest") {
+      writeFileSync(hookPath, replaceGuardVibeBlock(existing, freshScript), "utf-8");
+      chmodSync(hookPath, 0o755);
+      console.log(`  [OK] Pinned GuardVibe pre-commit hook (was unpinned → ${pkg.version}).`);
+      return;
+    }
+
+    writeFileSync(hookPath, existing.trimEnd() + "\n\n" + freshScript, "utf-8");
     console.log("  [OK] GuardVibe added to existing pre-commit hook.");
   } else {
-    writeFileSync(hookPath, HOOK_SCRIPT, "utf-8");
+    writeFileSync(hookPath, freshScript, "utf-8");
     chmodSync(hookPath, 0o755);
-    console.log("  [OK] Pre-commit hook installed at .git/hooks/pre-commit");
+    console.log(`  [OK] Pre-commit hook installed at .git/hooks/pre-commit (pinned to v${pkg.version}).`);
   }
 }
 
