@@ -1030,23 +1030,27 @@ server.tool(
 // Tool 32: LLM-powered deep scan
 server.tool(
   "deep_scan",
-  "LLM-powered deep security analysis for vulnerabilities that pattern-matching cannot detect: IDOR, business logic flaws, race conditions, stale auth, mass assignment, privilege escalation. Requires ANTHROPIC_API_KEY or OPENAI_API_KEY environment variable. Run pattern scan first, then use this for deeper analysis.",
+  "LLM-powered deep security analysis for vulnerabilities that pattern-matching cannot detect: IDOR, business logic flaws, race conditions, stale auth, mass assignment, privilege escalation. Defaults to Claude Haiku 4.5 (~cents per scan); pass `model: 'sonnet'` for deeper analysis at higher cost. Requires ANTHROPIC_API_KEY or OPENAI_API_KEY env var.",
   {
     code: z.string().describe("Code to analyze"),
     language: z.string().describe("Programming language"),
     context: z.string().optional().describe("Additional context (e.g., 'This is a payment endpoint')"),
     existingFindings: z.array(z.string()).default([]).describe("Already-detected findings to avoid duplicating"),
+    focus: z.enum(["all", "idor", "business-logic", "auth-bypass", "race-condition"]).default("all").describe("Focus area — narrows the prompt to a specific vulnerability class"),
+    model: z.enum(["haiku", "sonnet"]).default("haiku").describe("LLM model. haiku = fast & cheap (default), sonnet = deeper analysis"),
+    maxBytes: z.number().int().min(500).max(50_000).default(10_000).describe("Max prompt size in bytes — caps cost. Code over this limit is truncated."),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
   },
-  async ({ code, language, context, existingFindings, format }) => {
-    const prompt = buildDeepScanPrompt(code, language, existingFindings);
-    const llmResponse = await callLLM(context ? `${prompt}\n\nAdditional context: ${context}` : prompt);
+  async ({ code, language, context, existingFindings, focus, model, maxBytes, format }) => {
+    const prompt = buildDeepScanPrompt(code, language, existingFindings, focus);
+    const fullPrompt = context ? `${prompt}\n\nAdditional context: ${context}` : prompt;
+    const llmResponse = await callLLM(fullPrompt, { model, maxBytes });
 
     if (llmResponse === null) {
       return {
         content: [{
           type: "text",
-          text: "## Deep Scan — Setup Required\n\nNo LLM API key found. Set one of:\n- `ANTHROPIC_API_KEY` — uses Claude\n- `OPENAI_API_KEY` — uses GPT-4o\n\nThe deep scan sends code to the LLM API for semantic vulnerability analysis.",
+          text: "## Deep Scan — Setup Required\n\nNo LLM API key found. Set one of:\n- `ANTHROPIC_API_KEY` — uses Claude (default: Haiku 4.5; pass `model: 'sonnet'` for deeper analysis)\n- `OPENAI_API_KEY` — uses GPT-4o-mini / GPT-4o\n\nThe deep scan sends code to the LLM API for semantic vulnerability analysis. Default cost is a few cents per scan with Haiku.",
         }],
       };
     }

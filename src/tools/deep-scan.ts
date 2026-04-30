@@ -14,7 +14,10 @@ export interface DeepScanFinding {
   fix: string;
 }
 
-const FOCUS_AREAS = [
+export type DeepScanFocus = "all" | "idor" | "business-logic" | "auth-bypass" | "race-condition";
+export type DeepScanModel = "haiku" | "sonnet";
+
+const ALL_AREAS = [
   "IDOR (Insecure Direct Object Reference) — can users access resources belonging to other users?",
   "Business logic flaws — are there authorization bypasses, price manipulation, or state machine violations?",
   "Race conditions — are there TOCTOU issues, double-spend, or concurrent mutation without locking?",
@@ -23,6 +26,40 @@ const FOCUS_AREAS = [
   "Privilege escalation — can a regular user perform admin actions through parameter manipulation?",
 ];
 
+const FOCUS_AREAS: Record<DeepScanFocus, string[]> = {
+  all: ALL_AREAS,
+  idor: [
+    "IDOR (Insecure Direct Object Reference) — can users access resources belonging to other users?",
+    "Missing ownership scope on database queries (where: { id } instead of { id, userId })",
+    "URL/path parameters used directly as DB keys without authorization gate",
+  ],
+  "business-logic": [
+    "Authorization bypass via parameter manipulation (e.g., role/isAdmin in body)",
+    "Price/amount manipulation or coupon stacking",
+    "State machine violations (skip steps, replay completed actions)",
+    "Idempotency / replay protection on payment / order paths",
+  ],
+  "auth-bypass": [
+    "Missing or insufficient auth check before sensitive operations",
+    "Stale tokens / sessions still accepted after revoke",
+    "Cookie / JWT validation skipped on a subset of routes",
+    "Privilege-elevation through parameter manipulation",
+  ],
+  "race-condition": [
+    "TOCTOU between read and write (check-then-act without locking)",
+    "Concurrent rate-limit increments without atomic ops",
+    "Double-spend / double-grant via parallel requests",
+    "Optimistic-update races on shared mutable state",
+  ],
+};
+
+export const MODEL_IDS: Record<DeepScanModel, string> = {
+  haiku: "claude-haiku-4-5-20251001",
+  sonnet: "claude-sonnet-4-6",
+};
+
+export const DEFAULT_MAX_BYTES = 10_000;
+
 /**
  * Build a structured prompt for the LLM to analyze code.
  */
@@ -30,16 +67,18 @@ export function buildDeepScanPrompt(
   code: string,
   language: string,
   existingFindings: string[],
+  focus: DeepScanFocus = "all",
 ): string {
+  const areas = FOCUS_AREAS[focus] ?? FOCUS_AREAS.all;
   const lines = [
     "You are a senior application security engineer performing a deep code review.",
     "Analyze the following code for security vulnerabilities that automated pattern-matching scanners miss.",
     "",
-    "## Focus Areas",
+    `## Focus Areas (${focus})`,
     "",
   ];
 
-  for (const area of FOCUS_AREAS) {
+  for (const area of areas) {
     lines.push(`- ${area}`);
   }
 
@@ -152,15 +191,30 @@ export function formatDeepScanFindings(
   return lines.join("\n");
 }
 
+export interface CallLLMOptions {
+  model?: DeepScanModel;
+  maxBytes?: number;
+}
+
 /**
  * Call an LLM API for deep analysis. Uses native fetch.
  * Supports Anthropic (ANTHROPIC_API_KEY) or OpenAI (OPENAI_API_KEY).
  * Returns null if no API key is available.
+ *
+ * Defaults to Haiku 4.5 for cost; pass `model: "sonnet"` for higher-quality analysis.
+ * `maxBytes` truncates the prompt to keep cost bounded (default 10 KB).
  */
-export async function callLLM(prompt: string): Promise<string | null> {
+export async function callLLM(prompt: string, options: CallLLMOptions = {}): Promise<string | null> {
   // guardvibe-ignore — API URLs are hardcoded trusted endpoints, not user-controlled
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
+  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const model = options.model ?? "haiku";
+
+  // Truncate prompt to keep token budget bounded
+  const trimmedPrompt = prompt.length > maxBytes
+    ? prompt.slice(0, maxBytes) + "\n\n[truncated by GuardVibe to stay within budget]"
+    : prompt;
 
   if (anthropicKey) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -171,9 +225,9 @@ export async function callLLM(prompt: string): Promise<string | null> {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: MODEL_IDS[model],
         max_tokens: 2048,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: trimmedPrompt }],
       }),
     });
 
@@ -190,9 +244,9 @@ export async function callLLM(prompt: string): Promise<string | null> {
         "Authorization": `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: model === "sonnet" ? "gpt-4o" : "gpt-4o-mini",
         max_tokens: 2048,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: trimmedPrompt }],
       }),
     });
 

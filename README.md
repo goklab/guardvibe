@@ -228,7 +228,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
 | `verify_fix` | Verify a security fix was applied correctly — returns fixed/still_vulnerable/new_issues |
 | `security_workflow` | Get recommended tool workflow for your current task (writing, pre-commit, PR review, etc.) |
 | `auth_coverage` | **Auth coverage map** — enumerate routes, parse middleware matchers, detect auth guards, report coverage % |
-| `deep_scan` | **LLM-powered deep analysis** — IDOR, business logic, race conditions, privilege escalation (requires API key) |
+| `deep_scan` | **LLM-powered deep analysis** — IDOR, business logic, race conditions, auth bypass. Defaults to Claude Haiku 4.5 (~cents/scan). Pass `model: 'sonnet'` for deeper analysis. CLI: `npx guardvibe deep-scan <file> --focus idor` |
 | `full_audit` | **Single source of truth** — runs ALL checks in one call, returns PASS/FAIL/WARN verdict + score + coverage % + deterministic result hash |
 | `remediation_plan` | **Remediation plan** — generates section-by-section fix checklist after audit |
 | `verify_remediation` | **Remediation verification** — compares before/after audit, flags skipped sections |

@@ -107,4 +107,137 @@ describe("deep-scan", () => {
       assert(output.includes("No additional"));
     });
   });
+
+  describe("focus parameter (v3.1.0)", () => {
+    it("idor focus narrows the prompt", () => {
+      const prompt = buildDeepScanPrompt("code", "typescript", [], "idor");
+      assert(prompt.includes("(idor)"), "header reflects focus");
+      assert(prompt.toLowerCase().includes("ownership"), "idor-specific area present");
+      // race-condition should NOT appear when focus is idor-only
+      assert(!prompt.toLowerCase().includes("toctou"), "race-condition area absent under idor focus");
+    });
+
+    it("business-logic focus mentions price manipulation", () => {
+      const prompt = buildDeepScanPrompt("code", "typescript", [], "business-logic");
+      assert(prompt.toLowerCase().includes("price"), "business-logic area present");
+    });
+
+    it("auth-bypass focus mentions tokens / sessions", () => {
+      const prompt = buildDeepScanPrompt("code", "typescript", [], "auth-bypass");
+      assert(prompt.toLowerCase().includes("token") || prompt.toLowerCase().includes("session"), "auth-bypass area present");
+    });
+
+    it("race-condition focus mentions TOCTOU", () => {
+      const prompt = buildDeepScanPrompt("code", "typescript", [], "race-condition");
+      assert(prompt.toLowerCase().includes("toctou"), "race-condition area present");
+    });
+
+    it("default focus = all keeps all areas", () => {
+      const prompt = buildDeepScanPrompt("code", "typescript", []);
+      assert(prompt.toLowerCase().includes("idor"), "all-focus includes idor");
+      assert(prompt.toLowerCase().includes("toctou") || prompt.toLowerCase().includes("race"), "all-focus includes race");
+      assert(prompt.toLowerCase().includes("mass assignment"), "all-focus includes mass assignment");
+    });
+  });
+
+  describe("model + maxBytes (v3.1.0)", () => {
+    it("MODEL_IDS exposes haiku and sonnet", async () => {
+      const mod = await import("../../src/tools/deep-scan.js");
+      assert.equal(mod.MODEL_IDS.haiku, "claude-haiku-4-5-20251001");
+      assert.equal(mod.MODEL_IDS.sonnet, "claude-sonnet-4-6");
+    });
+
+    it("DEFAULT_MAX_BYTES is 10000", async () => {
+      const mod = await import("../../src/tools/deep-scan.js");
+      assert.equal(mod.DEFAULT_MAX_BYTES, 10_000);
+    });
+
+    it("callLLM returns null when no API key", async () => {
+      const mod = await import("../../src/tools/deep-scan.js");
+      // Save and clear keys
+      const savedAnthropic = process.env.ANTHROPIC_API_KEY;
+      const savedOpenAI = process.env.OPENAI_API_KEY;
+      delete process.env.ANTHROPIC_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+      try {
+        const result = await mod.callLLM("test prompt");
+        assert.equal(result, null);
+      } finally {
+        if (savedAnthropic !== undefined) process.env.ANTHROPIC_API_KEY = savedAnthropic;
+        if (savedOpenAI !== undefined) process.env.OPENAI_API_KEY = savedOpenAI;
+      }
+    });
+
+    it("callLLM truncates over-budget prompt", async () => {
+      const mod = await import("../../src/tools/deep-scan.js");
+      const originalFetch = globalThis.fetch;
+      const savedKey = process.env.ANTHROPIC_API_KEY;
+      process.env.ANTHROPIC_API_KEY = "sk-test-key";
+      let capturedBody: any = null;
+      // @ts-expect-error fetch mock
+      globalThis.fetch = async (_url: string, init: any) => {
+        capturedBody = JSON.parse(init.body);
+        return {
+          ok: true,
+          json: async () => ({ content: [{ text: "{\"findings\":[]}" }] }),
+        };
+      };
+      try {
+        const big = "x".repeat(20_000);
+        await mod.callLLM(big, { maxBytes: 1_000 });
+        assert(capturedBody, "fetch mock captured body");
+        const sent = capturedBody.messages[0].content as string;
+        assert(sent.length < 5_000, `prompt should be truncated (got ${sent.length} chars)`);
+        assert(sent.includes("[truncated"), "truncation marker present");
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (savedKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+        else process.env.ANTHROPIC_API_KEY = savedKey;
+      }
+    });
+
+    it("callLLM uses haiku model id by default", async () => {
+      const mod = await import("../../src/tools/deep-scan.js");
+      const originalFetch = globalThis.fetch;
+      const savedKey = process.env.ANTHROPIC_API_KEY;
+      process.env.ANTHROPIC_API_KEY = "sk-test-key";
+      let sentModel: string | undefined;
+      // @ts-expect-error fetch mock
+      globalThis.fetch = async (_url: string, init: any) => {
+        const body = JSON.parse(init.body);
+        sentModel = body.model;
+        return { ok: true, json: async () => ({ content: [{ text: "{}" }] }) };
+      };
+      try {
+        await mod.callLLM("hi");
+        assert.equal(sentModel, "claude-haiku-4-5-20251001");
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (savedKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+        else process.env.ANTHROPIC_API_KEY = savedKey;
+      }
+    });
+
+    it("callLLM uses sonnet model when requested", async () => {
+      const mod = await import("../../src/tools/deep-scan.js");
+      const originalFetch = globalThis.fetch;
+      const savedKey = process.env.ANTHROPIC_API_KEY;
+      process.env.ANTHROPIC_API_KEY = "sk-test-key";
+      let sentModel: string | undefined;
+      // @ts-expect-error fetch mock
+      globalThis.fetch = async (_url: string, init: any) => {
+        const body = JSON.parse(init.body);
+        sentModel = body.model;
+        return { ok: true, json: async () => ({ content: [{ text: "{}" }] }) };
+      };
+      try {
+        await mod.callLLM("hi", { model: "sonnet" });
+        assert.equal(sentModel, "claude-sonnet-4-6");
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (savedKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+        else process.env.ANTHROPIC_API_KEY = savedKey;
+      }
+    });
+  });
 });
