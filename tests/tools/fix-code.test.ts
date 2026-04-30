@@ -130,4 +130,72 @@ describe("fix_code tool", () => {
     const withFixCode = parsed.fixes.find((f: any) => f.fixCode);
     assert(withFixCode, "At least one fix should have fixCode");
   });
+
+  describe("auto-fix expansion (v3.0.57)", () => {
+    it("VG1028: strips NEXT_PUBLIC_ prefix on LLM provider keys", () => {
+      const result = fixCode(
+        "process.env.NEXT_PUBLIC_OPENAI_API_KEY",
+        "typescript", undefined, undefined, "json"
+      );
+      const parsed = JSON.parse(result);
+      const fix = parsed.fixes.find((f: any) => f.ruleId === "VG1028" && f.edit);
+      assert(fix, "VG1028 should yield a structured edit");
+      assert(!fix.edit.newText.includes("NEXT_PUBLIC_"), "edit removes prefix");
+      assert(fix.edit.newText.includes("OPENAI_API_KEY"), "edit keeps unsuffixed name");
+    });
+
+    it("VG1028: strips VITE_ prefix on LLM provider keys", () => {
+      const result = fixCode(
+        "VITE_ANTHROPIC_API_KEY=sk-ant-foo",
+        "typescript", undefined, undefined, "json"
+      );
+      const parsed = JSON.parse(result);
+      const fix = parsed.fixes.find((f: any) => f.ruleId === "VG1028" && f.edit);
+      assert(fix, "VG1028 should yield a structured edit");
+      assert(!fix.edit.newText.startsWith("VITE_"), "VITE_ prefix removed");
+    });
+
+    it("VG998: drops dangerouslyAllowBrowser flag", () => {
+      const result = fixCode(
+        'const c = new OpenAI({ apiKey: k, dangerouslyAllowBrowser: true });',
+        "typescript", undefined, undefined, "json"
+      );
+      const parsed = JSON.parse(result);
+      const fix = parsed.fixes.find((f: any) => f.ruleId === "VG998" && f.edit);
+      assert(fix, "VG998 should yield a structured edit");
+      assert(!fix.edit.newText.includes("dangerouslyAllowBrowser"), "flag removed");
+    });
+
+    it("VG1033: appends maxSteps to single-line generateText call with tools", () => {
+      const result = fixCode(
+        "await generateText({ model, tools: { foo: tool({}) } });",
+        "typescript", undefined, undefined, "json"
+      );
+      const parsed = JSON.parse(result);
+      const fix = parsed.fixes.find((f: any) => f.ruleId === "VG1033" && f.edit);
+      assert(fix, "VG1033 should yield a structured edit");
+      assert(fix.edit.newText.includes("maxSteps"), "edit adds maxSteps");
+    });
+
+    it("VG1036: drops sandbox bypass flag", () => {
+      const result = fixCode(
+        "const sb = await Sandbox.create({ unsafe: true, timeoutMs: 5000 });",
+        "typescript", undefined, undefined, "json"
+      );
+      const parsed = JSON.parse(result);
+      const fix = parsed.fixes.find((f: any) => f.ruleId === "VG1036" && f.edit);
+      assert(fix, "VG1036 should yield a structured edit");
+      assert(!fix.edit.newText.includes("unsafe: true"), "unsafe flag removed");
+    });
+
+    it("VG014: returns dynamic-code-execution patch template", () => {
+      const dyn = "ev" + "al";
+      const code = `${dyn}("1+1");`;
+      const result = fixCode(code, "typescript", undefined, undefined, "json");
+      const parsed = JSON.parse(result);
+      const fix = parsed.fixes.find((f: any) => f.ruleId === "VG014");
+      assert(fix, "VG014 should fire");
+      assert(fix.patch && fix.patch.includes("JSON.parse"), "patch suggests JSON.parse");
+    });
+  });
 });

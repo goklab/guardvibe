@@ -1,6 +1,6 @@
 {
   "name": "guardvibe",
-  "version": "3.0.56",
+  "version": "3.0.57",
   "mcpName": "io.github.goklab/guardvibe",
   "description": "Security MCP for vibe coding. 390 rules, 36 tools, CLI + doctor. Host security, auth coverage mapping, LLM-powered deep scan (IDOR/business logic), taint analysis, +25 AI-native rules (MCP supply-chain, RAG/vector poisoning, agent loop DoS, public-prefix LLM keys, sandbox bypass). Plus Next.js, Supabase, Clerk, Stripe, Prisma, tRPC, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK, and the full AI-generated stack.",
   "type": "module",

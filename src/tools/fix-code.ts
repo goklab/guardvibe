@@ -263,6 +263,66 @@ function generatePatch(finding: Finding, sourceLine: string): string | undefined
   // --- Server data leaked to client ---
   if (rule.id === "VG407") return "// Keep sensitive data server-side:\nexport default async function Page() {\n  const secret = process.env.SECRET;\n  const safeData = transform(secret);\n  return <Client data={safeData} />;\n}";
 
+  // --- VG014: dynamic-code-execution → safe parser ---
+  if (rule.id === "VG014") {
+    return "// Replace dynamic code execution with a safe parser:\n// Before: dynamic-code-execution(jsonString)\n// After:  JSON.parse(jsonString)\n// Validate the parsed shape with Zod before use.";
+  }
+
+  // --- VG010 / VG123: SQL injection → parameterized query ---
+  if (["VG010", "VG123"].includes(rule.id)) {
+    return "// Use parameterized queries — never string-interpolate user input into SQL:\n// pg:    db.query('SELECT * FROM users WHERE id = $1', [userId])\n// mysql: db.query('SELECT * FROM users WHERE id = ?', [userId])\n// Prisma: prisma.user.findUnique({ where: { id: userId } })\n// Knex:  db('users').where({ id: userId }).first()";
+  }
+
+  // --- VG155: missing CSRF → middleware ---
+  if (rule.id === "VG155") {
+    return "// Next.js App Router: SameSite=Lax cookies + Content-Type=application/json triggers CORS preflight; Bearer-token auth is not browser-attached. If you accept browser-form posts, add csrf-csrf:\nimport { csrfSync } from \"csrf-csrf\";\nconst { csrfSynchronisedProtection } = csrfSync({ getSecret: () => process.env.CSRF_SECRET! });\nexport function middleware(req) { return csrfSynchronisedProtection(req); }\n\n// Express:\nimport csurf from \"csurf\";\napp.use(csurf({ cookie: true }));";
+  }
+
+  // --- VG144 / VG145: missing security headers ---
+  if (["VG144", "VG145"].includes(rule.id)) {
+    return "// next.config.ts → headers():\nasync headers() {\n  return [{ source: \"/(.*)\", headers: [\n    { key: \"Strict-Transport-Security\", value: \"max-age=63072000; includeSubDomains; preload\" },\n    { key: \"X-Content-Type-Options\", value: \"nosniff\" },\n    { key: \"X-Frame-Options\", value: \"DENY\" },\n    { key: \"Referrer-Policy\", value: \"strict-origin-when-cross-origin\" },\n    { key: \"Permissions-Policy\", value: \"camera=(), microphone=(), geolocation=()\" },\n  ]}];\n}";
+  }
+
+  // --- VG030: missing global rate limiting ---
+  if (rule.id === "VG030") {
+    return "// Express:\nimport rateLimit from \"express-rate-limit\";\napp.use(rateLimit({ windowMs: 60_000, max: 100 }));\n\n// Next.js + Upstash (per-route):\nimport { Ratelimit } from \"@upstash/ratelimit\";\nconst rl = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, \"60s\") });\nconst { success } = await rl.limit(req.ip ?? \"anon\");\nif (!success) return new Response(\"Too many requests\", { status: 429 });";
+  }
+
+  // --- VG101: open redirect → allowlist ---
+  if (rule.id === "VG101") {
+    return "const ALLOWED = [\"example.com\", \"app.example.com\"];\nconst u = new URL(target, request.url);\nif (!ALLOWED.includes(u.hostname)) return redirect(\"/\");\nredirect(u.toString());";
+  }
+
+  // --- VG042: path traversal → path.resolve + boundary ---
+  if (rule.id === "VG042") {
+    return "import path from \"path\";\nconst BASE = path.resolve(\"/data/safe\");\nconst resolved = path.resolve(BASE, userPath);\nif (!resolved.startsWith(BASE + path.sep)) throw new Error(\"Path traversal blocked\");\nconst content = await fs.readFile(resolved, \"utf-8\");";
+  }
+
+  // --- VG060: bcrypt for password hashing ---
+  if (rule.id === "VG060") {
+    return "import bcrypt from \"bcrypt\";\nconst SALT_ROUNDS = 12;\nconst hash = await bcrypt.hash(plainPassword, SALT_ROUNDS);\n// Verify:\nconst ok = await bcrypt.compare(plainPassword, hash);";
+  }
+
+  // --- VG003: hardcoded JWT secret ---
+  if (rule.id === "VG003") {
+    return "// Move secret to environment:\n// Before: const SECRET = \"hardcoded-string\"\n// After:  const SECRET = process.env.JWT_SECRET!\n// Then rotate the leaked secret in your provider/key vault before deploying.";
+  }
+
+  // --- VG1012: MCP @latest → pin ---
+  if (rule.id === "VG1012") {
+    return "// Re-run `npx guardvibe init` to write pinned versions, OR manually:\n// Before: \"args\": [\"-y\", \"some-mcp-server@latest\"]\n// After:  \"args\": [\"-y\", \"some-mcp-server@1.4.2\"]";
+  }
+
+  // --- VG1033: agent loop without maxSteps ---
+  if (rule.id === "VG1033") {
+    return "// Always cap agent tool roundtrips:\nawait generateText({\n  model,\n  tools: { /* ... */ },\n  maxSteps: 8,\n});";
+  }
+
+  // --- VG1036: code-exec sandbox bypass ---
+  if (rule.id === "VG1036") {
+    return "// Drop sandbox-bypass flags. If you need network/fs, allowlist specific endpoints:\nawait Sandbox.create({\n  timeoutMs: 5_000,\n  network: { allow: [\"api.example.com\"] },\n});";
+  }
+
   // --- Fallback: use fixCode from rule ---
   if (rule.fixCode) {
     return `// Secure alternative:\n${rule.fixCode}`;
@@ -297,13 +357,13 @@ function generateStructuredEdit(
     }
   }
 
-  // --- NEXT_PUBLIC_ exposure → remove prefix ---
-  if (["VG411", "VG604", "VG627", "VG631", "VG655", "VG671", "VG676", "VG755"].includes(rule.id)) {
-    const m = /(NEXT_PUBLIC_)(\w+)/.exec(sourceLine);
+  // --- NEXT_PUBLIC_ / VITE_ / EXPO_PUBLIC_ / REACT_APP_ exposure → remove prefix ---
+  if (["VG411", "VG604", "VG627", "VG631", "VG655", "VG671", "VG676", "VG755", "VG1028"].includes(rule.id)) {
+    const m = sourceLine.match(/(NEXT_PUBLIC_|VITE_|EXPO_PUBLIC_|REACT_APP_|GATSBY_|NUXT_PUBLIC_|PUBLIC_)([A-Z][\w]+)/);
     if (m) {
       return {
         startLine: line, endLine: line,
-        oldText: sourceLine, newText: sourceLine.replace(`NEXT_PUBLIC_${m[2]}`, m[2]),
+        oldText: sourceLine, newText: sourceLine.replace(`${m[1]}${m[2]}`, m[2]),
       };
     }
   }
@@ -349,6 +409,47 @@ function generateStructuredEdit(
       newText: `${indent}const { userId } = await auth();\n${indent}if (!userId) return new Response("Unauthorized", { status: 401 });\n${sourceLine}`,
       imports: ['import { auth } from "@clerk/nextjs/server"'],
     };
+  }
+
+  // --- Browser-mode AI SDK init flag → drop ---
+  if (["VG874", "VG998", "VG1023"].includes(rule.id)) {
+    const stripped = sourceLine
+      .replace(/,?\s*dangerouslyAllowBrowser\s*:\s*true\s*,?/, "")
+      .replace(/,?\s*browser\s*:\s*true\s*,?/, "");
+    if (stripped !== sourceLine) {
+      return { startLine: line, endLine: line, oldText: sourceLine, newText: stripped };
+    }
+  }
+
+  // --- VG1033: append maxSteps to single-line generateText/etc tool call ---
+  if (rule.id === "VG1033" && /(?:generateText|streamText|generate|streamObject|invoke|run)\s*\(\s*\{[^}]*\btools\s*:/.test(sourceLine) && /\}\s*\)\s*;?\s*$/.test(sourceLine)) {
+    const newText = sourceLine.replace(/(\})(\s*\)\s*;?\s*)$/, ", maxSteps: 8 $1$2");
+    if (newText !== sourceLine) {
+      return { startLine: line, endLine: line, oldText: sourceLine, newText };
+    }
+  }
+
+  // --- VG1036: drop sandbox bypass flags ---
+  if (rule.id === "VG1036") {
+    const stripped = sourceLine.replace(/,?\s*(?:unsafe|noSandbox|allowEval|allowAsync|privileged|allowAllNetwork)\s*:\s*true\s*,?/g, "");
+    if (stripped !== sourceLine) {
+      return { startLine: line, endLine: line, oldText: sourceLine, newText: stripped };
+    }
+  }
+
+  // --- VG1031: AI message via raw-HTML React prop → ReactMarkdown ---
+  if (rule.id === "VG1031") {
+    const RAW_HTML_PROP_RE = new RegExp("(<\\w+)\\s+" + "dangerously" + "SetInnerHTML\\s*=\\s*\\{\\{\\s*__html\\s*:\\s*([^}]+?)\\s*\\}\\}\\s*(\\/?)>");
+    const m = sourceLine.match(RAW_HTML_PROP_RE);
+    if (m) {
+      const inner = m[2].trim();
+      return {
+        startLine: line, endLine: line,
+        oldText: sourceLine,
+        newText: sourceLine.replace(m[0], `<ReactMarkdown>{${inner}}</ReactMarkdown>`),
+        imports: ['import ReactMarkdown from "react-markdown"'],
+      };
+    }
   }
 
   return undefined;

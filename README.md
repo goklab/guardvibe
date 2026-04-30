@@ -20,7 +20,7 @@ Most security tools are built for enterprise security teams. GuardVibe is built 
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
 - **CVE version intelligence** — detects 23 known vulnerable package versions in package.json
 - **AI agent security** — detects MCP server vulnerabilities, excessive AI permissions, indirect prompt injection
-- **Auto-fix suggestions** — `fix_code` tool returns concrete patches the AI agent can apply
+- **Auto-fix suggestions** — `fix_code` tool returns concrete patches and structured edits the AI agent can apply mechanically. Coverage: hardcoded credentials → env-var migration; public-prefix LLM keys (`NEXT_PUBLIC_/VITE_/EXPO_PUBLIC_/REACT_APP_`) → prefix removal; CORS wildcards → env allowlist; `dangerouslyAllowBrowser` flags → drop; sandbox bypass flags (`unsafe`/`noSandbox`/`allowEval`) → drop; agent loops → add `maxSteps`; raw-HTML React props → `<ReactMarkdown>`; missing auth checks → insert auth guard; SQL injection → parameterized queries; missing rate limiters / CSRF / security headers → snippet templates.
 - **Pre-commit hook** — block insecure code before it reaches your repo
 - **CI/CD ready** — GitHub Actions workflow with SARIF upload to Security tab
 - **Agent-friendly output** — JSON format for AI agents, Markdown for humans, SARIF for CI/CD
