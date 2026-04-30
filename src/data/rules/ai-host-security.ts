@@ -179,4 +179,56 @@ export const aiHostSecurityRules: SecurityRule[] = [
       '// SAFE:\n"PostToolUse": [{ "command": "echo Tool completed" }]',
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req10.2", "EUAIACT:Art14"],
   },
+
+  // ── Differentiation batch: MCP config supply-chain & isolation ─────────
+
+  {
+    id: "VG1012",
+    name: "MCP Server Pinned to @latest (Unpinned Supply Chain)",
+    severity: "high",
+    owasp: "A03:2025 Software Supply Chain Failures",
+    description:
+      "MCP server configuration uses an unpinned `@latest` package version. The next time the host launches the server, npm fetches whatever the maintainer has published — including a compromised release. Pin the package to a specific version so a compromised publish does not silently flow into the AI agent's tool surface.",
+    pattern:
+      /["']args["']\s*:\s*\[[^\]]*?["'](?:@[a-z0-9][\w-]*\/)?[a-z0-9][\w-]*@latest["']/gi,
+    languages: ["json"],
+    fix: "Pin MCP server packages to an exact version. Re-run `guardvibe init` to regenerate `.mcp.json` with the current pinned version.",
+    fixCode:
+      '// SAFE — exact pinned version:\n"command": "npx",\n"args": ["-y", "guardvibe@3.0.55"]\n\n// UNSAFE — pulls every new release on next launch:\n// "args": ["-y", "guardvibe@latest"]',
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.2", "EUAIACT:Art15"],
+    exploit:
+      "Attacker compromises an MCP server's npm publish credentials. Every host using `@latest` pulls the trojanized version on the next session start, executing arbitrary code under the developer's account.",
+  },
+  {
+    id: "VG1013",
+    name: "MCP Server env Block Contains Hardcoded Secret",
+    severity: "critical",
+    owasp: "A07:2025 Sensitive Data Exposure",
+    description:
+      "MCP server configuration `env` block contains a literal API key, token, or secret value rather than a `${VAR}` reference. The credential is committed to the repo (or shared with collaborators via the host config) and is exposed to every MCP server child process that inherits the env.",
+    pattern:
+      /["']env["']\s*:\s*\{[^}]*?["'][A-Z][A-Z0-9_]{3,}["']\s*:\s*["'](?!\$\{|process\.env)(?:sk-[A-Za-z0-9_\-]{15,}|ghp_[A-Za-z0-9]{10,}|github_pat_[A-Za-z0-9_]{15,}|xox[baprs]-[A-Za-z0-9-]{8,}|AKIA[0-9A-Z]{12,}|AIza[0-9A-Za-z\-_]{30,}|hf_[A-Za-z0-9]{20,}|nvapi-[A-Za-z0-9_\-]{15,}|[A-Za-z0-9_\-]{32,})/g,
+    languages: ["json"],
+    fix: "Replace hardcoded secrets with `${ENV_VAR}` references. Store the actual value in your shell or a secrets manager, not in the MCP config.",
+    fixCode:
+      '// SAFE — env-var reference:\n"env": { "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}" }\n\n// UNSAFE — secret committed to repo:\n// "env": { "ANTHROPIC_API_KEY": "sk-ant-api03-AbCd..." }',
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req3.4", "GDPR:Art32", "EUAIACT:Art15"],
+    exploit:
+      "Anyone with read access to the repo (or to a compromised collaborator's machine) gains the API key. The key bills to the owner and gives full provider access until rotation.",
+  },
+  {
+    id: "VG1014",
+    name: "MCP Server Command Loads From World-Writable or Temp Path",
+    severity: "high",
+    owasp: "A03:2025 Software Supply Chain Failures",
+    description:
+      "MCP server `command` references a binary or script under `/tmp/`, `/var/tmp/`, `~/Downloads/`, or a relative `..` traversal. World-writable and temp directories can be replaced by any local user or attacker; loading an MCP server from such a path is a code-execution sink because the AI agent will run whatever command is at that path the next time it starts.",
+    pattern:
+      /["']command["']\s*:\s*["'](?:\/tmp\/|\/var\/tmp\/|~\/Downloads\/|~\/Desktop\/[^"']*\.sh|\.\.\/[^"']*\/)/gi,
+    languages: ["json"],
+    fix: "Move the MCP server binary into a versioned location (a pinned npm package, a cloned repo with checksum verification, or a system-managed install path). Avoid `/tmp` or download directories.",
+    fixCode:
+      '// SAFE — npm-managed:\n"command": "npx",\n"args": ["-y", "@modelcontextprotocol/server-filesystem@1.4.2"]\n\n// UNSAFE — anyone can replace this binary:\n// "command": "/tmp/mcp-helper"',
+    compliance: ["SOC2:CC7.1", "EUAIACT:Art15"],
+  },
 ];
