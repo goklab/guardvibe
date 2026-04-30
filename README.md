@@ -64,7 +64,7 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 npx guardvibe init claude
 ```
 
-Creates `.claude.json` MCP config, `.claude/settings.json` auto-scan hooks, and `CLAUDE.md` security rules. Restart Claude Code after setup.
+Creates `.mcp.json` MCP config (pinned to current version), `.claude/settings.json` auto-scan hooks, and `CLAUDE.md` security rules. Restart Claude Code after setup.
 
 ### Cursor
 
@@ -285,6 +285,13 @@ npx guardvibe doctor                 # Host hardening audit (project scope)
 npx guardvibe doctor --scope host    # + shell profiles, global MCP configs
 npx guardvibe doctor --scope full    # + home dir configs
 npx guardvibe doctor --format json   # JSON output
+
+# LLM-powered deep scan (IDOR, business logic, race conditions, auth bypass)
+npx guardvibe deep-scan <file>                  # Default: Haiku 4.5, all focus areas
+npx guardvibe deep-scan <file> --focus idor     # Narrow to IDOR
+npx guardvibe deep-scan <file> --model sonnet   # Deeper analysis (more expensive)
+npx guardvibe deep-scan <file> --max-bytes 5000 # Truncate input for cost control
+# Requires ANTHROPIC_API_KEY or OPENAI_API_KEY env var
 
 # Setup
 npx guardvibe init <platform>       # Setup MCP server (claude, cursor, gemini, all)

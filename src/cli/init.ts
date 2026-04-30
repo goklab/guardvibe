@@ -23,6 +23,18 @@ const GUARDVIBE_MCP_CONFIG = {
   args: ["-y", `guardvibe@${pkg.version}`],
 };
 
+/** Extract a pinned version from an existing MCP server config (`{ args: ["-y", "guardvibe@X.Y.Z"] }`). */
+function extractPinnedVersion(config: unknown): string | null {
+  const args = (config as { args?: unknown })?.args;
+  if (!Array.isArray(args)) return null;
+  for (const arg of args) {
+    if (typeof arg === "string" && arg.startsWith("guardvibe@")) {
+      return arg.slice("guardvibe@".length);
+    }
+  }
+  return null;
+}
+
 const platforms: Record<string, { path: string; description: string }> = {
   claude: {
     path: join(process.cwd(), ".mcp.json"),
@@ -189,12 +201,25 @@ function setupPlatform(name: string): boolean {
     if (!existing.mcpServers) {
       existing.mcpServers = {};
     }
-    if ((existing.mcpServers as Record<string, unknown>)["guardvibe"]) {
-      console.log(`  [OK] GuardVibe already configured in ${platform.description}`);
+    const servers = existing.mcpServers as Record<string, unknown>;
+    if (servers["guardvibe"]) {
+      const existingPin = extractPinnedVersion(servers["guardvibe"]);
+      if (existingPin && existingPin !== pkg.version) {
+        servers["guardvibe"] = GUARDVIBE_MCP_CONFIG;
+        writeJsonFile(platform.path, existing);
+        console.log(`  [OK] Upgraded GuardVibe pin in ${platform.description} (${existingPin} → ${pkg.version})`);
+      } else if (!existingPin) {
+        // Existing config has no pin (legacy unpinned form) — overwrite to pin.
+        servers["guardvibe"] = GUARDVIBE_MCP_CONFIG;
+        writeJsonFile(platform.path, existing);
+        console.log(`  [OK] Pinned GuardVibe in ${platform.description} (was unpinned → ${pkg.version})`);
+      } else {
+        console.log(`  [OK] GuardVibe already up-to-date in ${platform.description} (v${pkg.version})`);
+      }
       setupSecurityGuide(name);
       return true;
     }
-    (existing.mcpServers as Record<string, unknown>)["guardvibe"] = GUARDVIBE_MCP_CONFIG;
+    servers["guardvibe"] = GUARDVIBE_MCP_CONFIG;
     writeJsonFile(platform.path, existing);
   } else {
     writeJsonFile(platform.path, {

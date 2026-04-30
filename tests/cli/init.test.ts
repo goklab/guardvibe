@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, rmSync, existsSync, readFileSync } from "fs";
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { execFileSync } from "child_process";
 import { tmpdir } from "os";
@@ -65,7 +65,34 @@ describe("CLI - Init Claude", () => {
   it("idempotent — second run doesn't duplicate", () => {
     runCLI(["init", "claude"]);
     const { stdout } = runCLI(["init", "claude"]);
-    assert(stdout.includes("already configured"), "should detect existing config");
+    assert(
+      stdout.includes("already up-to-date") || stdout.includes("already configured"),
+      "should detect existing config"
+    );
+  });
+
+  it("upgrades pin when existing version is older (v3.1.2)", () => {
+    const mcpPath = join(TEST_DIR, ".mcp.json");
+    writeFileSync(mcpPath, JSON.stringify({
+      mcpServers: { guardvibe: { command: "npx", args: ["-y", "guardvibe@1.0.0"] } },
+    }));
+    const { stdout } = runCLI(["init", "claude"]);
+    assert(stdout.includes("Upgraded GuardVibe pin"), `should announce the upgrade. stdout: ${stdout}`);
+    const cfg = JSON.parse(readFileSync(mcpPath, "utf-8"));
+    const newPin = cfg.mcpServers.guardvibe.args.find((a: string) => a.startsWith("guardvibe@"));
+    assert(newPin && !newPin.endsWith("@1.0.0"), `pin should be bumped (got ${newPin})`);
+  });
+
+  it("pins an unpinned existing config (v3.1.2)", () => {
+    const mcpPath = join(TEST_DIR, ".mcp.json");
+    writeFileSync(mcpPath, JSON.stringify({
+      mcpServers: { guardvibe: { command: "npx", args: ["-y", "guardvibe"] } },
+    }));
+    const { stdout } = runCLI(["init", "claude"]);
+    assert(stdout.includes("Pinned GuardVibe"), `should pin the previously unpinned config. stdout: ${stdout}`);
+    const cfg = JSON.parse(readFileSync(mcpPath, "utf-8"));
+    const pin = cfg.mcpServers.guardvibe.args.find((a: string) => a.startsWith("guardvibe@"));
+    assert(pin, "should now have a pinned arg");
   });
 });
 
