@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 
 import { createRequire } from "module";
+import { checkForUpdate } from "./utils/update-check.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
+
+// Fire-and-forget update notification (writes to stderr if newer version exists).
+// Skipped when GUARDVIBE_NO_UPDATE_CHECK=1, NO_UPDATE_NOTIFIER=1, or CI=true.
+checkForUpdate(pkg.version);
 
 // ── Scan entry point detection ──────────────────────────────────────
 const SCAN_SCRIPT_DETECTED = process.argv[1]?.endsWith("guardvibe-scan") ||

@@ -1201,6 +1201,10 @@ export async function startMcpServer() {
 }
 
 async function main() {
+  // Fire-and-forget npm update check (writes a banner to stderr if newer version exists).
+  const { checkForUpdate } = await import("./utils/update-check.js");
+  checkForUpdate(pkg.version);
+
   // Load plugins
   const config = loadConfig(process.cwd());
   const plugins = await discoverPlugins(process.cwd(), config.plugins);
