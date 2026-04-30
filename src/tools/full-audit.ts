@@ -145,7 +145,8 @@ function collectJsFiles(dir: string, maxFiles = 200): Array<{ path: string; cont
   const files: Array<{ path: string; content: string }> = [];
   const config = loadConfig(resolve(dir));
   const skip = new Set([
-    "node_modules", ".git", ".next", "build", "dist", ".turbo", "coverage",
+    "node_modules", ".git", ".next", ".vercel", ".output", ".astro", ".svelte-kit",
+    "build", "dist", ".turbo", "coverage", ".nuxt", ".cache",
     ...config.scan.exclude,
   ]);
   // `maxFiles = Infinity` is the contract for full mode (CLI --full flag): scan everything.

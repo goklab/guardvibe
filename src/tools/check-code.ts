@@ -40,14 +40,22 @@ function parseSuppressionsFromCode(lines: string[]): Suppression[] {
       // lines, stopping early at a blank line or a new comment block. This makes
       // suppress comments work for multi-line method chains (common Supabase / ORM
       // builders span 3-5 lines from `.from(...)` through `.select(...).order(...)`).
+      // Additional adjacent `guardvibe-ignore` comments are treated as part of the
+      // same header block (they don't break the suppression chain) so users can
+      // stack multiple rule suppressions above the same code.
       suppressions.push({ line: i + 1, ruleId });
-      for (let j = 1; j <= 5; j++) {
+      let codeLinesCovered = 0;
+      for (let j = 1; j <= 10 && codeLinesCovered < 5; j++) {
         const nextLine = lines[i + j];
         if (nextLine === undefined) break;
         const trimmed = nextLine.trim();
         if (trimmed === "") break;
-        if (/^\s*(?:\/\/|#|<!--)/.test(nextLine)) break;
+        // Comment continuation lines (additional `guardvibe-ignore` directives or plain
+        // explanation comments below the directive) are part of the same header block —
+        // don't break the chain, but don't count them against the 5-line code budget.
+        if (/^\s*(?:\/\/|#|<!--|\*)/.test(nextLine)) continue;
         suppressions.push({ line: i + 1 + j, ruleId });
+        codeLinesCovered++;
       }
     } else {
       suppressions.push({ line: i + 1, ruleId });
@@ -403,7 +411,7 @@ export function analyzeCode(
     // ── Context-aware rule skipping (pattern-agnostic) ──────────────
     const authRuleIds = new Set(["VG420", "VG952", "VG002", "VG402"]);
     const adminRoleRuleIds = new Set(["VG426", "VG957"]);
-    const rateLimitRuleIds = new Set(["VG956", "VG030"]);
+    const rateLimitRuleIds = new Set(["VG956", "VG030", "VG1004"]);
     const isWebhookRoute = filePath && /webhook/i.test(filePath);
     const isCronRoute = filePath && /(?:cron|scheduled|jobs?)\//i.test(filePath);
     const isAdminRoute = filePath && /\/admin\//i.test(filePath);
@@ -419,6 +427,36 @@ export function analyzeCode(
         /(?:app|router)\.use\s*\(\s*(?:[^,)]*,\s*)?(?:rateLimit|slowDown|expressRateLimit|expressSlowDown|RateLimit|Throttle|throttle)\s*\(/i.test(code) ||
         /(?:app|router)\.use\s*\(\s*(?:[^,)]*,\s*)?\w*(?:[Ll]imiter|[Tt]hrottle|[Rr]ate[Ll]imit|[Ss]low[Dd]own|[Bb]rute)\w*\s*\)/.test(code);
       if (hasGlobalRateLimit) continue;
+      // Per-route Next.js / Server Action pattern: file imports a rate-limiter factory and
+      // uses `.check(`/`.limit(` at call sites. Common in App Router route handlers and
+      // React Server Actions where there's no shared `app.use(...)` middleware.
+      const hasPerRouteRateLimit =
+        /\b(?:createRateLimiter|createRedisRateLimiter|createSlidingWindow|Ratelimit\.slidingWindow|express-rate-limit|hono-rate-limiter|@upstash\/ratelimit)\b/.test(code) &&
+        /\b\w+\s*\.\s*(?:check|limit)\s*\(/.test(code);
+      if (hasPerRouteRateLimit) continue;
+    }
+
+    // Skip VG1010 (Server Action without input validation) when the file uses a schema
+    // validator (zod / joi / yup / valibot) on its arguments. Rule fires at the file's
+    // 'use server' directive (line 1) but validation lives inside the function body.
+    if (rule.id === "VG1010") {
+      const hasSchemaValidation =
+        /\b(?:z\.\w+|zod\.\w+|joi\.\w+|Joi\.\w+|yup\.\w+|valibot)/.test(code) &&
+        /\.\s*(?:parse|safeParse|validate|validateSync|parseAsync)\s*\(/.test(code);
+      if (hasSchemaValidation) continue;
+    }
+
+    // Skip VG601 (Stripe Webhook Missing Signature Verification) when the file calls a
+    // webhook-verification function anywhere — Stripe's `constructEvent`, Svix-style
+    // `verifyPolarWebhook`/`verifyClerkWebhook`/`svix.verify`, or generic HMAC compare via
+    // `crypto.timingSafeEqual`. The base regex's negative lookahead only checks 300 chars
+    // *after* the body parse and misses the safer verify-then-parse ordering used by
+    // svix-style webhooks (verify raw bytes, parse only after).
+    if (rule.id === "VG601") {
+      const hasWebhookVerification =
+        /\b(?:stripe\.webhooks\.constructEvent|svix\.verify|\w*\.\s*verify\s*\([^)]*signature|verify\w*Webhook|verifyWebhookSignature|wh\.verify)\b/.test(code) ||
+        /crypto\.timingSafeEqual\s*\(/.test(code);
+      if (hasWebhookVerification) continue;
     }
 
     // Skip auth rules when code has any auth guard pattern (naming-agnostic)
