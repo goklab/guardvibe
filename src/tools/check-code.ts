@@ -687,6 +687,10 @@ export function analyzeCode(
       // Skip hardcoded-credential rules when the value is a human-readable sentence
       if (rule.id === "VG001" || rule.id === "VG062") {
         if (isHumanReadableString(lines, lineNumber)) continue;
+        // Translation/locale files and event-tracker key maps are not credential stores —
+        // values are UI strings (`password: "Heslo"`) or analytics event names
+        // (`forgot_password: "forgot_password_clicked"`).
+        if (filePath && /(?:\/i18n\/|\/locales?\/|\/translations?\/|\/event[-_]tracker\/|\/analytics\/events\/|\/messages\/[a-z]{2}(?:[-_][A-Z]{2})?\.[jt]sx?$)/i.test(filePath)) continue;
       }
 
       // Skip credential rules when the variable name signals test/example/mock intent.
@@ -694,6 +698,13 @@ export function analyzeCode(
       if (rule.id === "VG001" || rule.id === "VG062") {
         const matchedLine = lines[lineNumber - 1] ?? "";
         if (/(?:^|\s|\b)(?:testing|example|mock|placeholder|sample|demo|fake|dummy|stub|fixture)[A-Z_]/.test(matchedLine)) continue;
+        // Skip TypeScript string-enum stringification: `INLINE_PASSWORD = "INLINE_PASSWORD"`.
+        // No real credential has identical name and value — canonical TS enum-key pattern.
+        // Covers both SCREAMING_SNAKE (TS string enums) and snake_case (event-tracker key maps).
+        if (/\b([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*["']\1["']/.test(matchedLine)) continue;
+        // Skip SCREAMING_SNAKE error/status codes whose value is digits-only.
+        // e.g. `INVALID_PASSWORD = "5020"` — error code, not a credential.
+        if (/\b[A-Z][A-Z0-9_]*\s*=\s*["']\d+["']/.test(matchedLine)) continue;
       }
 
       // Skip VG010 (SQL injection) on Angular HTTP service calls — http.get/post/etc.
@@ -706,8 +717,18 @@ export function analyzeCode(
         if (isHttpClientCall && (importsHttpClient || fileIsAngularService)) continue;
         // Also skip when matched call has no SQL keyword anywhere on the line — covers fetch/axios template-literal URLs.
         const hasSqlKeyword = /\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|JOIN|UNION|DROP|TRUNCATE|ALTER|CREATE\s+TABLE)\b/i.test(matchedLine);
-        const isFetchOrAxios = /(?:fetch|axios|got|ky|undici|request)\s*[.\(]|axios\.(?:get|post|put|delete|patch)/i.test(matchedLine);
+        // Python `requests.get/post` and `requests.request(...)` are HTTP, not SQL.
+        const isFetchOrAxios = /(?:fetch|axios|got|ky|undici|requests?)\s*[.\(]|axios\.(?:get|post|put|delete|patch)/i.test(matchedLine);
         if (isFetchOrAxios && !hasSqlKeyword) continue;
+        // Skip when the first call argument is a URL path (starts with `/`) and no SQL keyword is on the line.
+        // Covers service-class HTTP wrappers like `this.get(`/api/...${id}/...`)` where the receiver
+        // isn't named http/api/client. SQL queries never start with `/`; URL paths always do.
+        const firstArgIsUrlPath = /\(\s*[`'"]\s*\/[a-zA-Z0-9_\-/{}$]/.test(matchedLine);
+        if (firstArgIsUrlPath && !hasSqlKeyword) continue;
+        // Service-class HTTP wrapper: `this.get/post/...` with first arg starting from a URL-base var
+        // like `${this.basePath}/...` or `${apiUrl}/...`. SQL queries don't use `this.<verb>` style.
+        const isServiceVerbCall = /(?:^|[\s=])(?:return\s+|await\s+)?this\.(?:get|post|put|delete|patch|head|options|fetch|request)\s*\(/i.test(matchedLine);
+        if (isServiceVerbCall && !hasSqlKeyword) continue;
       }
 
       // Skip supply chain rules for known legitimate packages

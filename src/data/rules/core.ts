@@ -10,7 +10,7 @@ export const coreRules: SecurityRule[] = [
     owasp: "A01:2025 Broken Access Control",
     description: "Hardcoded passwords, API keys, or secrets detected in source code.",
     pattern:
-      /(?:secret_?key|api_?key|api_?secret|private_?key|access_?key|password|passwd|pwd|auth_?token|jwt_?secret|app_?secret|master_?key|signing_?key|encryption_?key)\w*\s*[:=]\s*['"][^'"]{3,}['"]/gi,
+      /(?:secret_?key|api_?key|api_?secret|private_?key|access_?key|password|passwd|pwd|auth_?token|jwt_?secret|app_?secret|master_?key|signing_?key|encryption_?key)\w*\s*[:=]\s*['"][^'"\n]{3,}['"]/gi,
     languages: ["javascript", "typescript", "python", "go"],
     fix: "Use environment variables (process.env.SECRET) or a secrets manager. Never commit credentials to source code.",
     fixCode: "// Use environment variables instead\nconst password = process.env.DB_PASSWORD;\nconst apiKey = process.env.API_KEY;",
@@ -240,7 +240,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "Variable named secret, password, or apiKey assigned a string literal. Secrets should come from environment variables or a secrets manager, never hardcoded in source.",
     pattern:
-      /(?:(?:const|let|var|export)\s+)?(?:secret|password|passwd|apiKey|api_key|privateKey|private_key|signingKey|signing_key|encryptionKey|encryption_key|masterKey|master_key|dbPassword|db_password)\s*(?::\s*string\s*)?=\s*["'][^"']{8,}["']/gi,
+      /(?:(?:const|let|var|export)\s+)?(?:secret|password|passwd|apiKey|api_key|privateKey|private_key|signingKey|signing_key|encryptionKey|encryption_key|masterKey|master_key|dbPassword|db_password)\s*(?::\s*string\s*)?=\s*["'][^"'\n]{8,}["']/gi,
     languages: ["javascript", "typescript", "python"],
     fix: "Use environment variables: const secret = process.env.MY_SECRET. Never hardcode secrets in source code.",
     fixCode:
