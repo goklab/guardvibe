@@ -62,8 +62,12 @@ export const advancedSecurityRules: SecurityRule[] = [
     owasp: "A04:2025 Insecure Design",
     description:
       "Code reads a value, checks a condition, then updates based on the check — without a database transaction. Two concurrent requests can both pass the check before either writes, leading to double-spending, overselling, or duplicate operations.",
+    // Negative lookahead at the start of the if-body skips the 404-mapping shape
+    // (`if (!x) { return …; }`). Without it, the engine's backtracking matched updates
+    // that lived OUTSIDE the if-block (within 500-char window after the brace), making
+    // every `findUnique → if(!x) 404 → update` admin route a false hit.
     pattern:
-      /(?:findUnique|findFirst|findOne|findById)\s*\([\s\S]{0,200}?\)\s*;?\s*\n[\s\S]{0,300}?if\s*\([\s\S]{0,200}?\)\s*\{[\s\S]{0,500}?(?:\.update\s*\(|\.delete\s*\(|\.decrement|\.increment)(?:(?!\$transaction|\.transaction|BEGIN|SERIALIZABLE|FOR UPDATE|NOWAIT)[\s\S]){0,300}?\}/g,
+      /(?:findUnique|findFirst|findOne|findById)\s*\([\s\S]{0,200}?\)\s*;?\s*\n[\s\S]{0,300}?if\s*\([\s\S]{0,200}?\)\s*\{(?!\s*(?:return\b|throw\b|res\.\w+\(|response\.\w+\(|next\.\w+\(|NextResponse\.))[\s\S]{0,500}?(?:\.update\s*\(|\.delete\s*\(|\.decrement|\.increment)(?:(?!\$transaction|\.transaction|BEGIN|SERIALIZABLE|FOR UPDATE|NOWAIT)[\s\S]){0,300}?\}/g,
     languages: ["javascript", "typescript"],
     fix: "Wrap check-then-act sequences in a database transaction, or use atomic operations (e.g., UPDATE WHERE balance >= amount).",
     fixCode:

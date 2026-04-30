@@ -219,3 +219,65 @@ export function PasswordForm() {
     assert(findings.filter(f => f.rule.id === "VG407").length > 0, "server component leaking token should still fire");
   });
 });
+
+describe("VG1021 false-positive narrows (v3.1.5)", () => {
+  it("does NOT flag `z.enum(FraudAlertStatus)` PascalCase TS enum import", () => {
+    const code = `import { z } from "zod";
+import { FraudAlertStatus } from "@/lib/enums";
+const schema = z.object({ status: z.enum(FraudAlertStatus).optional() });`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1021").length, 0);
+  });
+
+  it("does NOT flag `z.enum(STATUSES)` SCREAMING_SNAKE constant", () => {
+    const code = `const STATUSES = ["active", "inactive"] as const;
+const schema = z.enum(STATUSES);`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1021").length, 0);
+  });
+
+  it("STILL flags `z.enum(allowedActions)` lowercase variable (real attack shape)", () => {
+    const code = `function buildSchema(allowedActions) {
+  return z.enum(allowedActions);
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG1021").length > 0);
+  });
+
+  it("STILL flags template-literal interpolation in JSON schema enum", () => {
+    const code = `const schema = { properties: { x: { "enum": \`prefix-\${userInput}\` } } };`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG1021").length > 0);
+  });
+});
+
+describe("VG133 false-positive narrow (v3.1.5)", () => {
+  it("does NOT flag `if (!x) return 404` 404-mapping shape", () => {
+    const code = `const link = await prisma.link.findUnique({ where: { id } });
+if (!link) {
+  return NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+await prisma.link.update({ where: { id: link.id }, data: { banned: true } });`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG133").length, 0);
+  });
+
+  it("STILL flags real check-then-act inside if-body", () => {
+    const code = `const account = await db.account.findUnique({ where: { id } });
+if (account.balance >= 100) {
+  await db.account.update({ where: { id }, data: { balance: account.balance - 100 } });
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG133").length > 0);
+  });
+});
+
+describe("VG955 false-positive narrow (v3.1.5)", () => {
+  it("does NOT flag `findMany({ where: { x: { in: variable } } })` variable-spread bounded", () => {
+    const code = `const domains = await prisma.registeredDomain.findMany({
+  where: { slug: { in: invoice.domains } },
+});`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/api/webhook.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG955").length, 0);
+  });
+});

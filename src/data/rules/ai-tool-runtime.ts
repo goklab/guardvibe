@@ -127,8 +127,13 @@ export const aiToolRuntimeRules: SecurityRule[] = [
     owasp: "A05:2025 Security Misconfiguration",
     description:
       "AI tool / MCP tool parameter schema (`z.enum(...)`, JSON Schema `enum`) is constructed at runtime from user input, fetched data, or a mutable variable. Runtime-mutable schemas defeat the safety guarantees the LLM relies on — an attacker can widen the accepted enum set or inject schema fields by poisoning the input.",
+    // Lowercase-start identifier required: PascalCase (`FraudAlertStatus`) and SCREAMING_SNAKE
+    // (`STATUSES`) are TypeScript enum imports / module-level const arrays — compile-time
+    // static, not user-mutable. Real attack shape uses lowercase variable names
+    // (`allowedActions`, `userActions`, `...userInput`). Template-literal interpolation in
+    // the JSON-schema branch (`enum: \`...${x}...\``) stays matched — that IS a real risk.
     pattern:
-      /(?:z\.enum\s*\(\s*(?!\[\s*["'])(?:[a-zA-Z_$][\w$]*|\.\.\.\w+)|["']enum["']\s*:\s*(?!\[\s*(?:["']|true|false|null|\d))(?:[a-zA-Z_$][\w$]*\b|`[^`]*\$\{))/g,
+      /(?:z\.enum\s*\(\s*(?!\[\s*["'])(?:[a-z_$][\w$]*|\.\.\.[a-z_$]\w*)|["']enum["']\s*:\s*(?!\[\s*(?:["']|true|false|null|\d))(?:[a-z_$][\w$]*\b|`[^`]*\$\{))/g,
     languages: ["javascript", "typescript"],
     fix: "Define enum values as static literal arrays in source. Never compute schema enums from runtime data.",
     fixCode:

@@ -879,6 +879,7 @@ export function analyzeCode(
       if (rule.id === "VG955") {
         const matched = match[0];
         if (/\bin\s*:\s*\[/i.test(matched)) continue; // where: { x: { in: [...] } }
+        if (/\bin\s*:\s*[a-zA-Z_$]/i.test(matched)) continue; // where: { x: { in: someArray } } — variable-spread is also caller-bounded
         if (/\b(?:id|[a-zA-Z]+Id)\s*:\s*\{?\s*in\s*:/i.test(matched)) continue; // where: { partnerId: { in: ids } }
         if (/\b(?:id|[a-zA-Z]+Id)\s*:\s*[a-zA-Z_$]/i.test(matched)) continue; // where: { id: someVar }
         if (/\b(?:id|[a-zA-Z]+Id)\s*[,}]/i.test(matched)) continue; // where: { userId } shorthand
