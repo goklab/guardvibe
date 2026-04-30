@@ -124,3 +124,98 @@ describe("VG010 false-positive narrows", () => {
     assert(sqlHits.length > 0, "should still flag template-literal SQL with user input");
   });
 });
+
+describe("Dockerfile rule narrows (v3.1.4)", () => {
+  it("VG204: does NOT flag `RUN pnpm add` / `apk add` / `yarn add` (case-sensitive ^ADD)", () => {
+    const dockerfile = `FROM node:22-alpine
+RUN apk add --no-cache libc6-compat
+RUN corepack enable pnpm && pnpm add -g turbo
+RUN yarn add somepkg`;
+    const findings = analyzeCode(dockerfile, "dockerfile", undefined, "/proj/Dockerfile");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG204").length, 0);
+  });
+
+  it("VG204: STILL flags real `ADD` instruction at line start", () => {
+    const dockerfile = `FROM node:22-alpine
+ADD ./somefile /app/somefile
+COPY ./other /app/other`;
+    const findings = analyzeCode(dockerfile, "dockerfile", undefined, "/proj/Dockerfile");
+    assert(findings.filter(f => f.rule.id === "VG204").length > 0, "ADD instruction should still fire");
+  });
+
+  it("VG200: skips file with USER directive present", () => {
+    const dockerfile = `FROM node:22-alpine
+USER node
+CMD ["node", "server.js"]`;
+    const findings = analyzeCode(dockerfile, "dockerfile", undefined, "/proj/Dockerfile");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG200").length, 0);
+  });
+
+  it("VG206: skips file with HEALTHCHECK before CMD (multi-stage nginx pattern)", () => {
+    const dockerfile = `FROM nginx:1.29-alpine
+HEALTHCHECK --interval=30s --timeout=5s CMD curl -f http://127.0.0.1/ || exit 1
+CMD ["nginx", "-g", "daemon off;"]`;
+    const findings = analyzeCode(dockerfile, "dockerfile", undefined, "/proj/Dockerfile");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG206").length, 0);
+  });
+
+  it("VG202: skips multi-stage `FROM base AS builder` AS-alias references", () => {
+    const dockerfile = `FROM node:22-alpine AS base
+WORKDIR /app
+
+FROM base AS builder
+RUN pnpm install
+
+FROM base AS installer
+RUN pnpm build`;
+    const findings = analyzeCode(dockerfile, "dockerfile", undefined, "/proj/Dockerfile");
+    // Only the first FROM (node:22-alpine) is an external image, but it's tagged.
+    // The remaining `FROM base ...` lines reference an AS-alias and should be skipped.
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG202").length, 0);
+  });
+});
+
+describe("VG146 false-positive narrow (v3.1.4)", () => {
+  it("does NOT flag bash `${VAR:-default}` in a shell script", () => {
+    const sh = `#!/bin/bash
+DIST_DIR=\${DIST_DIR:-./dist}
+IMAGE_NAME=\${IMAGE_NAME:-makeplane/plane-aio-community}`;
+    const findings = analyzeCode(sh, "shell", undefined, "/proj/build.sh");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG146").length, 0);
+  });
+
+  it("STILL flags unquoted special chars in `.env` file", () => {
+    const env = `DATABASE_URL=postgres://user:p@ss@host/db`;
+    const findings = analyzeCode(env, "shell", undefined, "/proj/.env");
+    assert(findings.filter(f => f.rule.id === "VG146").length > 0);
+  });
+});
+
+describe("VG407 false-positive narrows (v3.1.4)", () => {
+  it("does NOT flag `apiKey = { ... }` JS object assignment (test helper FP)", () => {
+    const code = `export const apiKey = {
+  token: "test-token-value",
+};`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/tests/fixtures.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG407").length, 0);
+  });
+
+  it("does NOT flag `password={state.password}` in client component (uses React hooks)", () => {
+    const code = `import { useState } from "react";
+export function PasswordForm() {
+  const [pw, setPw] = useState("");
+  return <Indicator password={pw} />;
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/components/form.tsx");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG407").length, 0);
+  });
+
+  it("STILL flags `token={token}` in async server component (no hooks, no \"use client\")", () => {
+    const code = `export default async function Page() {
+  const token = await getToken();
+  return <ClientWidget token={token} />;
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/page.tsx");
+    assert(findings.filter(f => f.rule.id === "VG407").length > 0, "server component leaking token should still fire");
+  });
+});

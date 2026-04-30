@@ -518,6 +518,33 @@ export function analyzeCode(
     // Skip destructive DDL rules (VG540-VG542) and view rules (VG439) in migration directories
     if ((rule.id.startsWith("VG54") || rule.id === "VG439") && isMigrationFile) continue;
 
+    // VG146 (Unquoted .env Value): only fire on `.env` / `.env.local` / `.env.production` etc.
+    // Bash scripts use `${VAR:-default}` and similar expansions that legitimately contain
+    // `{`, `}`, `:` characters; matching them as "unquoted env values" is a FP class.
+    if (rule.id === "VG146" && filePath && !/(?:^|\/)\.env(?:\.[\w.-]+)?$/.test(filePath)) continue;
+
+    // VG200 (Container running as root): skip when a USER directive exists anywhere in the file.
+    // The rule's regex with `(?:(?!^USER)[\s\S])*` is unreliable across multi-stage builds; a
+    // file-level check is more robust.
+    if (rule.id === "VG200" && /^USER\s+\S+/m.test(code)) continue;
+
+    // VG206 (Missing HEALTHCHECK): skip when a HEALTHCHECK directive exists anywhere. The
+    // rule's regex requires HEALTHCHECK *after* CMD/ENTRYPOINT, but Dockerfiles commonly place
+    // HEALTHCHECK before CMD (nginx production stage), producing FPs.
+    if (rule.id === "VG206" && /^HEALTHCHECK\s+/m.test(code)) continue;
+
+    // VG407 (Server Data Leaked to Client Component): skip files that ARE client components.
+    // Signals: the `"use client"` directive (Next.js App Router) OR usage of React state/effect
+    // hooks (universal client-render signal — Remix, Vite-React, Pages Router, etc.). The rule
+    // targets server→client prop-boundary leaks; intra-client passing of local form state to
+    // a child component (e.g. PasswordStrengthIndicator) is not the same boundary.
+    if (rule.id === "VG407") {
+      const head = code.slice(0, 1000);
+      const hasUseClient = /^\s*['"]use client['"];?\s*$/m.test(head);
+      const hasReactStateHooks = /\b(?:useState|useReducer|useEffect|useLayoutEffect|useRef|useMemo|useCallback|useContext|useTransition|useSyncExternalStore)\s*\(/.test(code);
+      if (hasUseClient || hasReactStateHooks) continue;
+    }
+
     // Skip SQL injection rules in schema/migration .sql files (DDL, not user input)
     if (rule.id === "VG543" && (isMigrationFile || isSqlSchemaFile)) continue;
 
@@ -697,12 +724,28 @@ export function analyzeCode(
       }
     }
 
+    // VG202 (latest/untagged image): pre-compute `AS <alias>` names from the file so
+    // matches against intermediate-stage references (`FROM base AS builder`) can be
+    // filtered out at match time. The set is null for other rules to avoid wasted work.
+    const dockerStageAliases =
+      rule.id === "VG202"
+        ? new Set(
+            Array.from(code.matchAll(/^FROM\s+\S+\s+AS\s+(\w[\w.-]*)/gim)).map(m => m[1].toLowerCase()),
+          )
+        : null;
+
     let match: RegExpExecArray | null;
     while ((match = rule.pattern.exec(code)) !== null) {
       const beforeMatch = code.substring(0, match.index);
       const lineNumber = beforeMatch.split("\n").length;
 
       if (isLineSuppressed(suppressions, lineNumber, rule.id)) continue;
+
+      // VG202: skip when the FROM target matches a previous AS-alias in the same file.
+      if (dockerStageAliases) {
+        const target = match[0].replace(/^FROM\s+/i, "").split(/[:@\s]/)[0].toLowerCase();
+        if (dockerStageAliases.has(target)) continue;
+      }
 
       // Skip matches on comment lines and inside string literals.
       // CVE version-pin rules (VG900-VG931) are exempt — they scan package.json

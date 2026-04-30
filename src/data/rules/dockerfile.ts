@@ -55,7 +55,10 @@ export const dockerfileRules: SecurityRule[] = [
     severity: "medium",
     owasp: "A05:2025 Security Misconfiguration",
     description: "ADD has extra features (URL fetch, tar extraction) that can introduce unexpected behavior. Use COPY for local files.",
-    pattern: /ADD\s+(?!https?:\/\/)\S+\s+\S+/gi,
+    // Anchor to start of line + case-sensitive: Docker `ADD` instruction is uppercase and
+    // begins a line. Matching `add` case-insensitive caught `RUN pnpm add`, `apk add`,
+    // `yarn add`, etc. — package-manager subcommands inside RUN, not Docker instructions.
+    pattern: /^ADD\s+(?!https?:\/\/)\S+\s+\S+/gm,
     languages: ["dockerfile"],
     fix: "Use COPY instead of ADD for local files. Only use ADD for URLs or tar extraction.",
     fixCode: "# Use COPY for local files\nCOPY ./src /app/src\n# Only use ADD for remote files or tar extraction\n# ADD https://example.com/file.tar.gz /app/",

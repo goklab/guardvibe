@@ -112,8 +112,11 @@ export const nextjsRules: SecurityRule[] = [
     owasp: "A01:2025 Broken Access Control",
     description:
       "Sensitive data (tokens, secrets, internal IDs) appears to be passed from server to client component as props.",
+    // Require no-space `=` to match JSX prop syntax (`token={value}`) and exclude JS object
+    // literal assignments (`apiKey = { ... }`, `token = { ... }`) common in test helpers,
+    // default-param destructuring, and config objects.
     pattern:
-      /(?:(?:^|[^a-zA-Z])(?:secret|token|password|apiKey|api_key|privateKey|private_key|internalId|ssn|creditCard|credit_card))\s*=\s*\{[\s\S]*?\}/g,
+      /(?:(?:^|[^a-zA-Z])(?:secret|token|password|apiKey|api_key|privateKey|private_key|internalId|ssn|creditCard|credit_card))=\{[\s\S]*?\}/g,
     languages: ["javascript", "typescript"],
     fix: "Never pass sensitive data as props to client components. Keep secrets server-side.",
     fixCode:
