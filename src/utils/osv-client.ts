@@ -50,53 +50,57 @@ interface BatchQuery {
 export async function queryOsvBatch(
   packages: BatchQuery[]
 ): Promise<Map<string, OsvVulnerability[]>> {
-  const queries = packages.map(pkg => ({
-    package: { name: pkg.name, ecosystem: pkg.ecosystem },
-    version: pkg.version,
-  }));
-
-  const response = await fetch("https://api.osv.dev/v1/querybatch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ queries }),
-    signal: AbortSignal.timeout(10000),
-  });
-
   const results = new Map<string, OsvVulnerability[]>();
-  if (!response.ok) {
-    throw new Error(`OSV batch API error: ${response.status} ${response.statusText}`);
-  }
+  // OSV batch can time out on large monorepo lockfiles (1000+ packages),
+  // and very-large requests can be rate-limited. Chunk into 500-pkg batches
+  // and process sequentially so the per-request timeout is generous.
+  const CHUNK_SIZE = 500;
+  for (let start = 0; start < packages.length; start += CHUNK_SIZE) {
+    const chunk = packages.slice(start, start + CHUNK_SIZE);
+    const queries = chunk.map(pkg => ({
+      package: { name: pkg.name, ecosystem: pkg.ecosystem },
+      version: pkg.version,
+    }));
 
-  const data = await response.json() as { results: Array<{ vulns?: Array<{ id: string }> }> };
+    const response = await fetch("https://api.osv.dev/v1/querybatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ queries }),
+      signal: AbortSignal.timeout(60000),
+    });
 
-  // Batch API returns minimal vuln info (just id). Fetch full details for each.
-  for (let i = 0; i < packages.length; i++) {
-    const key = `${packages[i].name}@${packages[i].version}`;
-    const batchVulns = data.results[i]?.vulns || [];
-
-    if (batchVulns.length === 0) {
-      results.set(key, []);
-      continue;
+    if (!response.ok) {
+      throw new Error(`OSV batch API error: ${response.status} ${response.statusText}`);
     }
 
-    // Fetch full vulnerability details by ID
-    const fullVulns: OsvVulnerability[] = [];
-    for (const bv of batchVulns) {
-      try {
-        const vulnResponse = await fetch(`https://api.osv.dev/v1/vulns/${bv.id}`, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (vulnResponse.ok) {
-          const vulnData = await vulnResponse.json() as OsvVulnerability;
-          fullVulns.push(vulnData);
-        }
-      } catch {
-        // If individual fetch fails, use minimal info
-        fullVulns.push({ id: bv.id, summary: "Details unavailable" } as OsvVulnerability);
+    const data = await response.json() as { results: Array<{ vulns?: Array<{ id: string }> }> };
+
+    for (let i = 0; i < chunk.length; i++) {
+      const key = `${chunk[i].name}@${chunk[i].version}`;
+      const batchVulns = data.results[i]?.vulns || [];
+
+      if (batchVulns.length === 0) {
+        results.set(key, []);
+        continue;
       }
-    }
 
-    results.set(key, fullVulns);
+      const fullVulns: OsvVulnerability[] = [];
+      for (const bv of batchVulns) {
+        try {
+          const vulnResponse = await fetch(`https://api.osv.dev/v1/vulns/${bv.id}`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          if (vulnResponse.ok) {
+            const vulnData = await vulnResponse.json() as OsvVulnerability;
+            fullVulns.push(vulnData);
+          }
+        } catch {
+          fullVulns.push({ id: bv.id, summary: "Details unavailable" } as OsvVulnerability);
+        }
+      }
+
+      results.set(key, fullVulns);
+    }
   }
 
   return results;

@@ -288,11 +288,27 @@ export async function runFullAudit(
 
   // --- Section 3: Dependencies ---
   if (!options?.skipDeps) {
-    const manifestPath = resolve(projectRoot, "package.json");
+    // Prefer lockfiles for resolved (installed) versions over package.json spec ranges.
+    // package.json says `"@clerk/nextjs": "^7.0.1"` but the installed version may be 7.2.8.
+    // OSV needs the resolved version to give accurate vuln matches; spec lower bound
+    // produces false positives where the bug was already patched in a higher minor.
+    const lockCandidates = ["package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml"];
+    let manifestPath = resolve(projectRoot, "package.json");
+    for (const lock of lockCandidates) {
+      const lockPath = resolve(projectRoot, lock);
+      if (existsSync(lockPath)) { manifestPath = lockPath; break; }
+    }
     if (existsSync(manifestPath)) {
       try {
         const depsJson = await scanDependencies(manifestPath, "json");
         const parsed = safeJsonParse(depsJson);
+        if (!parsed) {
+          // scanDependencies returned a markdown error (OSV API unreachable, parse failed, etc).
+          // Push a dependencies section so downstream consumers always see it; surface the
+          // error in `details` so users can troubleshoot instead of silently missing the section.
+          const errSnippet = (depsJson.match(/Error:[^\n]+/) || ["Scan failed"])[0];
+          sections.push({ name: "dependencies", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: errSnippet });
+        }
         if (parsed) {
           const vulnPackages = parsed.summary?.vulnerable ?? 0;
           const depFindings: SectionFinding[] = [];
