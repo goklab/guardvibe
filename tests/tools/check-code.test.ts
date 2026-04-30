@@ -281,3 +281,68 @@ describe("VG955 false-positive narrow (v3.1.5)", () => {
     assert.strictEqual(findings.filter(f => f.rule.id === "VG955").length, 0);
   });
 });
+
+describe("VG955 endpoint-only narrow (v3.1.6)", () => {
+  it("does NOT fire in lib/utility helpers without API route signal", () => {
+    const code = `export async function getEnabledApps() {
+  return await prisma.app.findMany();
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/lib/apps/getEnabledApps.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG955").length, 0);
+  });
+
+  it("does NOT fire in getStaticProps build-time helpers", () => {
+    const code = `export async function getStaticProps() {
+  const items = await prisma.item.findMany();
+  return { props: { items } };
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/pages/getStaticProps.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG955").length, 0);
+  });
+
+  it("STILL fires on actual API route findMany without pagination", () => {
+    const code = `export const GET = async () => {
+  const links = await prisma.link.findMany({ where: { active: true }, orderBy: { id: "asc" } });
+  return Response.json(links);
+};`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/api/links/route.ts");
+    assert(findings.filter(f => f.rule.id === "VG955").length > 0);
+  });
+
+  it("STILL fires on Server Actions with findMany", () => {
+    const code = `"use server";
+export async function listAll() {
+  return await prisma.item.findMany({ where: { active: true }, orderBy: { id: "asc" } });
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/actions/list.ts");
+    assert(findings.filter(f => f.rule.id === "VG955").length > 0);
+  });
+});
+
+describe("VG506 + VG041 narrows (v3.1.6)", () => {
+  it("VG506 does NOT flag i18n translation JSONs (only fires on vercel.json)", () => {
+    const localeJson = `{
+  "user_secret_phrase": "Some long Danish translation about secret keys here",
+  "api_key_label": "Indtast din API-nøgle her — bemærk at dette er en oversættelse"
+}`;
+    const findings = analyzeCode(localeJson, "json", undefined, "/proj/locales/da/common.json");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG506").length, 0);
+  });
+
+  it("VG506 STILL fires on actual vercel.json", () => {
+    const vercelConfig = `{
+  "env": {
+    "API_SECRET": "sk_live_AbCdEfGhIjKlMnOp123456"
+  }
+}`;
+    const findings = analyzeCode(vercelConfig, "json", undefined, "/proj/vercel.json");
+    assert(findings.filter(f => f.rule.id === "VG506").length > 0);
+  });
+
+  it("VG041 does NOT flag /playground/ debug-mode demos", () => {
+    const code = `export const DEBUG = true;
+console.log("playground");`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/embeds/playground/lib/playground.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG041").length, 0);
+  });
+});

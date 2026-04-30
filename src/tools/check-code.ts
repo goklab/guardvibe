@@ -396,7 +396,32 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG130", "VG678"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG130", "VG678", "VG955", "VG133", "VG1021"].includes(rule.id)) continue;
+
+    // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
+    // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
+    // Library helpers, getStaticProps, internal _utils, and lib/handler test fixtures
+    // also use `findMany` but aren't list endpoints serving paginated client requests.
+    if (rule.id === "VG955" && filePath) {
+      const isRouteFile =
+        /(?:\/api\/|\/route\.(?:ts|tsx|js|jsx)$|\/pages\/api\/|\/app\/api\/)/.test(filePath);
+      const isServerAction = /^\s*['"]use server['"];?\s*$/m.test(code.slice(0, 500));
+      const isStaticBuildHelper = /(?:getStaticProps|getStaticPaths|generateStaticParams|buildLegacy|getServerSideProps)/.test(filePath);
+      if (!isRouteFile && !isServerAction) continue;
+      if (isStaticBuildHelper) continue;
+    }
+
+    // VG506 (Hardcoded Secret in Vercel Config): the rule's intent is `vercel.json`
+    // specifically — its `_KEY`/`_SECRET`/`_TOKEN` regex unintentionally matched
+    // translation values in i18n locale JSONs (`packages/i18n/locales/da/common.json`
+    // etc. with strings like "user_secret_phrase": "<long Danish text>"). Restrict to
+    // actual Vercel config files.
+    if (rule.id === "VG506" && filePath && !/(?:^|\/)vercel\.json$/.test(filePath)) continue;
+
+    // VG041 (Debug mode in production): playground/demo/example paths are explicitly
+    // debug-mode showcases — `DEBUG = true` is the entire point of the file. Skip
+    // those paths to avoid swamping the report.
+    if (rule.id === "VG041" && filePath && /\/(?:playground|demos?|examples?|sandbox)\//i.test(filePath)) continue;
 
     // Skip Expo-specific rule (VG708) when project is not an Expo app.
     // The rule's regex incorrectly matches the literal strings "app.json"/"app.config.ts"
