@@ -1,5 +1,7 @@
 import { analyzeCode, formatFindingsJson, type Finding } from "./check-code.js";
 import type { SecurityRule } from "../data/rules/types.js";
+import { calculateScore, scoreToGrade } from "../utils/scoring.js";
+import { loadConfig } from "../utils/config.js";
 
 interface FileInput {
   path: string;
@@ -56,27 +58,6 @@ function detectLanguage(filePath: string): string | null {
   return ext ? extensionMap[ext] ?? null : null;
 }
 
-function calculateScore(critical: number, high: number, medium: number, fileCount: number = 1): number {
-  // Calibrated: medium issues are informational (0.5 weight), high issues are real (5x), critical are severe (15x)
-  const weighted = critical * 15 + high * 5 + medium * 0.5;
-  const density = weighted / Math.max(fileCount, 1);
-  let score = Math.max(0, Math.min(100, Math.round(100 - Math.min(density, 5) * 20)));
-
-  // Severity caps: CRITICAL findings can never get A/B, HIGH can never get A
-  if (critical > 0) score = Math.min(score, 60);  // cap at C
-  if (high > 0) score = Math.min(score, 75);       // cap at B
-
-  return score;
-}
-
-function scoreToGrade(score: number): string {
-  if (score >= 90) return "A";
-  if (score >= 75) return "B";
-  if (score >= 60) return "C";
-  if (score >= 40) return "D";
-  return "F";
-}
-
 export function checkProject(files: FileInput[], format: "markdown" | "json" = "markdown", rules?: SecurityRule[]): string {
   const results: FileResult[] = [];
   const skippedFiles: string[] = [];
@@ -99,7 +80,10 @@ export function checkProject(files: FileInput[], format: "markdown" | "json" = "
   const totalHigh = allFindings.filter((f) => f.rule.severity === "high").length;
   const totalMedium = allFindings.filter((f) => f.rule.severity === "medium").length;
   const totalIssues = totalCritical + totalHigh + totalMedium;
-  const score = calculateScore(totalCritical, totalHigh, totalMedium, scannedCount);
+  const config = loadConfig();
+  const score = calculateScore(totalCritical, totalHigh, totalMedium, scannedCount, {
+    densityModel: config.scoring?.densityModel,
+  });
   const grade = scoreToGrade(score);
 
   if (format === "json") {

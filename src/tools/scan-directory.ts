@@ -8,6 +8,7 @@ import type { SecurityRule } from "../data/rules/types.js";
 import { DEFAULT_EXCLUDES, EXTENSION_MAP, CONFIG_FILE_MAP } from "../utils/constants.js";
 import { walkDirectory } from "../utils/walk-directory.js";
 import { securityBanner } from "../utils/banner.js";
+import { calculateScore, scoreToGrade } from "../utils/scoring.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../../package.json") as { version: string };
@@ -172,17 +173,11 @@ export function scanDirectory(
   const totalHigh = allFindings.filter(f => f.rule.severity === "high").length;
   const totalMedium = allFindings.filter(f => f.rule.severity === "medium").length;
   const totalIssues = totalCritical + totalHigh + totalMedium;
-  // Density-based scoring calibrated against real Next.js projects.
-  // A clean Next.js project with ~200 medium findings in ~800 files should score ~B.
-  // Critical issues have the most impact; medium issues are informational.
   const filesScanned = metadata.filesScanned || 1;
-  const weightedIssues = totalCritical * 15 + totalHigh * 5 + totalMedium * 0.5;
-  const density = weightedIssues / filesScanned;
-  // density 0 = 100, uses log scale so medium findings don't dominate
-  // density 0.5 ≈ 85 (B), density 2.0 ≈ 60 (C), density 5.0 ≈ 30 (D)
-  const score = Math.max(0, Math.min(100, Math.round(100 - Math.min(density, 5) * 20)));
-  // Grade boundaries match full-audit so the section sub-grade and overall verdict agree.
-  const grade = score >= 90 ? "A" : score >= 75 ? "B" : score >= 50 ? "C" : score >= 25 ? "D" : "F";
+  const score = calculateScore(totalCritical, totalHigh, totalMedium, filesScanned, {
+    densityModel: config.scoring?.densityModel,
+  });
+  const grade = scoreToGrade(score);
 
   // Baseline comparison
   let baselineDiff: BaselineDiff | null = null;

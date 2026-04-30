@@ -35,6 +35,14 @@ export interface GuardVibeConfig {
    *  e.g. [{"path": "/blog", "reason": "Public page"}]
    *  These are excluded from auth-coverage unprotected count. */
   authExceptions?: Array<{ path: string; reason: string }>;
+  /** Score calculation tweaks. Default density model is "linear" (matches
+   *  pre-v3.0.50 behavior). Set to "exponential" for smoother decay past
+   *  density 5 — projects with many medium findings will see slightly higher
+   *  scores under exponential, projects with concentrated criticals will see
+   *  lower. CI gates set on absolute score should keep the default. */
+  scoring?: {
+    densityModel?: "linear" | "exponential";
+  };
 }
 
 const DEFAULT_CONFIG: GuardVibeConfig = {
@@ -111,6 +119,9 @@ export function loadConfig(dir?: string): GuardVibeConfig {
       } : undefined,
       authFunctions: Array.isArray(parsed.authFunctions) ? parsed.authFunctions : undefined,
       authExceptions: Array.isArray(parsed.authExceptions) ? parsed.authExceptions : undefined,
+      scoring: parsed.scoring && typeof parsed.scoring === "object" ? {
+        densityModel: parsed.scoring.densityModel === "exponential" ? "exponential" : "linear",
+      } : undefined,
     };
   } catch {}
 
