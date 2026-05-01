@@ -158,6 +158,36 @@ describe("full-audit", () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
+    it("taint walker skips minified bundles even under size cap", async () => {
+      const os = await import("node:os");
+      const fs = await import("node:fs");
+      const path = await import("node:path");
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "gv-min-"));
+      try {
+        // Vendor minified library with a tainted source-to-sink shape
+        // (location → path-traversal sink). Without the .min.js skip this
+        // would propagate taint findings the user can't fix in vendored code.
+        const minified = "var p=location.hash;writeFileSync(p,'x');";
+        fs.writeFileSync(path.join(tmpDir, "vendor.min.js"), minified);
+        // Sibling non-minified file should still scan normally (sanity).
+        fs.writeFileSync(path.join(tmpDir, "app.js"), "export const ok = 1;");
+
+        const result = await runFullAudit(tmpDir);
+        const taintSection = result.sections.find((s) => s.name === "taint");
+        assert(taintSection, "Should have taint section");
+        const minHits = (taintSection!.sectionFindings ?? []).filter((f) =>
+          (f.file ?? "").endsWith("vendor.min.js"),
+        );
+        assert.equal(
+          minHits.length,
+          0,
+          "Minified bundle must not produce taint findings",
+        );
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("truncation", () => {

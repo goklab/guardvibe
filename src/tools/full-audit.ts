@@ -18,6 +18,7 @@ import { analyzeCrossFileTaint } from "./cross-file-taint.js";
 import { analyzeAuthCoverage } from "./auth-coverage.js";
 import { getRules } from "../utils/rule-registry.js";
 import { loadConfig } from "../utils/config.js";
+import { isExcludedFilename } from "../utils/constants.js";
 
 // --- Types ---
 
@@ -163,6 +164,7 @@ function collectJsFiles(dir: string, maxFiles = 200): Array<{ path: string; cont
       try { stat = statSync(full); } catch { continue; }
       if (stat.isDirectory()) { walk(full); continue; }
       if (!/\.(ts|tsx|js|jsx|mts|cts)$/.test(entry)) continue;
+      if (isExcludedFilename(entry)) continue;
       if (stat.size > 100_000) continue;
       try {
         const content = readFileSync(full, "utf-8");
