@@ -346,3 +346,35 @@ console.log("playground");`;
     assert.strictEqual(findings.filter(f => f.rule.id === "VG041").length, 0);
   });
 });
+
+describe("VG409 narrows (v3.1.7)", () => {
+  it("does NOT flag `redirect(redirectUrl)` when redirectUrl is literal-assigned", () => {
+    const code = `const redirectUrl = "/auth/login?callbackUrl=/foo";
+if (!user) {
+  redirect(redirectUrl);
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/page.tsx");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG409").length, 0);
+  });
+
+  it("does NOT flag with type annotation `const redirectUrl: string = '...'`", () => {
+    const code = `const redirectUrl: string = "/auth/login";
+redirect(redirectUrl);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/page.tsx");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG409").length, 0);
+  });
+
+  it("does NOT flag VG409 in test files (test-noise skip)", () => {
+    const code = `const next = "/some/path";
+redirect(next);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/lib/redirect.test.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG409").length, 0);
+  });
+
+  it("STILL flags `redirect(searchParams.get('next'))` real user input", () => {
+    const code = `const next = searchParams.get("next");
+redirect(next);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/page.tsx");
+    assert(findings.filter(f => f.rule.id === "VG409").length > 0);
+  });
+});

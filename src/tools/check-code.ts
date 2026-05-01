@@ -396,7 +396,7 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG130", "VG678", "VG955", "VG133", "VG1021"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
     // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
@@ -770,6 +770,22 @@ export function analyzeCode(
       if (dockerStageAliases) {
         const target = match[0].replace(/^FROM\s+/i, "").split(/[:@\s]/)[0].toLowerCase();
         if (dockerStageAliases.has(target)) continue;
+      }
+
+      // VG409 (Open Redirect via User Input): the rule's pattern matches based on the
+      // variable name (`redirectUrl`, `returnTo`, `callbackUrl`, `next`, etc.) regardless
+      // of how the variable was assigned. Skip when the variable is assigned to a string
+      // literal in the same file with no template-literal interpolation — that's a
+      // hardcoded redirect target, not user input.
+      if (rule.id === "VG409") {
+        const varMatch = match[0].match(/\(\s*(\w+)/);
+        if (varMatch) {
+          const varName = varMatch[1];
+          const literalAssign = new RegExp(
+            `\\b(?:const|let|var)\\s+${varName}\\s*(?::\\s*[\\w<>\\[\\],\\s]+\\s*)?=\\s*(?:"[^"]*"|'[^']*'|\`[^\`$]*\`)\\s*;?`,
+          );
+          if (literalAssign.test(code)) continue;
+        }
       }
 
       // Skip matches on comment lines and inside string literals.
