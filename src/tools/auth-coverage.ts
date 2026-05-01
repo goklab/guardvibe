@@ -25,9 +25,13 @@ const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"
  * route groups, and file name.
  */
 function filePathToUrlPath(filePath: string): string {
-  let p = filePath
-    .replace(/^src\/app\//, "")
-    .replace(/^app\//, "");
+  // Strip everything up to and including the Next.js app directory.
+  // Covers: app/..., src/app/..., apps/<workspace>/app/..., apps/<workspace>/src/app/...,
+  // packages/<name>/app/... — common monorepo (Turborepo/pnpm) layouts where the
+  // route file lives under a workspace prefix that is not part of the URL.
+  let p = filePath.replace(/^.*?\/(?:src\/)?app\//, "");
+  // Fallback for simple non-monorepo paths.
+  p = p.replace(/^src\/app\//, "").replace(/^app\//, "");
 
   // Remove file name (route.ts, page.tsx, layout.tsx)
   p = p.replace(/\/(route|page|layout)\.(ts|tsx|js|jsx)$/, "");
@@ -105,7 +109,13 @@ export function enumerateRoutes(files: FileEntry[]): RouteInfo[] {
  */
 export function parseMiddlewareMatchers(content: string): string[] {
   // Normalize literal escape sequences that AI assistants may pass
-  const normalized = content.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+  let normalized = content.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+
+  // Strip block + line comments before pulling the matcher array. Real-world
+  // middleware files carry JSDoc-style notes inline (dub's matcher block has
+  // four bullet points); split-on-comma was swallowing those bullets into the
+  // matcher list, breaking every downstream regex test.
+  normalized = normalized.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 
   const stringMatch = /matcher\s*:\s*"([^"]+)"/.exec(normalized);
   if (stringMatch) return [stringMatch[1]];

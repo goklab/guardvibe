@@ -36,6 +36,17 @@ describe("auth-coverage", () => {
       assert.equal(routes[0].urlPath, "/api/health");
     });
 
+    it("handles Turborepo monorepo prefix", () => {
+      // apps/<workspace>/app/... and apps/<workspace>/src/app/... are common
+      // monorepo layouts where the workspace path must NOT appear in the URL.
+      const routes = enumerateRoutes([
+        { path: "apps/web/app/(dashboard)/page.tsx", content: "export default function Page() {}" },
+        { path: "apps/web/src/app/api/users/route.ts", content: "export function GET() {}" },
+      ]);
+      assert.equal(routes.find(r => r.method === "PAGE")?.urlPath, "/");
+      assert.equal(routes.find(r => r.method === "GET")?.urlPath, "/api/users");
+    });
+
     it("handles route groups (parentheses)", () => {
       const routes = enumerateRoutes([
         { path: "app/(auth)/login/page.tsx", content: "export default function Login() {}" },
@@ -94,6 +105,38 @@ describe("auth-coverage", () => {
       const content = `export default function middleware(req) {}`;
       const matchers = parseMiddlewareMatchers(content);
       assert.equal(matchers.length, 0);
+    });
+
+    it("strips block comments inside matcher array", () => {
+      // Real-world dub middleware: matcher list with a /* ... */ block of
+      // bullet points sandwiched between [ and the actual pattern. The earlier
+      // split-on-comma swallowed each bullet line as its own matcher.
+      const content = `export const config = {
+  matcher: [
+    /*
+     * Match all paths except for:
+     * 1. /api/ routes
+     * 2. /_next/ (Next.js internals)
+     */
+    "/((?!api/|_next/).*)",
+  ],
+};`;
+      const matchers = parseMiddlewareMatchers(content);
+      assert.equal(matchers.length, 1);
+      assert.equal(matchers[0], "/((?!api/|_next/).*)");
+    });
+
+    it("strips line comments inside matcher array", () => {
+      const content = `export const config = {
+  matcher: [
+    // primary catch-all
+    "/dashboard/:path*",
+    // also cover the api surface
+    "/api/:path*",
+  ],
+};`;
+      const matchers = parseMiddlewareMatchers(content);
+      assert.deepEqual(matchers.sort(), ["/api/:path*", "/dashboard/:path*"]);
     });
   });
 
