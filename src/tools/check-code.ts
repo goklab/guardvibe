@@ -378,6 +378,15 @@ export function analyzeCode(
     while ((lit = literalUrlAssignRe.exec(code)) !== null) literalUrlVars.add(lit[1]);
   }
 
+  // jsforce SOQL skip signal for VG123. jsforce's `conn.query()` is SOQL
+  // (Salesforce's query language), not SQL — different injection semantics, and
+  // jsforce does not support parameterized queries. The documented practice is
+  // manual escape via a `sanitize*Soql*` helper. File-level boolean: cheaper
+  // than re-testing both regexes per match.
+  const fileIsJsforceWithSoqlSanitizer =
+    /from\s+["']@?jsforce[\w@/-]*["']/i.test(code) &&
+    /sanitiz\w*Soql\w*/i.test(code);
+
   // Config: check custom auth function names from .guardviberc
   if (!codeHasAuthGuard && config.authFunctions && config.authFunctions.length > 0) {
     const customPattern = new RegExp(`(?:${config.authFunctions.join("|")})\\s*\\(`, "i");
@@ -916,6 +925,16 @@ export function analyzeCode(
         const isServiceVerbCall = /(?:^|[\s=])(?:return\s+|await\s+)?this\.(?:get|post|put|delete|patch|head|options|fetch|request)\s*\(/i.test(matchedLine);
         if (isServiceVerbCall && !hasSqlKeyword) continue;
       }
+
+      // Skip VG010/VG123 (SQL injection family) on jsforce SOQL calls. SOQL has
+      // different injection semantics than SQL and jsforce does not support
+      // parameterized queries — the documented practice is manual escape via a
+      // `sanitize*Soql*` helper. File must import jsforce AND use a SOQL
+      // sanitizer — both required, so a jsforce file that forgets to escape
+      // still fires. Both VG010 and VG123 are listed because the dedup logic
+      // (isDuplicatePair) collapses them on the same line; without skipping
+      // both, VG010 just takes over when VG123 is suppressed.
+      if ((rule.id === "VG123" || rule.id === "VG010") && fileIsJsforceWithSoqlSanitizer) continue;
 
       // Skip supply chain rules for known legitimate packages
       if (["VG872", "VG873"].includes(rule.id)) {

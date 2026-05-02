@@ -471,3 +471,53 @@ redirect(next);`;
     assert(findings.filter(f => f.rule.id === "VG409").length > 0);
   });
 });
+
+describe("VG010/VG123 jsforce SOQL narrows", () => {
+  it("does NOT flag conn.query SOQL when file imports jsforce + uses sanitizeSoqlValue", () => {
+    // jsforce SOQL is not SQL — different injection semantics, no parameterized
+    // query support. Project-side `sanitizeSoqlValue` is the documented practice.
+    const code = `import jsforce from "@jsforce/jsforce-node";
+class CrmService {
+  private sanitizeSoqlValue(value: string): string { return value.replace(/'/g, "\\\\'"); }
+  async findUser(email: string) {
+    const conn = await this.conn;
+    return await conn.query(\`SELECT Id, Email FROM User WHERE Email = '\${this.sanitizeSoqlValue(email)}' LIMIT 1\`);
+  }
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/CrmService.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG123").length, 0);
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("does NOT flag bare-import jsforce form `from \"jsforce\"`", () => {
+    const code = `import jsforce from "jsforce";
+const sanitizeSoqlValue = (v: string) => v.replace(/'/g, "\\\\'");
+async function run(conn: any, email: string) {
+  return await conn.query(\`SELECT Id FROM Lead WHERE Email = '\${sanitizeSoqlValue(email)}'\`);
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/lead.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG123").length, 0);
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("STILL flags jsforce file that DOES NOT use a SOQL sanitizer", () => {
+    // Skip requires both signals. A jsforce file that interpolates raw user
+    // input without an escape helper is genuinely vulnerable.
+    const code = `import jsforce from "@jsforce/jsforce-node";
+async function findUser(conn: any, email: string) {
+  return await conn.query(\`SELECT Id, Email FROM User WHERE Email = '\${email}'\`);
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/CrmService.ts");
+    assert(findings.filter(f => f.rule.id === "VG123" || f.rule.id === "VG010").length > 0);
+  });
+
+  it("STILL flags non-jsforce template-literal SQL even with a sanitize helper named `sanitizeSoqlValue`", () => {
+    // No jsforce import → not SOQL → standard parameterized-query advice applies.
+    const code = `function sanitizeSoqlValue(v: string) { return v; }
+async function run(db: any, id: string) {
+  return await db.query(\`SELECT * FROM users WHERE id = '\${sanitizeSoqlValue(id)}'\`);
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/db.ts");
+    assert(findings.filter(f => f.rule.id === "VG123" || f.rule.id === "VG010").length > 0);
+  });
+});
