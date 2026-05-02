@@ -133,6 +133,49 @@ describe("VG106 false-positive narrows", () => {
   });
 });
 
+describe("VG120 false-positive narrows", () => {
+  it("does NOT flag tRPC prefetch (substring of fetch)", () => {
+    // tRPC's `.prefetch(...)` is same-origin RPC, not arbitrary URL fetching.
+    // The earlier pattern matched the trailing `fetch` substring without a word
+    // boundary, so `prefetch(args)` was tripping VG120.
+    const findings = analyzeCode(
+      `useEffect(() => {\n  trpcUtils.viewer.bookings.get.prefetch(nextPageParams);\n}, [nextPageParams]);`,
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG120").length, 0);
+  });
+
+  it("does NOT flag client-component fetch (no server SSRF surface)", () => {
+    // Browser-side fetch in a client component runs from the user's machine,
+    // not the server, so an attacker who controls the URL is just talking to
+    // their own network — not an SSRF vector.
+    const findings = analyzeCode(
+      `"use client";\nimport { useState } from "react";\nexport default function Setup() {\n  const [endpoint] = useState("");\n  fetch(endpoint, { method: "POST" });\n  return null;\n}`,
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG120").length, 0);
+  });
+
+  it("does NOT flag fetch when the URL variable is a hardcoded literal", () => {
+    // Server-side files often build a URL with `let requestUrl = "https://..."`
+    // and call `fetch(requestUrl)`. The value is hardcoded; no user input flows
+    // in. Mirrors the v3.1.7 VG409 literal-redirect skip shape.
+    const findings = analyzeCode(
+      `let requestUrl = "https://graph.microsoft.com/v1.0/me/calendars";\nconst res = await fetch(requestUrl, { method: "GET" });`,
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG120").length, 0);
+  });
+
+  it("STILL flags server-side fetch with user-controlled URL", () => {
+    const findings = analyzeCode(
+      `export async function GET(req) {\n  const target = req.nextUrl.searchParams.get("u");\n  return fetch(target);\n}`,
+      "typescript",
+    );
+    assert(findings.filter(f => f.rule.id === "VG120").length > 0);
+  });
+});
+
 describe("VG126 false-positive narrows", () => {
   it("does NOT flag RegExp from already-escaped variable", () => {
     const findings = analyzeCode(

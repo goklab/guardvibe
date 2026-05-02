@@ -366,6 +366,18 @@ export function analyzeCode(
   const codeHasAuthSession =
     /(?:supabase\.auth\.getUser|supabase\.auth\.getSession|getServerSession|auth\(\)|getSession\(\)|currentUser\(\))/i.test(code);
 
+  // Variables assigned a hardcoded URL literal in the same file
+  // (`let requestUrl = "https://graph.microsoft.com/..."`). Used by VG120 to
+  // skip server-side fetch calls whose URL is a compile-time constant. Built
+  // once per file — re-running the regex per match was the dominant cost when
+  // a file had many fetch sites.
+  const literalUrlVars = new Set<string>();
+  if (/\bhttps?:\/\//.test(code)) {
+    const literalUrlAssignRe = /\b(?:const|let|var)\s+([a-zA-Z_$][\w$]*)\s*(?::\s*[\w<>[\]| ]+)?\s*=\s*["'`]https?:\/\//g;
+    let lit: RegExpExecArray | null;
+    while ((lit = literalUrlAssignRe.exec(code)) !== null) literalUrlVars.add(lit[1]);
+  }
+
   // Config: check custom auth function names from .guardviberc
   if (!codeHasAuthGuard && config.authFunctions && config.authFunctions.length > 0) {
     const customPattern = new RegExp(`(?:${config.authFunctions.join("|")})\\s*\\(`, "i");
@@ -983,6 +995,24 @@ export function analyzeCode(
         const isClientFile = /^['"]use client['"]/.test(code.trimStart()) ||
           /\b(?:useState|useEffect|useReducer|useRef|useMemo|useCallback|useContext|useTransition|useSyncExternalStore|useLayoutEffect)\s*\(/.test(code);
         if (isClientFile) continue;
+      }
+
+      // Skip VG120 (SSRF) when the file is a React client component. SSRF requires the
+      // server to make the request; browser-side fetch in a client component runs from
+      // the user's own machine, so an attacker controlling the URL is just talking to
+      // their own network. Same client-marker shape used by VG106/VG407/VG678 narrowings.
+      if (rule.id === "VG120") {
+        const isClientFile = /^['"]use client['"]/.test(code.trimStart()) ||
+          /\b(?:useState|useEffect|useReducer|useRef|useMemo|useCallback|useContext|useTransition|useSyncExternalStore|useLayoutEffect)\s*\(/.test(code);
+        if (isClientFile) continue;
+        // Skip when the URL variable is assigned a hardcoded literal in the same file
+        // (`let requestUrl = "https://..."` then `fetch(requestUrl)`). Mirrors the
+        // v3.1.7 VG409 literal-redirect skip — same shape, different sink. The set of
+        // literal-URL vars is built once per file (see top of analyzeCode).
+        if (literalUrlVars.size > 0) {
+          const urlVar = /(?:fetch|axios\.\w+|got(?:\.\w+)?|http\.\w+|https\.\w+|urllib\.request\.urlopen)\s*\(\s*([a-zA-Z_$][\w$]*)/.exec(match[0]);
+          if (urlVar && literalUrlVars.has(urlVar[1])) continue;
+        }
       }
 
       // Skip VG1005 (.or() filter injection) when all interpolated variables are
