@@ -71,12 +71,62 @@ describe("VG001/VG062 false-positive narrows", () => {
     const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
     assert(credentialHits.length > 0, "should still flag real api key assignments");
   });
+
+  it("does NOT flag enum entries whose value is a kebab-case rewrite of the name", () => {
+    // Real-world cal.com ErrorCode shape: identifier and value reduce to the
+    // same lowercase letters, so the value is just the name re-cased.
+    const findings = analyzeCode(
+      `enum ErrorCode {\n  IncorrectEmailPassword = "incorrect-email-password",\n  NewPasswordMatchesOld = "new-password-matches-old",\n}`,
+      "typescript",
+    );
+    const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
+    assert.strictEqual(credentialHits.length, 0);
+  });
+
+  it("does NOT flag SCREAMING_SNAKE header constants whose value is the kebab form", () => {
+    const findings = analyzeCode(
+      `export const X_CAL_SECRET_KEY = "x-cal-secret-key";\nexport const X_CAL_CLIENT_ID = "x-cal-client-id";`,
+      "typescript",
+    );
+    const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
+    assert.strictEqual(credentialHits.length, 0);
+  });
+
+  it("does NOT flag credential-shaped values in seed scripts", () => {
+    const findings = analyzeCode(
+      `await prisma.user.create({ data: { email: "delete-me@example.com", password: "delete-me" } });`,
+      "typescript",
+      undefined,
+      "/proj/scripts/seed.ts",
+    );
+    const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
+    assert.strictEqual(credentialHits.length, 0);
+  });
 });
 
 describe("VG106 false-positive narrows", () => {
   it("does NOT flag React useRef.current comparisons (local state, not user input)", () => {
     const findings = analyzeCode(
       "if (signature === lastQuotaDeductedSignatureRef.current) { return; }",
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG106").length, 0);
+  });
+
+  it("does NOT flag typeof === string-literal checks", () => {
+    // `typeof X === "object"` / `=== "string"` are type guards, not secret comparisons.
+    const findings = analyzeCode(
+      `if (typeof expected.clientSecret === "object") return;`,
+      "typescript",
+    );
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG106").length, 0);
+  });
+
+  it("does NOT flag client-component comparisons (no remote timing surface)", () => {
+    // Form-input change detection in a React client component runs in the
+    // user's own browser; remote attackers cannot exploit local timing.
+    const findings = analyzeCode(
+      `"use client";\nimport { useState } from "react";\nexport default function Setup() {\n  const [apiKey, set] = useState("");\n  if (keyData?.apiKey !== apiKey) setUpdatable(true);\n  return null;\n}`,
       "typescript",
     );
     assert.strictEqual(findings.filter(f => f.rule.id === "VG106").length, 0);

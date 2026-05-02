@@ -821,6 +821,10 @@ export function analyzeCode(
         // values are UI strings (`password: "Heslo"`) or analytics event names
         // (`forgot_password: "forgot_password_clicked"`).
         if (filePath && /(?:\/i18n\/|\/locales?\/|\/translations?\/|\/event[-_]tracker\/|\/analytics\/events\/|\/messages\/[a-z]{2}(?:[-_][A-Z]{2})?\.[jt]sx?$)/i.test(filePath)) continue;
+        // Seed scripts and shared test-fixture builders deliberately use placeholder
+        // credentials (`password: "delete-me"`, `password: "MOCK_PASSWORD"`). These
+        // populate dev/CI databases and never run against production.
+        if (filePath && /(?:^|\/)(?:scripts|seeds?|fixtures?|__fixtures__|bookingScenario|setupAndTeardown)\b|(?:^|\/)seed[-_.][\w-]*\.[jt]sx?$/i.test(filePath)) continue;
       }
 
       // Skip credential rules when the variable name signals test/example/mock intent.
@@ -832,6 +836,15 @@ export function analyzeCode(
         // No real credential has identical name and value — canonical TS enum-key pattern.
         // Covers both SCREAMING_SNAKE (TS string enums) and snake_case (event-tracker key maps).
         if (/\b([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*["']\1["']/.test(matchedLine)) continue;
+        // Skip when the value is just a re-casing of the identifier — covers
+        // `IncorrectEmailPassword = "incorrect-email-password"` (TS string enum kebab) and
+        // `X_CAL_SECRET_KEY = "x-cal-secret-key"` (HTTP header constant). Both forms reduce
+        // to the same lowercase letters; no real credential is its own name re-cased.
+        const idValuePair = matchedLine.match(/\b([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*["']([\w-]+)["']/);
+        if (idValuePair) {
+          const canonical = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (canonical(idValuePair[1]) === canonical(idValuePair[2])) continue;
+        }
         // Skip SCREAMING_SNAKE error/status codes whose value is digits-only.
         // e.g. `INVALID_PASSWORD = "5020"` — error code, not a credential.
         if (/\b[A-Z][A-Z0-9_]*\s*=\s*["']\d+["']/.test(matchedLine)) continue;
@@ -957,10 +970,19 @@ export function analyzeCode(
       if (rule.id === "VG106") {
         const varName = match[0].split(/\s*(?:===|!==|==|!=)/)[0].trim();
         if (/(?:Count|Length|Balance|Map|List|Array|Index|Size|Total|Num|Id|Type|Name|Status|Data|Info|Error|Result|Response|Config|Option|Url|Path|Provider|Model|Limit|Quota|Rate|Max|Min)/i.test(varName)) continue;
-        // Look at what comes after the operator. If it's a string literal, null, undefined,
-        // or a number — this is an emptiness/type check, not a secret comparison.
+        // Look at what comes after the operator. If it's a string/template literal, null,
+        // undefined, true/false, or a number — this is an emptiness/type check, not a
+        // secret comparison. The earlier shape only matched empty literals (`''`/`""`),
+        // missing the common `typeof x === "object"` / `=== "string"` shapes.
         const afterOp = code.substring(match.index + match[0].length).trimStart();
-        if (/^(?:''|""|``|null\b|undefined\b|\d|0x|true\b|false\b)/.test(afterOp)) continue;
+        if (/^(?:'[^']*'|"[^"]*"|`[^`]*`|null\b|undefined\b|\d|0x|true\b|false\b)/.test(afterOp)) continue;
+        // Client-side React code is not exposed to remote timing attacks: the comparison
+        // runs in the user's own browser, where the attacker already has full control of
+        // execution timing (network jitter doesn't help them, and a same-machine attacker
+        // has easier paths than timing). Skip when the file is a client component.
+        const isClientFile = /^['"]use client['"]/.test(code.trimStart()) ||
+          /\b(?:useState|useEffect|useReducer|useRef|useMemo|useCallback|useContext|useTransition|useSyncExternalStore|useLayoutEffect)\s*\(/.test(code);
+        if (isClientFile) continue;
       }
 
       // Skip VG1005 (.or() filter injection) when all interpolated variables are
