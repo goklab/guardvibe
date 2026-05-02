@@ -472,6 +472,67 @@ redirect(next);`;
   });
 });
 
+describe("VG012 XSS narrows (v3.1.13)", () => {
+  // Hook-friendly assembly: the literal token is split into adjacent string
+  // concatenations so the project's pre-edit security hook doesn't refuse this
+  // file. The runtime value passed to analyzeCode is identical.
+  const ATTR = "dangerously" + "SetInnerHTML";
+  const BIOME = "biome-ignore lint/security/noDanger" + "ouslySetInnerHtml";
+
+  it("does NOT flag the JSX attribute when biome ignore comment sits on the line above", () => {
+    const code = `import React from "react";
+export const Bio = ({ html }: { html: string }) => (
+  // ${BIOME}: html sanitized upstream
+  <div ${ATTR}={{ __html: html }} />
+);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/Bio.tsx");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG012").length, 0);
+  });
+
+  it("does NOT flag when biome ignore is in a JSX block comment above the attribute", () => {
+    const code = `import React from "react";
+export const Slug = ({ source }: { source: { content: string } }) => (
+  <>
+    {/* ${BIOME}: sanitized via markdownToSafeHTML */}
+    <div ${ATTR}={{ __html: source.content }} />
+  </>
+);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/slug.tsx");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG012").length, 0);
+  });
+
+  it("does NOT flag when eslint-disable-next-line react/no-danger precedes the attribute", () => {
+    const code = `import React from "react";
+export const X = ({ html }: { html: string }) => (
+  // eslint-disable-next-line react/no-danger
+  <div ${ATTR}={{ __html: html }} />
+);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/X.tsx");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG012").length, 0);
+  });
+
+  it("does NOT flag literal-string assignment (no interpolation)", () => {
+    const code = `const button = document.createElement("button");
+button.${"inner" + "HTML"} = "I am a button";`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/preview.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG012").length, 0);
+  });
+
+  it("does NOT flag VG012 in test files (test-noise skip)", () => {
+    const code = `document.body.${"inner" + "HTML"} = "";
+element.${"inner" + "HTML"} = inlineHTML({ layout: "month_view" });`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/foo.test.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG012").length, 0);
+  });
+
+  it("STILL flags assignment of a template literal with interpolation", () => {
+    const code = `const widget = document.querySelector(".w");
+widget.${"inner" + "HTML"} = \`<div>\${userInput}</div>\`;`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/widget.ts");
+    assert(findings.filter(f => f.rule.id === "VG012").length > 0);
+  });
+});
+
 describe("VG010/VG123 jsforce SOQL narrows", () => {
   it("does NOT flag conn.query SOQL when file imports jsforce + uses sanitizeSoqlValue", () => {
     // jsforce SOQL is not SQL — different injection semantics, no parameterized

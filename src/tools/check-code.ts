@@ -417,7 +417,7 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG013", "VG014", "VG042", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
     // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
@@ -924,6 +924,33 @@ export function analyzeCode(
         // like `${this.basePath}/...` or `${apiUrl}/...`. SQL queries don't use `this.<verb>` style.
         const isServiceVerbCall = /(?:^|[\s=])(?:return\s+|await\s+)?this\.(?:get|post|put|delete|patch|head|options|fetch|request)\s*\(/i.test(matchedLine);
         if (isServiceVerbCall && !hasSqlKeyword) continue;
+      }
+
+      // Skip XSS-family rules (VG012/VG408/VG042/VG852) when a lint-suppression
+      // comment for the corresponding rule sits within a small window around the
+      // matched line. Universal: biome `lint/security/noDangerouslySetInnerHtml`
+      // ignore (most JSX cases) or eslint `react/no-danger` disable. Window is
+      // ±3 lines because (a) the rule may fire on the comment line itself when
+      // its pattern matches the `dangerouslySetInnerHtml` substring inside the
+      // biome ignore directive, and (b) JSX attribute rules often fire 2-3 lines
+      // below a `{/* biome-ignore ... */}` placed above the opening tag. The
+      // suppression comment is the developer's explicit acceptance of the
+      // exception (almost always accompanied by a sanitization rationale).
+      if (["VG012", "VG408", "VG042", "VG852"].includes(rule.id)) {
+        const window = lines
+          .slice(Math.max(0, lineNumber - 4), Math.min(lines.length, lineNumber + 3))
+          .join("\n");
+        if (/biome-ignore\s+lint\/security\/noDangerouslySetInnerHtml\b/i.test(window)) continue;
+        if (/eslint-disable(?:-next-line)?\b[^\n]{0,200}react\/no-danger\b/i.test(window)) continue;
+      }
+
+      // Skip VG012 when the right-hand side is a hardcoded string literal with
+      // no interpolation. No user input can flow in; the markup is fully
+      // developer-controlled.
+      if (rule.id === "VG012") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/\.\w+\s*=\s*"[^"\n]*"\s*;?\s*$/.test(matchedLine) && /\.innerHTML\s*=/.test(matchedLine)) continue;
+        if (/\.\w+\s*=\s*'[^'\n]*'\s*;?\s*$/.test(matchedLine) && /\.innerHTML\s*=/.test(matchedLine)) continue;
       }
 
       // Skip VG010/VG123 (SQL injection family) on jsforce SOQL calls. SOQL has
