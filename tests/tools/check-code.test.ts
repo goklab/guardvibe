@@ -582,3 +582,130 @@ async function run(db: any, id: string) {
     assert(findings.filter(f => f.rule.id === "VG123" || f.rule.id === "VG010").length > 0);
   });
 });
+
+describe("VG010 weak-trigger non-SQL receiver narrows (v3.1.14)", () => {
+  it("does NOT flag redis.get with template-literal cache key", () => {
+    const code = `const v = await redis.get(\`import:bitly:\${workspaceId}\`);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/lib/cache.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("does NOT flag req.cookies.get with template-literal name", () => {
+    const code = `const v = req.cookies.get(\`dub_password_\${linkId}\`)?.value;`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/middleware.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("does NOT flag JS Map.get with template-literal key", () => {
+    const code = `const link = links.get(\`\${data.domain}/\${data.key ? data.key.toLowerCase() : "_root"}\`);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/scripts/format-clicks.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("STILL flags db.run with template-literal SQL (VG010 or VG123 — engine collapses the pair)", () => {
+    const code = `db.run(\`UPDATE users SET name = '\${name}' WHERE id = \${id}\`);`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/lib/db.ts");
+    assert(findings.filter(f => f.rule.id === "VG010" || f.rule.id === "VG123").length > 0);
+  });
+
+  it("STILL flags SQLite db.prepare(...).all() chain — `prepare` triggers on the upstream call", () => {
+    // Even though .all() is now a weak trigger, .prepare() with a template literal still fires.
+    const code = `const rows = db.prepare(\`SELECT * FROM users WHERE name = '\${name}'\`).all();`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/lib/db.ts");
+    assert(findings.filter(f => f.rule.id === "VG010" || f.rule.id === "VG123").length > 0);
+  });
+});
+
+describe("VG678 batch-script narrows (v3.1.14)", () => {
+  it("does NOT flag scripts/ files that use createReadStream for local CSV processing", () => {
+    const code = `import * as fs from "fs";
+import * as Papa from "papaparse";
+
+async function main() {
+  Papa.parse(fs.createReadStream("domains.csv", "utf-8"), {
+    header: true,
+    step: ({ data }) => domains.push(data),
+    complete: async () => { return; },
+  });
+}
+main();`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/apps/web/scripts/bulk-create-domains.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG678").length, 0);
+  });
+
+  it("STILL flags route handlers that pipe a stream to res without the nosniff header", () => {
+    const code = `export async function handler(req: any, res: any) {
+  const stream = createReadStream("/tmp/file.bin");
+  return stream.pipe(res);
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/pages/api/download.ts");
+    assert(findings.filter(f => f.rule.id === "VG678").length > 0);
+  });
+});
+
+describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
+  it("does NOT flag `metadata: z.any()` — `metadata` substring no longer triggers via bare `data` match", () => {
+    const code = `export const Schema = z.object({ id: z.string(), metadata: z.any() });`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG961").length, 0);
+  });
+
+  it("does NOT flag `data: z.any().describe(...)` — chain method signals deliberate opaque field", () => {
+    const code = `const PayloadSchema = z.object({
+  id: z.string(),
+  data: z.any().describe("Event payload data"),
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG961").length, 0);
+  });
+
+  it("does NOT flag `metadata: z.any().nullish()` — combined skip", () => {
+    const code = `const Schema = z.object({ metadata: z.any().nullish() });`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG961").length, 0);
+  });
+
+  it("STILL flags bare `body: z.any()` route validator — no chain, real entry-point disable", () => {
+    const code = `const RouteSchema = z.object({ body: z.any() });`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG961").length > 0);
+  });
+
+  it("STILL flags bare `data: z.any()` (no chain) — still considered too loose", () => {
+    const code = `const PipeSchema = z.object({ data: z.any() });`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG961").length > 0);
+  });
+});
+
+describe("VG920 React CVE-2025-55182 version-range tightening (v3.1.14)", () => {
+  it("does NOT flag `react: 19.1.3` — patched version", () => {
+    const pkg = `{"dependencies":{"react":"19.1.3","react-dom":"19.1.3"}}`;
+    const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG920").length, 0);
+  });
+
+  it("does NOT flag `react: ^19.1.1` — caret range starts above the fix", () => {
+    const pkg = `{"dependencies":{"react":"^19.1.1"}}`;
+    const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG920").length, 0);
+  });
+
+  it("STILL flags `react: 19.0.5` — vulnerable patch in 19.0.x range", () => {
+    const pkg = `{"dependencies":{"react":"19.0.5"}}`;
+    const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
+    assert(findings.filter(f => f.rule.id === "VG920").length > 0);
+  });
+
+  it("STILL flags `react: 19.1.0` — exact vulnerable boundary", () => {
+    const pkg = `{"dependencies":{"react":"19.1.0"}}`;
+    const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
+    assert(findings.filter(f => f.rule.id === "VG920").length > 0);
+  });
+
+  it("STILL flags `react: ^19.0.0` — caret range allows install of vulnerable 19.0.x", () => {
+    const pkg = `{"dependencies":{"react":"^19.0.0"}}`;
+    const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
+    assert(findings.filter(f => f.rule.id === "VG920").length > 0);
+  });
+});

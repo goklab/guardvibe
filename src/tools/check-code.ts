@@ -663,6 +663,7 @@ export function analyzeCode(
         (filePath && /Client\.\w+$/.test(filePath));
       if (isClientComponent) continue;
       if (isReactNative) continue;
+      if (isBatchScriptFile) continue;
       const isEmailFile = /(?:resend|nodemailer|sendEmail|sendMail|email\.send)/i.test(code);
       if (isEmailFile) continue;
       const hasOnlyUrlGeneration = /(?:getPublicUrl|getSignedUrl)\s*\(/i.test(code) &&
@@ -924,6 +925,17 @@ export function analyzeCode(
         // like `${this.basePath}/...` or `${apiUrl}/...`. SQL queries don't use `this.<verb>` style.
         const isServiceVerbCall = /(?:^|[\s=])(?:return\s+|await\s+)?this\.(?:get|post|put|delete|patch|head|options|fetch|request)\s*\(/i.test(matchedLine);
         if (isServiceVerbCall && !hasSqlKeyword) continue;
+        // Bare `.get(` / `.run(` / `.all(` triggers without a SQL keyword on the line.
+        // The pattern's keyword list is intentionally broad to cover SQLite verbs (`db.run`,
+        // `db.all`) and SQLite's `.prepare(...).get()` chain, but those verbs are also used
+        // by Redis (`redis.get(`key:${id}`)`), Next.js cookies/headers (`req.cookies.get(`name`)`),
+        // JS Map (`map.get(key)`), Tinybird pipes, etc. SQLite's `prepare` already triggers
+        // VG010 on the ascending side of the chain, so dropping the bare-verb form here
+        // preserves SQLite coverage while clearing the cache/cookie/Map false positives.
+        const triggerWordMatch = match[0].match(/^(\w+)/);
+        const triggerWord = triggerWordMatch ? triggerWordMatch[1].toLowerCase() : "";
+        const isWeakTrigger = triggerWord === "get" || triggerWord === "run" || triggerWord === "all";
+        if (isWeakTrigger && !hasSqlKeyword) continue;
       }
 
       // Skip XSS-family rules (VG012/VG408/VG042/VG852) when a lint-suppression

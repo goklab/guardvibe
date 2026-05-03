@@ -28,7 +28,7 @@ export const modernStackRules: SecurityRule[] = [
     owasp: "API3:2023 Broken Object Property Level Authorization",
     description:
       "Using z.any() or z.unknown() for request body/input validation effectively disables validation, allowing any data through.",
-    pattern: /(?:body|input|data|payload|params)\s*[:=]\s*z\.(?:any|unknown)\s*\(\s*\)/gi,
+    pattern: /\b(?:body|input|data|payload|params)\b\s*[:=]\s*z\.(?:any|unknown)\s*\(\s*\)(?!\s*\.(?:describe|nullish|nullable|optional|catch|default|transform|pipe|refine|superRefine|brand|readonly))/gi,
     languages: ["javascript", "typescript"],
     fix: "Define explicit Zod schemas for all inputs. Use z.object() with specific field types.",
     fixCode:
