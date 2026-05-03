@@ -678,6 +678,87 @@ describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG850 prompt-injection — constant-interpolation skip (v3.1.19)", () => {
+  it("does NOT flag template literals interpolating only constant identifiers (e.g. `${codePrompt}`)", () => {
+    const code = `import { codePrompt } from "./prompts";
+const result = await streamText({
+  model,
+  system: \`\${codePrompt}\\n\\nOutput ONLY the code.\`,
+  prompt: title,
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG850").length, 0);
+  });
+
+  it("STILL flags user-input interpolation `${req.body.message}`", () => {
+    const code = `const result = await generateText({
+  model,
+  system: \`You are a helper. User context: \${req.body.message}\`,
+  prompt: "go",
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG850").length > 0);
+  });
+
+  it("STILL flags bare `${userInput}` identifier", () => {
+    const code = `const result = await generateText({
+  model,
+  system: \`Context: \${userInput}\`,
+  prompt: "go",
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG850").length > 0);
+  });
+});
+
+describe("VG999 structured-output skip (v3.1.19)", () => {
+  it("does NOT flag streamText with `output: Output.array(...)` (token usage bounded by schema)", () => {
+    const code = `import { streamText, Output } from "ai";
+import { z } from "zod";
+const result = streamText({
+  model,
+  system: "You are a writing assistant.",
+  prompt: doc.content,
+  output: Output.array({ element: z.object({ s: z.string() }) }),
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG999").length, 0);
+  });
+
+  it("STILL flags streamText without maxTokens AND without output schema", () => {
+    const code = `const result = streamText({
+  model,
+  system: "Generate a long blog post.",
+  prompt: title,
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG999").length > 0);
+  });
+});
+
+describe("VG1027 messages-serialization filter-helper skip (v3.1.19)", () => {
+  it("does NOT flag Response.json with convertToUIMessages helper", () => {
+    const code = `export async function GET() {
+  const messages = await getMessages();
+  return Response.json({
+    messages: convertToUIMessages(messages),
+    visibility: "public",
+  });
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1027").length, 0);
+  });
+
+  it("STILL flags Response.json with raw messages array (no filter helper)", () => {
+    const code = `export async function GET() {
+  const messages = await getMessages();
+  return Response.json({ messages });
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG1027").length > 0);
+  });
+});
+
 describe("VG152 Object Injection — assignment-only narrowing (v3.1.18)", () => {
   it("does NOT flag read-only bracket access in for-in loop", () => {
     const code = `export function fn(req: any, data: Record<string, string>) {

@@ -886,6 +886,49 @@ export function analyzeCode(
         if (/\b\w*Ref\.current\b/.test(matchedLine)) continue;
       }
 
+      // VG850 (AI Prompt Injection via User Input): only fire when at least one of the
+      // interpolations in the system-prompt template literal looks like user input. The
+      // pattern matches any `${...}` interpolation, but apps commonly compose system
+      // prompts from constants — `system: ` + "`${codePrompt}\\n...`" + ` — and these
+      // constants are not attacker-controlled. User-input shapes: `req.X`/`body.X`/
+      // `params.X`/`query.X`/`searchParams.X`, or bare identifiers named `userInput`,
+      // `userMessage`, `userPrompt`, `prompt`, `input`, `message`.
+      if (rule.id === "VG850") {
+        // Match starts at `system:` and ends at `${`. Look at the surrounding window
+        // for the rest of the template literal (it can span multiple lines).
+        const window = lines.slice(Math.max(0, lineNumber - 1), Math.min(lines.length, lineNumber + 6)).join("\n");
+        const interpolations = Array.from(window.matchAll(/\$\{([^}]+)\}/g)).map(m => m[1].trim());
+        if (interpolations.length > 0) {
+          const isUserInput = (expr: string) =>
+            /\b(?:req|request|body|query|params|searchParams)\.\w+/.test(expr) ||
+            /^(?:userInput|userMessage|userPrompt|prompt|input|message)\b/.test(expr) ||
+            /\buser(?:Input|Message|Prompt|Query|Text|Content|Data)\b/.test(expr);
+          if (!interpolations.some(isUserInput)) continue;
+        }
+      }
+
+      // VG999 (AI Request Without maxTokens): skip when the call uses structured output
+      // (`output: Output.array(...)` / `output: Output.object(...)`) — token usage is
+      // bounded by the schema, not free-form text. The match already excludes calls
+      // that explicitly set maxTokens; structured-output calls are similarly bounded.
+      // Need to look at a wider window than match[0] because the match terminates at
+      // `}` and `output:` may appear elsewhere in the call options.
+      if (rule.id === "VG999") {
+        if (/\boutput\s*:\s*Output\.(?:array|object|enum)\s*\(/i.test(match[0])) continue;
+      }
+
+      // VG1027 (Conversation Messages Serialized to Client With System Role): skip when
+      // the response is built via a filter/conversion helper that strips the system role.
+      // Vercel AI SDK convention names: `convertToUIMessages` (recommended), `filterMessages`,
+      // `pickRole`, `sanitizeMessages`, `publicMessages`. Pattern matches up to the
+      // `messages` key but doesn't include the value, so check the surrounding lines.
+      if (rule.id === "VG1027") {
+        const surrounding = lines.slice(Math.max(0, lineNumber - 1), Math.min(lines.length, lineNumber + 3)).join("\n");
+        // No trailing \b — the helper names are CamelCase and continue with more word chars
+        // (convertToUIMessages, sanitizeMessagesForClient, etc.). Prefix match is intentional.
+        if (/\b(?:convertToUI|filterMessages|pickRole|sanitizeMessages|publicMessages|visibleMessages|userMessages|convertMessages)/i.test(surrounding)) continue;
+      }
+
       // VG152 (Object Injection via Dynamic Property Access): only fire on bracket-key
       // ASSIGNMENT (`obj[key] = ...`) — that's the prototype-pollution shape. Read-only
       // bracket access (`obj[key]` on RHS, in conditional, in function arg) does not
