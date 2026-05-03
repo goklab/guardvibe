@@ -335,7 +335,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "Deep merge or object assignment from user input can lead to prototype pollution.",
     pattern:
-      /(?:Object\.assign|merge|deepMerge|extend)\s*\([^)]*(?:req\.|request\.|body|params)/gi,
+      /(?:Object\.assign|\bmerge\b|deepMerge|\bextend\b)\s*\([^)]*(?:req\.|request\.|\bbody\b|\bparams\b)/gi,
     languages: ["javascript", "typescript"],
     fix: "Use Object.create(null) for lookup objects. Validate that keys don't include __proto__, constructor, or prototype.",
     fixCode: "// Use Object.create(null) for lookups\nconst lookup = Object.create(null);\n// Validate keys\nconst forbidden = ['__proto__', 'constructor', 'prototype'];\nif (forbidden.includes(key)) throw new Error('Invalid key');",

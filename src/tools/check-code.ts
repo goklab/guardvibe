@@ -355,7 +355,7 @@ export function analyzeCode(
   const codeHasRedirectValidation =
     /(?:sanitize|validate|verify|check|safe|allowed)(?:Redirect|RedirectUrl|CallbackUrl)\s*\(/i.test(code) ||
     /import\s+.*(?:sanitizeRedirect|validateRedirect|safeRedirect)/i.test(code);
-  const isMigrationFile = filePath ? /(?:migrations?|supabase\/migrations|seeds?|fixtures)\//i.test(filePath) : false;
+  const isMigrationFile = filePath ? /(?:\/(?:migrations?|migrate|drizzle|seeds?|fixtures)\/|supabase\/migrations\/)/i.test(filePath) : false;
   const isSqlSchemaFile = filePath ? /(?:schema|migration|seed|ddl|init).*\.sql$/i.test(filePath) : false;
   const isReactNative = /(?:react-native|from\s+['"]react-native['"]|from\s+['"]expo|import\s+.*\bexpo\b)/i.test(code);
   const codeHasTimingSafeEqual = /(?:timingSafeEqual|timing.?safe|constant.?time)/i.test(code);
@@ -416,8 +416,8 @@ export function analyzeCode(
     // - VG010/VG011/VG013/VG014: injection rules trigger on payload strings like
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
-    const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
+    const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/)/i.test(filePath);
+    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
     // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
@@ -463,7 +463,7 @@ export function analyzeCode(
     const isAdminRoute = filePath && /\/admin\//i.test(filePath);
     // Server-side batch context: scripts, migrations, seeds. These run offline or
     // on-deploy, not against user requests, so DoS-from-unbounded-results doesn't apply.
-    const isBatchScriptFile = filePath && /\/(?:scripts?|migrations?|seeds?|fixtures?)\//i.test(filePath);
+    const isBatchScriptFile = filePath && /\/(?:scripts?|migrations?|seeds?|fixtures?|benchmarks?)\//i.test(filePath);
 
     // Code-generator/scaffold templates. CLI tools (create-t3-app, create-next-app,
     // create-react-app, etc.) bundle "Hello World" example files under cli/template/
@@ -548,6 +548,14 @@ export function analyzeCode(
     // CLI scripts under scripts/ run by the operator at the terminal; there is no HTTP
     // request handler to authorize. Rule still fires inside route handlers and Server Actions.
     if (rule.id === "VG1008" && isBatchScriptFile) continue;
+
+    // Skip VG124 (Insecure Random for Security Token) in benchmark/seed/script files —
+    // Math.random() in benchmarks (`keys[Math.floor(Math.random() * keys.length)]` to pick
+    // a random test key) and seeders (`storeEncryptedKeys: Math.random() > 0.7` for fixture
+    // distribution) is intentional fixture randomness, not a security token. Real tokens
+    // generated in scripts should still use crypto.randomBytes — but the rule's keyword list
+    // (`token|key|code|...`) over-matches non-security `key` references in test code.
+    if (rule.id === "VG124" && isBatchScriptFile) continue;
 
     // Skip tRPC educational/scaffold rules (VG970 publicProcedure-DB, VG971 missing-input)
     // in template/scaffold files. CLI tools like create-t3-app ship intentionally simple
@@ -897,6 +905,23 @@ export function analyzeCode(
       if (rule.id === "VG106") {
         const matchedLine = lines[lineNumber - 1] ?? "";
         if (/\b\w*Ref\.current\b/.test(matchedLine)) continue;
+      }
+
+      // VG1021 (AI Tool Schema Enum from User Input): skip when the variable passed to
+      // z.enum / "enum": is declared as a static literal array (`const X = [...] as const`,
+      // `const X = [...]`) elsewhere in the file. The existing pattern's lowercase-identifier
+      // heuristic correctly catches `userActions` style variables, but Zod's idiomatic pattern
+      // `const commonStringOperators = ["is", "contains"] as const; z.enum(commonStringOperators)`
+      // also has a lowercase-start name and is fully compile-time-static.
+      if (rule.id === "VG1021") {
+        const varMatch = match[0].match(/(?:z\.enum\s*\(\s*(?:\.\.\.)?|enum["']\s*:\s*)([a-z_$][\w$]*)/);
+        if (varMatch) {
+          const varName = varMatch[1];
+          // Detect: `const NAME = [` (literal array) or `const NAME: SomeType = [`. The array
+          // can span multiple lines so just check for the `[` on the assignment.
+          const declRe = new RegExp(`(?:const|let|var)\\s+${varName}\\s*(?::\\s*[\\w<>[\\],\\s|.]+)?\\s*=\\s*\\[`);
+          if (declRe.test(code)) continue;
+        }
       }
 
       // VG850 (AI Prompt Injection via User Input): only fire when at least one of the

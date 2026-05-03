@@ -678,6 +678,81 @@ describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG1021 const-array literal skip (v3.1.21)", () => {
+  it("does NOT flag z.enum(constArr) when constArr is declared as a literal array", () => {
+    const code = `import { z } from "zod";
+const commonStringOperators = ["is", "contains", "startsWith"] as const;
+export const filterOp = z.enum(commonStringOperators);`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1021").length, 0);
+  });
+
+  it("does NOT flag z.enum(constArr) without `as const`", () => {
+    const code = `import { z } from "zod";
+const allowedRoles = ["admin", "user"];
+export const Role = z.enum(allowedRoles);`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1021").length, 0);
+  });
+
+  it("STILL flags z.enum(...userActions) (spread, no static decl visible)", () => {
+    const code = `import { z } from "zod";
+export function build(userActions: string[]) {
+  return z.enum(...userActions);
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG1021").length > 0);
+  });
+});
+
+describe("VG103 word-boundary fix (v3.1.21)", () => {
+  it("does NOT flag `.extend(paramSchemaExtension)` (substring `params` matched on identifier)", () => {
+    const code = `const extendedSchema = baseSchema.extend(paramSchemaExtension);`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG103").length, 0);
+  });
+
+  it("STILL flags real Object.assign with body input", () => {
+    const code = `const config = {};\nObject.assign(config, req.body);`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG103").length > 0);
+  });
+});
+
+describe("VG124 / VG003 / VG543 batch + Go-test path expansions (v3.1.21)", () => {
+  it("VG124: does NOT flag Math.random() picking a key in benchmarks/", () => {
+    const code = `const key = keys[Math.floor(Math.random() * keys.length)];`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/benchmarks/keyverify.js");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG124").length, 0);
+  });
+
+  it("VG003: does NOT flag fake API key in Go _test.go", () => {
+    // guardvibe:test-fixture — fake key split to dodge GitHub secret scanning
+    const fakeKey = ["sk_", "live_abc123def456ghi789jkl012mno345pqr"].join("");
+    const code = `var fakeKey = "${fakeKey}"`;
+    const findings = analyzeCode(code, "go", undefined, "/proj/svc/foo/handler_test.go");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG003").length, 0);
+  });
+
+  it("VG543: does NOT flag stacked-UPDATE in drizzle/ migration directory", () => {
+    const code = `UPDATE keys SET created_at_m = UNIX_TIMESTAMP(created_at) * 1000;\nUPDATE apis SET created_at_m = UNIX_TIMESTAMP(created_at) * 1000;`;
+    const findings = analyzeCode(code, "sql", undefined, "/proj/web/internal/db/drizzle/0001_init.sql");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG543").length, 0);
+  });
+
+  it("VG543: does NOT flag stacked-UPDATE in migrate/ verb-form directory", () => {
+    const code = `UPDATE keys SET x = 1;\nUPDATE apis SET x = 1;`;
+    const findings = analyzeCode(code, "sql", undefined, "/proj/tools/migrate/timestamps.sql");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG543").length, 0);
+  });
+
+  it("VG001: does NOT flag fake password in pkg/dockertest/ Go test helper", () => {
+    const code = `package dockertest\nconst clickhousePassword = "password"`;
+    const findings = analyzeCode(code, "go", undefined, "/proj/pkg/dockertest/clickhouse.go");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG001").length, 0);
+  });
+});
+
 describe("VG970/VG971 tRPC template/scaffold skip (v3.1.20)", () => {
   it("does NOT flag publicProcedure DB access in CLI template files", () => {
     const code = `import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
