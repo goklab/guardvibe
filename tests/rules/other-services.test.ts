@@ -53,4 +53,29 @@ describe("Other Service Rules", () => {
   it("VG804: allows env var", () => {
     testRule("VG804", "const client = new MongoClient(process.env.MONGODB_URI!)", false);
   });
+  it("VG804: does NOT flag credential-less localhost URI", () => {
+    testRule("VG804", `var mongoUri = "mongodb://localhost/express-todo"`, false);
+  });
+  it("VG804: does NOT flag credential-less docker-internal hostname URI", () => {
+    testRule("VG804", `var mongoUri = "mongodb://goof-mongo/express-todo"`, false);
+  });
+  it("VG804: does NOT flag credential-less host:port URI", () => {
+    testRule("VG804", `const mongoUrl = "mongodb://127.0.0.1:27017/mydb"`, false);
+  });
+  it("VG804: STILL flags Atlas mongodb+srv URI with credentials", () => {
+    const fakeUri = ["mongodb+srv://", "user:pass@cluster.abc.mongodb.net/db"].join("");
+    testRule("VG804", `const MONGODB_URI = "${fakeUri}"`, true);
+  });
+
+  // VG802: Postgres / Neon Connection String — same credential-less narrowing
+  it("VG802: does NOT flag credential-less localhost postgres URI", () => {
+    testRule("VG802", `const DATABASE_URL = "postgres://localhost/myapp"`, false);
+  });
+  it("VG802: does NOT flag credential-less host:port postgres URI", () => {
+    testRule("VG802", `const connectionString = "postgresql://127.0.0.1:5432/mydb"`, false);
+  });
+  it("VG802: STILL flags Neon-style credentialed postgres URI", () => {
+    const fakeUri = ["postgres://", "user:pwd@ep-xyz.us-east-1.aws.neon.tech/neondb"].join("");
+    testRule("VG802", `const DATABASE_URL = "${fakeUri}"`, true);
+  });
 });
