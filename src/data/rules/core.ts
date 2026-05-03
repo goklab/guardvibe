@@ -295,7 +295,7 @@ export const coreRules: SecurityRule[] = [
     owasp: "A05:2025 Security Misconfiguration",
     description: "Cookies set without secure, httpOnly, or sameSite flags.",
     pattern:
-      /(?:cookie|setCookie|set-cookie|res\.cookie)\s*\([^)]*(?!(?:.*secure|.*httpOnly|.*sameSite))/gi,
+      /(?:\bcookie|setCookie|set-cookie|res\.cookie)[ \t]*\([^)]*(?!(?:.*secure|.*httpOnly|.*sameSite))/gi,
     languages: ["javascript", "typescript"],
     fix: "Set all security flags: { secure: true, httpOnly: true, sameSite: 'strict' }.",
     fixCode: "res.cookie('session', token, {\n  secure: true,\n  httpOnly: true,\n  sameSite: 'strict',\n  maxAge: 3600000\n});",

@@ -190,7 +190,7 @@ export const nextjsRules: SecurityRule[] = [
     description:
       "Server Action returns a full database query result without field selection. Sensitive fields (passwordHash, internalNotes) get serialized to the client.",
     pattern:
-      /["']use server["'][\s\S]{0,800}?(?:return\s+\w+\.)?(?:findUnique|findFirst|findMany)\s*\((?:(?!select\s*:)[\s\S])*?\)/g,
+      /["']use server["'][\s\S]{0,1500}?\breturn\b[^\n;]{0,80}?(?:findUnique|findFirst|findMany)\s*\((?:(?!select\s*:)[\s\S])*?\)/g,
     languages: ["javascript", "typescript"],
     fix: "Always use select to return only needed fields from Server Actions.",
     fixCode:

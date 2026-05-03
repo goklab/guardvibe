@@ -678,6 +678,93 @@ describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG412 Server Action returns DB object — return-anchor narrowing (v3.1.17)", () => {
+  it("does NOT flag Server Action that assigns findUnique result to const and returns success/error", () => {
+    const code = `"use server";
+import { prisma } from "@/db";
+export async function verifyPassword(_state: any, data: FormData) {
+  const id = data.get("id") as string;
+  const pw = data.get("password") as string;
+  const link = await prisma.link.findUnique({ where: { id } });
+  if (!link) return { error: "not found" };
+  return link.password === pw ? { success: true } : { error: "bad pw" };
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/action.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG412").length, 0);
+  });
+
+  it("STILL flags Server Action that returns findUnique directly", () => {
+    const code = `"use server";
+import { prisma } from "@/db";
+export async function getUser(id: string) {
+  return prisma.user.findUnique({ where: { id } });
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/action.ts");
+    assert(findings.filter(f => f.rule.id === "VG412").length > 0);
+  });
+
+  it("STILL flags `return await prisma.x.findFirst(...)` shape", () => {
+    const code = `"use server";
+export async function getFirst(id: string) {
+  return await prisma.user.findFirst({ where: { id } });
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/action.ts");
+    assert(findings.filter(f => f.rule.id === "VG412").length > 0);
+  });
+});
+
+describe("VG100 cookie misconfig — cross-line + cookies()-not-cookie + test-file narrowing (v3.1.17)", () => {
+  it("does NOT flag a comment-line ending in 'cookie' followed by Next.js `cookies().set(...)` on the next line", () => {
+    const code = `"use server";
+import { cookies } from "next/headers";
+export async function verify() {
+  // if the password is valid, set the cookie
+  (await cookies()).set("session", "value", { httpOnly: true, secure: true });
+}`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/action.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG100").length, 0);
+  });
+
+  it("does NOT flag VG100 in test files (cookie helper names produce FPs)", () => {
+    const code = `import { test } from "node:test";
+async function assertRedirectWithCookie(url: string, key: string) { /* ... */ }
+test("with cookie", async () => { await assertRedirectWithCookie("/x", "y"); });`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/tests/redirects/index.test.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG100").length, 0);
+  });
+
+  it("STILL flags res.cookie() without security flags", () => {
+    const code = `app.post("/login", (req, res) => { res.cookie("session", "abc"); });`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/server.ts");
+    assert(findings.filter(f => f.rule.id === "VG100").length > 0);
+  });
+});
+
+describe("VG961 batch-script + cron skip (v3.1.17)", () => {
+  it("does NOT flag `data: z.any()` in scripts/migrations/", () => {
+    const code = `import { z } from "zod";
+const Schema = z.object({ data: z.any() });`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/apps/web/scripts/migrations/backfill.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG961").length, 0);
+  });
+
+  it("does NOT flag `data: z.any()` in cron route handlers", () => {
+    const code = `import { z } from "zod";
+const Body = z.object({ data: z.any() });
+export async function POST() { /* ... */ }`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/api/cron/foo/route.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG961").length, 0);
+  });
+
+  it("STILL flags `data: z.any()` in normal route handlers", () => {
+    const code = `import { z } from "zod";
+const Body = z.object({ data: z.any() });
+export async function POST() { /* ... */ }`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/app/api/users/route.ts");
+    assert(findings.filter(f => f.rule.id === "VG961").length > 0);
+  });
+});
+
 describe("VG920 React CVE-2025-55182 version-range tightening (v3.1.14)", () => {
   it("does NOT flag `react: 19.1.3` — patched version", () => {
     const pkg = `{"dependencies":{"react":"19.1.3","react-dom":"19.1.3"}}`;

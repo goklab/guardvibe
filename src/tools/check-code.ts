@@ -417,7 +417,7 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
     // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
@@ -540,6 +540,12 @@ export function analyzeCode(
     // CLI scripts under scripts/ run by the operator at the terminal; there is no HTTP
     // request handler to authorize. Rule still fires inside route handlers and Server Actions.
     if (rule.id === "VG1008" && isBatchScriptFile) continue;
+
+    // Skip VG961 (z.any/z.unknown) in batch scripts and cron routes — `data: z.any()` and
+    // similar opaque fields in migration/seed scripts and cron job payloads are intentional
+    // passthroughs (e.g. Tinybird `tb.buildPipe({ parameters: ..., data: z.any() })`),
+    // not "validation disabled at the entry point" misuses.
+    if (rule.id === "VG961" && (isBatchScriptFile || isCronRoute)) continue;
 
     // Skip VG132 (Missing Request Body Size Limit) on Next.js route handlers and
     // pages/api endpoints — Next.js/Vercel apply a default 4.5MB body limit at the
