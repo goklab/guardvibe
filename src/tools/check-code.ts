@@ -465,6 +465,14 @@ export function analyzeCode(
     // on-deploy, not against user requests, so DoS-from-unbounded-results doesn't apply.
     const isBatchScriptFile = filePath && /\/(?:scripts?|migrations?|seeds?|fixtures?)\//i.test(filePath);
 
+    // Code-generator/scaffold templates. CLI tools (create-t3-app, create-next-app,
+    // create-react-app, etc.) bundle "Hello World" example files under cli/template/
+    // or templates/ that are intentionally minimal — no auth, no input validation,
+    // no rate limiting. These get copied into user projects where the user is
+    // expected to customize them. Flagging them in the CLI tool's own audit produces
+    // noise without surfacing real production risk.
+    const isTemplateFile = filePath && /\/(?:templates?|scaffolds?|stubs?|boilerplate)\//i.test(filePath);
+
     // Skip rate-limit rules when the file installs a global rate limiter via app.use().
     // Covers `app.use(rateLimit({...}))`, `app.use(limiter)`, `app.use('/api', rateLimit({...}))`,
     // and named middleware vars matching limiter naming conventions.
@@ -540,6 +548,11 @@ export function analyzeCode(
     // CLI scripts under scripts/ run by the operator at the terminal; there is no HTTP
     // request handler to authorize. Rule still fires inside route handlers and Server Actions.
     if (rule.id === "VG1008" && isBatchScriptFile) continue;
+
+    // Skip tRPC educational/scaffold rules (VG970 publicProcedure-DB, VG971 missing-input)
+    // in template/scaffold files. CLI tools like create-t3-app ship intentionally simple
+    // examples under cli/template/ that the user is expected to replace before deploying.
+    if ((rule.id === "VG970" || rule.id === "VG971") && isTemplateFile) continue;
 
     // Skip VG961 (z.any/z.unknown) in batch scripts and cron routes — `data: z.any()` and
     // similar opaque fields in migration/seed scripts and cron job payloads are intentional

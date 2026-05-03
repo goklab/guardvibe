@@ -678,6 +678,40 @@ describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG970/VG971 tRPC template/scaffold skip (v3.1.20)", () => {
+  it("does NOT flag publicProcedure DB access in CLI template files", () => {
+    const code = `import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { posts } from "~/server/db/schema";
+export const postRouter = createTRPCRouter({
+  getLatest: publicProcedure.query(async ({ ctx }) => {
+    return ctx.db.query.posts.findFirst({});
+  }),
+});`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/cli/template/extras/src/server/api/routers/post/with-drizzle.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG970").length, 0);
+  });
+
+  it("does NOT flag tRPC missing .input() in scaffold templates", () => {
+    const code = `import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+export const postRouter = createTRPCRouter({
+  getLatest: publicProcedure.query(() => null),
+});`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/templates/router.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG971").length, 0);
+  });
+
+  it("STILL flags publicProcedure DB access in non-template paths", () => {
+    const code = `import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+export const postRouter = createTRPCRouter({
+  getLatest: publicProcedure.query(async ({ ctx }) => {
+    return ctx.db.query.posts.findFirst({});
+  }),
+});`;
+    const findings = analyzeCode(code, "typescript", undefined, "/proj/server/api/routers/post.ts");
+    assert(findings.filter(f => f.rule.id === "VG970").length > 0);
+  });
+});
+
 describe("VG850 prompt-injection — constant-interpolation skip (v3.1.19)", () => {
   it("does NOT flag template literals interpolating only constant identifiers (e.g. `${codePrompt}`)", () => {
     const code = `import { codePrompt } from "./prompts";
