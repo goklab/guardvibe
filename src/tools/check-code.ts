@@ -886,6 +886,21 @@ export function analyzeCode(
         if (/\b\w*Ref\.current\b/.test(matchedLine)) continue;
       }
 
+      // VG152 (Object Injection via Dynamic Property Access): only fire on bracket-key
+      // ASSIGNMENT (`obj[key] = ...`) — that's the prototype-pollution shape. Read-only
+      // bracket access (`obj[key]` on RHS, in conditional, in function arg) does not
+      // pollute prototypes; even with attacker-controlled key, you only get a read of
+      // an existing or undefined property. The rule's pattern triggers on `req.X` etc.
+      // upstream + `\w+[key]` somewhere within 100 chars, which fires on completely
+      // benign read patterns like `data[key]` inside `for (const key in data)` loops or
+      // `DEFAULT_REDIRECTS[key]` lookups against hardcoded constants. The match string
+      // ends at `]` (no trailing `=`), so look slightly past match end for the assignment.
+      if (rule.id === "VG152") {
+        const window = code.slice(match.index, match.index + match[0].length + 10);
+        const isAssignment = /\w+\s*\[\s*(?:key|field|prop|name|column|attr|param)\s*\]\s*=(?!=)/.test(window);
+        if (!isAssignment) continue;
+      }
+
       // VG126 (Dynamic RegExp from User Input): skip when the variable name signals it has
       // already been escaped/sanitized (e.g. `escapedElement`, `safeQuery`, `sanitizedInput`).
       if (rule.id === "VG126") {

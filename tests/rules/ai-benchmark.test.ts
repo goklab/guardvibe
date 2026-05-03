@@ -137,14 +137,16 @@ describe("AI Benchmark — Phase 1 Rules", () => {
   // VG152 - Object injection / prototype pollution
   // =====================================================
   describe("VG152 - Object injection / prototype pollution", () => {
-    it("detects bracket notation with request param", () => {
-      assert(hasRule(
+    it("does NOT flag read-only bracket access (no prototype pollution risk on read)", () => {
+      // Updated v3.1.18: VG152 narrowed to fire only on bracket ASSIGNMENT
+      // (`obj[key] = ...`). Read-only access (`config[field]` on RHS) doesn't pollute.
+      assert(!hasRule(
         `const field = req.query.field;\nconst value = config[field];`,
         "VG152"
       ));
     });
 
-    it("detects bracket notation with body input", () => {
+    it("detects bracket notation ASSIGNMENT with body input", () => {
       assert(hasRule(
         `const { key } = await req.json();\nobj[key] = true;`,
         "VG152"

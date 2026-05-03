@@ -678,6 +678,51 @@ describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG152 Object Injection — assignment-only narrowing (v3.1.18)", () => {
+  it("does NOT flag read-only bracket access in for-in loop", () => {
+    const code = `export function fn(req: any, data: Record<string, string>) {
+  const url = req.url;
+  const sp = new URLSearchParams();
+  for (const key in data) {
+    sp.set(key, data[key]);
+  }
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG152").length, 0);
+  });
+
+  it("does NOT flag hardcoded-constant lookup `CONST[key]` (read access)", () => {
+    const code = `const REDIRECTS = { foo: "/x" };
+export default function middleware(req: any) {
+  const url = req.url;
+  const key = parse(req).key;
+  if (REDIRECTS[key]) return new Response("ok");
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG152").length, 0);
+  });
+
+  it("STILL flags `obj[key] = value` assignment (real prototype-pollution shape)", () => {
+    const code = `export function pollute(req: any) {
+  const config: any = {};
+  const userKey = req.body.field;
+  const userVal = req.body.value;
+  config[userKey] = userVal;
+}`;
+    const findings = analyzeCode(code, "typescript");
+    // The rule's pattern needs the bracket-key word (key/field/prop/name/column/attr/param)
+    // to fire — match[0] should contain `<obj>[<word>] =`. Use 'field' here to be sure.
+    const code2 = `export function pollute(req: any) {
+  const config: any = {};
+  const field = req.body.field;
+  config[field] = req.body.value;
+}`;
+    const findings2 = analyzeCode(code2, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG152").length > 0 || findings2.filter(f => f.rule.id === "VG152").length > 0,
+      "expected at least one of the two assignment shapes to fire");
+  });
+});
+
 describe("VG412 Server Action returns DB object — return-anchor narrowing (v3.1.17)", () => {
   it("does NOT flag Server Action that assigns findUnique result to const and returns success/error", () => {
     const code = `"use server";
