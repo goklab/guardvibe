@@ -21,16 +21,16 @@ export const databaseRules: SecurityRule[] = [
   // RLS is a database-level config, not detectable from application code patterns.
   {
     id: "VG432",
-    name: "Prisma Raw Query Injection",
+    name: "Prisma Raw Query Injection (call-form)",
     severity: "critical",
     owasp: "A03:2025 Injection",
     description:
-      "Prisma $queryRaw or $executeRaw with template literal interpolation. Use Prisma.sql tagged template for safe parameterization.",
-    pattern: /\.\$(?:queryRaw|executeRaw)`[^`]*\$\{(?!Prisma\.)/g,
+      "Prisma $queryRaw / $executeRaw invoked as a function with a non-Prisma.sql backtick string argument. The tagged-template form (prisma.$queryRaw`...${var}...`) is auto-parameterized by Prisma and is safe; the call-form (prisma.$queryRaw(`...${var}...`)) interpolates the variable in JS first and bypasses parameterization. Prisma rejects the non-Prisma.sql call-form at runtime, but if it slipped past review it would be a critical injection vector.",
+    pattern: /\.\$(?:queryRaw|executeRaw)\s*\(\s*`[^`]*\$\{(?!Prisma\.)/g,
     languages: ["javascript", "typescript"],
-    fix: "Use Prisma.sql tagged template for safe parameterization.",
+    fix: "Use the tagged-template form (prisma.$queryRaw`SELECT ... ${var}`) or wrap the argument in Prisma.sql (prisma.$queryRaw(Prisma.sql`SELECT ... ${var}`)). Both are auto-parameterized.",
     fixCode:
-      'import { Prisma } from "@prisma/client";\n\nconst result = await prisma.$queryRaw(\n  Prisma.sql`SELECT * FROM users WHERE id = ${userId}`\n);',
+      "// Tagged template (preferred — auto-parameterized)\nconst rows = await prisma.$queryRaw`SELECT * FROM users WHERE id = ${userId}`;\n\n// Or with Prisma.sql wrapper\nimport { Prisma } from \"@prisma/client\";\nconst rows = await prisma.$queryRaw(Prisma.sql`SELECT * FROM users WHERE id = ${userId}`);",
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
   },
   {

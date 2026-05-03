@@ -18,11 +18,17 @@ describe("Database Rules", () => {
   it("VG430: detects anon key used server-side", () => {
     testRule("VG430", "createClient(url, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)", true);
   });
-  it("VG432: detects Prisma $queryRaw with interpolation", () => {
-    testRule("VG432", "prisma.$queryRaw`SELECT * FROM users WHERE id = ${userId}`", true);
+  it("VG432: does NOT flag tagged-template `$queryRaw\\`...${x}\\`` — auto-parameterized by Prisma (per Prisma docs)", () => {
+    testRule("VG432", "prisma.$queryRaw`SELECT * FROM users WHERE id = ${userId}`", false);
   });
-  it("VG432: allows Prisma $queryRaw with Prisma.sql", () => {
+  it("VG432: does NOT flag tagged-template `$executeRaw\\`UPDATE ... ${x}\\``", () => {
+    testRule("VG432", "await prisma.$executeRaw`UPDATE Payout SET method = ${method} WHERE id = ${id}`", false);
+  });
+  it("VG432: does NOT flag the Prisma.sql wrapper call form", () => {
     testRule("VG432", "prisma.$queryRaw(Prisma.sql`SELECT * FROM users WHERE id = ${userId}`)", false);
+  });
+  it("VG432: STILL flags the call-form with raw backtick string (interpolated in JS, bypasses parameterization)", () => {
+    testRule("VG432", "prisma.$queryRaw(`SELECT * FROM users WHERE id = ${userId}`)", true);
   });
   it("VG433: detects $queryRawUnsafe", () => {
     testRule("VG433", 'prisma.$queryRawUnsafe("SELECT * FROM " + table)', true);
