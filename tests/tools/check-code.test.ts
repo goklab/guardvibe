@@ -678,6 +678,40 @@ describe("VG961 word-boundary + chain-method narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG1021 property-access + Drizzle enumValues + as const skip (v3.1.22)", () => {
+  it("does NOT flag z.enum(table.column.enumValues) Drizzle pattern", () => {
+    const code = `import { z } from "zod";
+import { deploymentSteps } from "~/db/schema";
+const stepSchema = z.object({ id: z.string() });
+export const out = z.partialRecord(z.enum(deploymentSteps.step.enumValues), stepSchema);`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1021").length, 0);
+  });
+
+  it("does NOT flag z.enum(config.field.operators) when file has `as const`", () => {
+    const code = `import { z } from "zod";
+const filterConfig = {
+  tags: { operators: ["is", "contains"] },
+  status: { operators: ["is", "isNot"] },
+} as const;
+export const Filter = z.object({
+  field: z.literal("tags"),
+  operator: z.enum(filterConfig.tags.operators),
+});`;
+    const findings = analyzeCode(code, "typescript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1021").length, 0);
+  });
+
+  it("STILL flags z.enum(req.body.allowedActions) — clear user-input shape", () => {
+    const code = `import { z } from "zod";
+export function build(req: any) {
+  return z.enum(req.body.allowedActions);
+}`;
+    const findings = analyzeCode(code, "typescript");
+    assert(findings.filter(f => f.rule.id === "VG1021").length > 0);
+  });
+});
+
 describe("VG1021 const-array literal skip (v3.1.21)", () => {
   it("does NOT flag z.enum(constArr) when constArr is declared as a literal array", () => {
     const code = `import { z } from "zod";

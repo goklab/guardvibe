@@ -416,7 +416,7 @@ export function analyzeCode(
     // - VG010/VG011/VG013/VG014: injection rules trigger on payload strings like
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
-    const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/)/i.test(filePath);
+    const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/__mocks__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/)/i.test(filePath);
     if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
@@ -921,6 +921,16 @@ export function analyzeCode(
           // can span multiple lines so just check for the `[` on the assignment.
           const declRe = new RegExp(`(?:const|let|var)\\s+${varName}\\s*(?::\\s*[\\w<>[\\],\\s|.]+)?\\s*=\\s*\\[`);
           if (declRe.test(code)) continue;
+        }
+        // Property-access shapes that defeat single-identifier matching:
+        //   - `z.enum(table.column.enumValues)` (Drizzle) — column.enumValues is a literal
+        //     array stamped into the schema at compile time, not user-mutable
+        //   - `z.enum(filterConfig.field.operators)` (TS `as const` config object) — when
+        //     the file has any `as const` cast, treat nested property access as static
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/z\.enum\s*\(\s*[\w$]+(?:\.[\w$]+)+/.test(matchedLine)) {
+          if (/\.enumValues\b/.test(matchedLine)) continue;
+          if (/\bas\s+const\b/.test(code)) continue;
         }
       }
 
