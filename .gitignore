@@ -22,3 +22,4 @@ GEMINI.md
 coverage/
 .mcpregistry_*
 docs/superpowers/
+.guardvibe-auto-update.disabled
