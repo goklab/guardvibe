@@ -202,4 +202,19 @@ export const aiToolRuntimeRules: SecurityRule[] = [
       '// SAFE:\nconst sandbox = await Sandbox.create({\n  timeoutMs: 5_000,\n  network: { allow: ["api.example.com"] },\n});\n\n// UNSAFE — direct RCE on host:\n// const sandbox = await Sandbox.create({ unsafe: true, network: "unrestricted" });',
     compliance: ["SOC2:CC6.6", "PCI-DSS:Req2.2", "EUAIACT:Art15"],
   },
+  {
+    id: "VG1041",
+    name: "MCP Server SSE Transport With Wildcard CORS",
+    severity: "high",
+    owasp: "A05:2025 Security Misconfiguration",
+    description:
+      "MCP server exposes its SSE transport (or other HTTP endpoint) with `Access-Control-Allow-Origin: *` or `cors({ origin: '*' })`. SSE responses are not subject to the standard fetch CORS preflight, so a wildcard origin lets any web page the user visits open a session and call every registered tool from the browser. This pattern was the root cause of CVE-2026-44895 (@yoda.digital/gitlab-mcp-server, 86 GitLab tools exposed) and the n8n-mcp / mcp-ssh-tool advisories from the same week. Combined with no bearer-token check, this turns the MCP server into a confused deputy.",
+    pattern:
+      /(?:SSEServerTransport|StreamableHTTPServerTransport|@modelcontextprotocol\/sdk|mcp[\s\S]{0,80}?(?:server|transport))[\s\S]{0,400}?(?:cors\s*\(\s*\{[^}]*origin\s*:\s*["']\*["']|Access-Control-Allow-Origin["'\s,:]+["']\*["']|origin\s*:\s*true)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Restrict the MCP transport to a known-host allowlist (loopback or your client app origin) and require a bearer token on every request. Never expose an MCP SSE endpoint to a wildcard origin.",
+    fixCode:
+      '// SAFE — explicit origin allowlist + bearer auth:\napp.use(cors({ origin: ["http://127.0.0.1:6274", "https://app.example.com"], credentials: true }));\napp.use((req, res, next) => {\n  if (req.headers.authorization !== `Bearer ${process.env.MCP_TOKEN}`) {\n    return res.status(401).end();\n  }\n  next();\n});\n\n// UNSAFE — any web page can drive every tool:\n// app.use(cors({ origin: "*" }));\n// new SSEServerTransport("/sse", res);',
+    compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.8", "EUAIACT:Art15"],
+  },
 ];
