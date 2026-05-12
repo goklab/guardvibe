@@ -443,7 +443,7 @@ export async function runFullAudit(
   const totalHigh = sections.reduce((s, sec) => s + sec.high, 0);
   const totalMedium = sections.reduce((s, sec) => s + sec.medium, 0);
   const totalFindings = sections.reduce((s, sec) => s + sec.findings, 0);
-  const rulesApplied = rules.length > 0 ? rules.length : 390;
+  const rulesApplied = rules.length > 0 ? rules.length : 399;
 
   // Adjust score to reflect ALL sections, not just code
   // Each critical finding deducts 5 points, high deducts 3, medium deducts 1
