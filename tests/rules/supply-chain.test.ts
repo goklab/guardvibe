@@ -140,4 +140,34 @@ describe("Supply Chain Rules", () => {
       testRule("VG869", '"postinstall": "patch-package"', false);
     });
   });
+
+  describe("VG1056 - @tanstack/* Compromised Versions (CVE-2026-45321)", () => {
+    it("detects @tanstack/react-router 1.169.5 (malicious)", () => {
+      testRule("VG1056", '"@tanstack/react-router": "1.169.5"', true);
+    });
+    it("detects @tanstack/react-router 1.169.8 (second malicious version)", () => {
+      testRule("VG1056", '"@tanstack/react-router": "^1.169.8"', true);
+    });
+    it("detects @tanstack/router-core 1.169.5", () => {
+      testRule("VG1056", '"@tanstack/router-core": "~1.169.5"', true);
+    });
+    it("detects @tanstack/start-plugin-core 1.169.23", () => {
+      testRule("VG1056", '"@tanstack/start-plugin-core": "1.169.23"', true);
+    });
+    it("detects @tanstack/eslint-plugin-start 0.0.4", () => {
+      testRule("VG1056", '"@tanstack/eslint-plugin-start": "0.0.4"', true);
+    });
+    it("detects @tanstack/nitro-v2-vite-plugin 1.154.12", () => {
+      testRule("VG1056", '"@tanstack/nitro-v2-vite-plugin": "1.154.12"', true);
+    });
+    it("ignores @tanstack/react-router 1.169.9 (post-incident clean version)", () => {
+      testRule("VG1056", '"@tanstack/react-router": "^1.169.9"', false);
+    });
+    it("ignores @tanstack/react-router 1.170.0 (future clean version)", () => {
+      testRule("VG1056", '"@tanstack/react-router": "1.170.0"', false);
+    });
+    it("ignores unrelated tanstack package not on affected list", () => {
+      testRule("VG1056", '"@tanstack/react-query": "1.169.5"', false);
+    });
+  });
 });

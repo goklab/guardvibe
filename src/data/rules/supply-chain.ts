@@ -233,4 +233,19 @@ export const supplyChainRules: SecurityRule[] = [
       '// WEAK — SHA-1 integrity (broken algorithm):\n"integrity": "sha1-abc123def456..."\n\n// Strong — SHA-512 integrity:\n"integrity": "sha512-abc123def456ghij..."',
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.10"],
   },
+  {
+    id: "VG1056",
+    name: "@tanstack/* Compromised Versions May 2026 (CVE-2026-45321) — Credential Exfiltration",
+    severity: "critical",
+    owasp: "A03:2025 Software Supply Chain Failures",
+    description:
+      "On 2026-05-11 between 19:20 and 19:26 UTC, an attacker chained a pull_request_target Pwn Request misconfiguration, GitHub Actions cache poisoning across the fork↔base boundary, and runtime extraction of the OIDC trusted-publisher token to publish 84 malicious versions across 42 @tanstack/* packages to npm. Each affected package received exactly two malicious versions. Installing any of them executes a ~2.3 MB obfuscated router_init.js at install time that harvests AWS/GCP/Kubernetes/Vault credentials, npm/GitHub/SSH tokens, and exfiltrates them over the Session/Oxen messenger network (filev2.getsession.org). Pin to a clean release and rotate every credential the affected host could reach.",
+    pattern:
+      /["']@tanstack\/(?:arktype-adapter|eslint-plugin-router|eslint-plugin-start|history|nitro-v2-vite-plugin|react-router|react-router-devtools|react-router-ssr-query|react-start|react-start-client|react-start-rsc|react-start-server|router-cli|router-core|router-devtools|router-devtools-core|router-generator|router-plugin|router-ssr-query-core|router-utils|router-vite-plugin|solid-router|solid-router-devtools|solid-router-ssr-query|solid-start|solid-start-client|solid-start-server|start-client-core|start-fn-stubs|start-plugin-core|start-server-core|start-static-server-functions|start-storage-context|valibot-adapter|virtual-file-routes|vue-router|vue-router-devtools|vue-router-ssr-query|vue-start|vue-start-client|vue-start-server|zod-adapter)["']\s*:\s*["'](?:\^|~|>=?|=)?\s*(?:0\.0\.(?:4|7|47|50)|1\.154\.(?:12|15)|1\.161\.(?:9|10|11|12|13|14)|1\.166\.(?:12|15|16|18|19|38|41|44|45|46|47|48|49|50|51|53|54|55|56|57|58)|1\.167\.(?:6|9|33|36|38|41|61|64|65|68|71)|1\.168\.(?:3|5|6|8)|1\.169\.(?:5|8|23|26))["']/g,
+    languages: ["json"],
+    fix: "Pin every affected @tanstack/* package to a clean version published after 2026-05-11 (npm install @tanstack/react-router@latest etc., or use overrides for transitive copies). Then rotate everything the install host could reach: AWS access keys, GCP service-account keys, Kubernetes tokens, Vault tokens, ~/.npmrc tokens, GitHub PATs and gh CLI auth, .git-credentials, and any SSH private key in ~/.ssh. Wipe and reissue the CI runner if the install ran in CI.",
+    fixCode:
+      '// package.json — pin to clean versions\n"@tanstack/react-router": "^1.169.9",  // or latest non-malicious\n"@tanstack/router-core": "^1.169.9",\n"@tanstack/react-start": "^1.167.72"\n\n// pnpm / yarn / npm overrides to evict transitive copies\n"overrides": {\n  "@tanstack/react-router": "^1.169.9",\n  "@tanstack/router-core": "^1.169.9"\n}\n\n// Network mitigation while rotating: block *.getsession.org egress',
+    compliance: ["SOC2:CC6.1", "SOC2:CC7.1", "PCI-DSS:Req6.2", "PCI-DSS:Req3.5"],
+  },
 ];
