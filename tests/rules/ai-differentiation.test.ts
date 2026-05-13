@@ -402,4 +402,26 @@ await openai.chat.completions.create({ model: "gpt-4", messages: data.messages }
       );
     });
   });
+
+  describe("VG1063 - dangerouslyDisableSandbox flag", () => {
+    it("detects flag set to literal true", () => {
+      testRule("VG1063", "bashTool.execute({ dangerouslyDisableSandbox: true })", true);
+    });
+    it("detects flag forwarded from variable", () => {
+      testRule(
+        "VG1063",
+        "bashTool.execute({ command, dangerouslyDisableSandbox: toolInput.disable })",
+        true
+      );
+    });
+    it("detects flag set to truthy 1", () => {
+      testRule("VG1063", "{ dangerouslyDisableSandbox: 1 }", true);
+    });
+    it("ignores flag explicitly set to false", () => {
+      testRule("VG1063", "bashTool.execute({ dangerouslyDisableSandbox: false })", false);
+    });
+    it("ignores flag explicitly set to 0", () => {
+      testRule("VG1063", "{ dangerouslyDisableSandbox: 0 }", false);
+    });
+  });
 });

@@ -217,4 +217,20 @@ export const aiToolRuntimeRules: SecurityRule[] = [
       '// SAFE — explicit origin allowlist + bearer auth:\napp.use(cors({ origin: ["http://127.0.0.1:6274", "https://app.example.com"], credentials: true }));\napp.use((req, res, next) => {\n  if (req.headers.authorization !== `Bearer ${process.env.MCP_TOKEN}`) {\n    return res.status(401).end();\n  }\n  next();\n});\n\n// UNSAFE — any web page can drive every tool:\n// app.use(cors({ origin: "*" }));\n// new SSEServerTransport("/sse", res);',
     compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.8", "EUAIACT:Art15"],
   },
+  {
+    id: "VG1063",
+    name: "AI Agent Sandbox Disable Flag (dangerouslyDisableSandbox: true)",
+    severity: "critical",
+    owasp: "A04:2025 Insecure Design",
+    description:
+      "Code sets `dangerouslyDisableSandbox: true` (or any non-false value) when invoking an AI-agent tool runtime. The flag name embeds the warning: it turns off the sandbox that contains arbitrary shell or code execution requested by the model. CVE-2026-42074 shows what happens when this flag is reachable from a tool_use response — a prompt-injected model achieves full host-level RCE. Even outside of OpenClaude, exposing this flag in any path where an LLM can influence the value is unsafe; hard-wire it to false in your wrapper. The pattern intentionally fires on the literal `dangerouslyDisableSandbox: true` and on identifier-passed values, which is the shape a vibe-coded fix for a 'sandbox blocking my command' error tends to produce.",
+    pattern: /\bdangerouslyDisableSandbox\s*:\s*(?!false\b|0\b)\S/g,
+    languages: ["javascript", "typescript"],
+    fix: "Remove `dangerouslyDisableSandbox: true` from production code. If the AI agent framework you use requires the flag to be configurable, hard-wire it to `false` in your wrapper and never derive the value from model output, user input, or any configuration the LLM can read. The sandbox exists because the model cannot be trusted with arbitrary command execution.",
+    fixCode:
+      "// BAD — model-reachable sandbox disable\nawait bashTool.execute({\n  command: toolInput.command,\n  dangerouslyDisableSandbox: toolInput.dangerouslyDisableSandbox,  // attacker-controlled\n});\n\n// GOOD — hard-wired off, never user/model-controlled\nawait bashTool.execute({\n  command: toolInput.command,\n  dangerouslyDisableSandbox: false,\n});",
+    compliance: ["SOC2:CC6.6", "SOC2:CC7.1", "EUAIACT:Art15"],
+    exploit:
+      "Prompt-injected model emits a tool_use with `dangerouslyDisableSandbox: true` in its arguments. The handler forwards the flag without filtering, the sandbox is skipped, and the model's chosen command runs on the host with whatever permissions the agent process has.",
+  },
 ];
