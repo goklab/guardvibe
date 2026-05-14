@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 390 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 422 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,20 +14,22 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **390 security rules, 36 tools** purpose-built for the stacks AI agents generate
+- **422 security rules, 36 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
-- **CVE version intelligence** — detects 23 known vulnerable package versions in package.json
-- **AI agent security** — detects MCP server vulnerabilities, excessive AI permissions, indirect prompt injection
+- **CVE version intelligence** — detects 60 known vulnerable package versions in package.json, refreshed every day from GHSA / OSV.dev / CISA KEV
+- **AI agent & MCP security** — detects MCP server vulnerabilities, tool-description prompt injection (OWASP MCP Top 10), model-controlled sandbox-disable flags, excessive AI permissions, indirect prompt injection
 - **Auto-fix suggestions** — `fix_code` tool returns concrete patches and structured edits the AI agent can apply mechanically. Coverage: hardcoded credentials → env-var migration; public-prefix LLM keys (`NEXT_PUBLIC_/VITE_/EXPO_PUBLIC_/REACT_APP_`) → prefix removal; CORS wildcards → env allowlist; `dangerouslyAllowBrowser` flags → drop; sandbox bypass flags (`unsafe`/`noSandbox`/`allowEval`) → drop; agent loops → add `maxSteps`; raw-HTML React props → `<ReactMarkdown>`; missing auth checks → insert auth guard; SQL injection → parameterized queries; missing rate limiters / CSRF / security headers → snippet templates.
 - **Pre-commit hook** — block insecure code before it reaches your repo
 - **CI/CD ready** — GitHub Actions workflow with SARIF upload to Security tab
 - **Agent-friendly output** — JSON format for AI agents, Markdown for humans, SARIF for CI/CD
 - **Plugin system** — extend with community or premium rule packs
 
-## New in v3
+## New in v3.1.x
 
+- **Daily threat-intel pipeline** — rule set tracks GHSA / OSV.dev / CISA KEV every day. v3.1.23 alone added 22 new CVE / supply-chain / AI-runtime rules covering the Next.js May 2026 13-advisory cluster, Drizzle ORM SQL identifier injection (CVE-2026-39356), Clerk `clerkFrontendApiProxy` SSRF (CVE-2026-34076), tRPC `experimental_nextAppDirCaller` prototype pollution (CVE-2025-68130), MikroORM SQL injection, angular-expressions filter RCE, `@tanstack/*` Mini Shai-Hulud supply-chain attack, Kysely JSON-path traversal, `@nyariv/sandboxjs` sandbox escape, OpenClaude `dangerouslyDisableSandbox` model-controlled flag, Strapi content-type builder SQL injection, LangSmith untrusted prompt-manifest deserialization, and more
+- **OWASP MCP Top 10 alignment** — `VG1068` flags MCP / AI tool definitions whose `description`, `instructions`, or `systemPrompt` fields carry prompt-injection markers (`ignore previous instructions`, `you are now`, `jailbreak mode`, `system prompt:`, `override safety`, …); pair with `VG1063` which catches `dangerouslyDisableSandbox: true` in agent runtimes
 - **Inline suppress** — `// guardvibe-ignore VG001` silences individual findings per-line
 - **CLI-first approach** — `npx guardvibe audit`, `npx guardvibe scan`, `npx guardvibe doctor` all work standalone without MCP
 - **Embedded remediation plan** — `remediation_plan` generates a section-by-section fix checklist after every audit
@@ -44,13 +46,13 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 | Runs inside AI agents (MCP) | Native | Not supported | Not supported |
 | Zero config setup | `npx guardvibe` | Account + config required | Built-in (limited) |
 | Vibecoding stack rules (Next.js, Supabase, Clerk, tRPC, Hono) | 100+ dedicated | Generic patterns | Not applicable |
-| AI/LLM security (prompt injection, MCP, tool abuse) | 30 rules | Experimental/None | None |
+| AI/LLM security (prompt injection, MCP, tool abuse) | 68 rules | Experimental/None | None |
 | AI host security (CVE-2025-59536, CVE-2026-21852) | `guardvibe doctor` | Not supported | Not supported |
 | Auto-fix suggestions for AI agents | `fix_code` tool | CLI autofix | Not supported |
-| CVE version detection | 23 packages | Extensive | Extensive |
+| CVE version detection | 60 packages, refreshed daily | Extensive | Extensive |
 | Compliance mapping (SOC2, PCI-DSS, HIPAA) | Built-in | Paid tier | None |
 | SARIF CI/CD export | Yes | Yes | Limited |
-| Rule count | 390 (focused, 50+ AI-native) | 5000+ (broad) | N/A |
+| Rule count | 422 (focused, 68 AI-native) | 5000+ (broad) | N/A |
 
 **When to use GuardVibe:** You're building with AI agents and want security scanning integrated into your coding workflow — no dashboard, no account, no CI setup.
 
@@ -148,7 +150,7 @@ Next.js App Router, Server Actions, Server Components, React, Express, Hono, tRP
 Clerk, Auth.js (NextAuth), Supabase Auth, OAuth/OIDC (state parameter, PKCE) — middleware checks, secret exposure, session handling, SSR cookie auth, admin method protection
 
 ### Database & ORM
-Supabase (RLS, anon vs service role), Prisma (raw query injection, CVEs), Drizzle (SQL injection), Turso/LibSQL (client exposure, SQL injection), Convex (auth bypass, internal function exposure)
+Supabase (RLS, anon vs service role), Prisma (raw query injection, CVEs), Drizzle (SQL injection — including CVE-2026-39356 identifier-injection), MikroORM (CVE-2026-44680 runtime-identifier injection), Kysely (CVE-2026-44635 JSON-path traversal), Turso/LibSQL (client exposure, SQL injection), Convex (auth bypass, internal function exposure)
 
 ### Payments
 Stripe (webhook signatures, replay protection, secret keys), Polar.sh, LemonSqueezy
@@ -157,7 +159,7 @@ Stripe (webhook signatures, replay protection, secret keys), Polar.sh, LemonSque
 Resend (email HTML injection), Upstash Redis, Pinecone, PostHog, Google Analytics (PII tracking), Uploadthing (auth, file type/size)
 
 ### AI / LLM Security
-Prompt injection detection, LLM output sinks, system prompt leaks, MCP server SSRF/path traversal/command injection, `dangerouslyAllowBrowser`, missing `maxTokens`, AI API key client exposure, indirect prompt injection via external data
+Prompt injection detection, LLM output sinks, system prompt leaks, MCP server SSRF/path traversal/command injection, **MCP tool description prompt-injection markers (OWASP MCP Top 10 alignment, VG1068)**, **model-controlled sandbox-disable flags (`dangerouslyDisableSandbox`, VG1063)**, AI agent unrestricted shell/database access, `dangerouslyAllowBrowser`, missing `maxTokens`, agent loop without `maxSteps`, AI API key client exposure, indirect prompt injection via external data, RAG/vector poisoning, public-prefix LLM key leaks (`NEXT_PUBLIC_*`, `VITE_*`, `EXPO_PUBLIC_*`)
 
 ### AI Host Security
 `guardvibe doctor` — unified host hardening scanner detecting CVE-2025-59536 (hook injection via `.claude/settings.json`), CVE-2026-21852 (API key exfiltration via `ANTHROPIC_BASE_URL` override), MCP config audit, environment scanner, permission analysis. Supports Claude, Cursor, VS Code, Gemini, Windsurf. Host-specific remediation with platform-tailored fix steps.
@@ -174,8 +176,13 @@ React Native, Expo — AsyncStorage secrets, deep link token exposure, hardcoded
 ### Firebase
 Firestore security rules, Firebase Admin SDK exposure, storage rules, custom token validation
 
-### CVE Version Intelligence (23 CVEs)
-Next.js (3 CVEs), React, Express, Axios, jsonwebtoken, lodash, node-fetch, tar, xml2js, crypto-js, Prisma (2 CVEs), next-auth (2 CVEs), sharp, ws, undici (2 CVEs), @anthropic-ai/sdk, defu
+### CVE Version Intelligence (60 CVEs, refreshed daily)
+**Frameworks:** Next.js (CVE-2024-34351, CVE-2024-46982, CVE-2025-29927, CVE-2026-23869, CVE-2026-44573 / 44574 / 44575 / 44578 / 44579 / 45109 May 2026 cluster), React + react-server-dom-* (CVE-2025-55182, CVE-2026-23870), Express, Hono pre-4.12.18 cluster, @vitejs/plugin-rsc, Strapi content-type-builder (CVE-2026-22599)
+**Auth:** Clerk middleware bypass (GHSA-vqx2), Clerk `has()` org/billing/reverification bypass (GHSA-w24r), Clerk `clerkFrontendApiProxy` SSRF (CVE-2026-34076), NextAuth.js (2 CVEs), jsonwebtoken
+**ORMs / SQL:** Drizzle SQL identifier injection (CVE-2026-39356), MikroORM SQL injection (CVE-2026-44680), Prisma raw-query call-form, Kysely JSON-path traversal (CVE-2026-44635)
+**AI ecosystem:** @anthropic-ai/sdk (CVE-2026-34451 + memory tool path escape), Vercel AI SDK file-type bypass (CVE-2025-48985), LangSmith untrusted prompt manifest (CVE-2026-45134), OpenClaude sandbox bypass (CVE-2026-42074), @nyariv/sandboxjs Function.caller escape (CVE-2026-43898)
+**HTTP / parsing:** Axios pre-1.15.2 cluster (SSRF + prototype-pollution + DoS + CRLF), fast-uri path traversal + host confusion (CVE-2026-6321 / 6322), fast-xml-parser CDATA injection, xmldom CDATA, protobuf.js multi-CVE cluster, undici (2 CVEs), ws
+**Tools / supply chain:** @tanstack/* Mini Shai-Hulud (84 malicious versions, May 2026), @wdio/browserstack-service command injection (CVE-2026-25244), @babel/plugin-transform-modules-systemjs arbitrary code (CVE-2026-44728), @opentelemetry exporter-prometheus DoS (CVE-2026-44902), systeminformation Linux cmd injection (CVE-2026-44724), velocityjs prototype pollution, defu, sharp, lodash, node-fetch, tar, xml2js, crypto-js, angular-expressions RCE, i18next-http-backend, vm2 sandbox breakouts
 
 ### Deployment & Config
 Vercel (vercel.json, cron secrets, headers), Next.js config, Docker, Docker Compose, Fly.io, Render, Netlify, Cloudflare
@@ -190,7 +197,7 @@ API keys (AWS, GitHub, Stripe, OpenAI, Resend, Turso), .env management, .gitigno
 Maps security findings to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, and EU AI Act (EUAIACT) controls. Identifies which code-level vulnerabilities are relevant to specific compliance requirements. **Not a substitute for professional compliance audits.**
 
 ### Supply Chain
-Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection
+Malicious postinstall scripts, unpinned GitHub Actions, typosquat detection, `@tanstack/*` Mini Shai-Hulud mass-malware versions (May 2026), `@wdio/browserstack-service` command injection via git branch names (CVE-2026-25244), lockfile poisoning patterns
 
 ## Tools (36 MCP tools)
 

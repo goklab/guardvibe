@@ -1,8 +1,8 @@
 {
   "name": "guardvibe",
-  "version": "3.1.23",
+  "version": "3.1.24",
   "mcpName": "io.github.goklab/guardvibe",
-  "description": "Security MCP for vibe coding. 406 rules, 36 tools, CLI + doctor. Host security, auth coverage mapping, LLM-powered deep scan (IDOR/business logic), taint analysis, +25 AI-native rules (MCP supply-chain, RAG/vector poisoning, agent loop DoS, public-prefix LLM keys, sandbox bypass). Plus Next.js, Supabase, Clerk, Stripe, Prisma, tRPC, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK, and the full AI-generated stack.",
+  "description": "Security MCP for vibe coding. 422 rules, 36 tools, CLI + doctor. Host security, auth coverage mapping, LLM-powered deep scan (IDOR/business logic), taint analysis. 60 CVE rules refreshed daily from GHSA/OSV/CISA KEV — Next.js May 2026 13-advisory cluster, Drizzle/MikroORM/Kysely SQL injection, Clerk SSRF, tRPC prototype pollution, @tanstack supply-chain, OpenClaude sandbox bypass, plus the full AI-generated stack (Supabase, Stripe, Prisma, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK). 68 AI-native rules including OWASP MCP Top 10 tool-description prompt injection (VG1068) and model-controlled sandbox-disable flag detection (VG1063).",
   "type": "module",
   "bin": {
     "guardvibe": "build/cli.js",

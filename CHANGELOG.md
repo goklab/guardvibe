@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.24] - 2026-05-14
+
+### Changed — docs / metadata refresh
+- README "Why GuardVibe", "New in v3.1.x", "How GuardVibe Compares", and "What GuardVibe Scans" sections rewritten to reflect the v3.1.23 rule additions (22 new VG1047-VG1068 rules); rule count updated 390 → **422**; AI/LLM rule count updated to 68; CVE-version intelligence section expanded from 23 CVEs to 60 with grouped listings (Frameworks / Auth / ORMs / AI ecosystem / HTTP & parsing / Tools & supply chain)
+- New OWASP MCP Top 10 callout for VG1068 (tool description prompt-injection markers) and VG1063 (model-controlled `dangerouslyDisableSandbox` flag)
+- Database & ORM section now references Drizzle (CVE-2026-39356), MikroORM (CVE-2026-44680), Kysely (CVE-2026-44635)
+- Supply chain section adds `@tanstack/*` Mini Shai-Hulud and `@wdio/browserstack-service` command injection
+- package.json `description` rewritten with concrete CVE coverage anchors (was generic marketing copy claiming "406 rules")
+- CLI `rulesApplied` default constant corrected 406 → 422 across `src/index.ts` and `src/tools/full-audit.ts`
+
 ## [3.1.23] - 2026-05-14
 
 ### Added — 20 new CVE/advisory rules (390 → 406)
