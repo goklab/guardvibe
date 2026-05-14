@@ -5,6 +5,43 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.23] - 2026-05-14
+
+### Added — 20 new CVE/advisory rules (390 → 406)
+
+- VG1047 Next.js May 2026 cluster — middleware bypass, SSRF, DoS, RSC issues (CVE-2026-44573 / 44574 / 44575 / 44578 / 44579 / 45109 + Server-Components DoS)
+- VG1048 react-server-dom-* React Server Components DoS (CVE-2026-23870)
+- VG1049 MikroORM SQL injection via runtime identifiers (CVE-2026-44680)
+- VG1050 angular-expressions filter RCE (CVE-2026-44643)
+- VG1051 @babel/plugin-transform-modules-systemjs arbitrary code generation (CVE-2026-44728)
+- VG1052 OpenTelemetry Prometheus exporter process crash (CVE-2026-44902)
+- VG1053 Drizzle ORM SQL identifier injection (CVE-2026-39356)
+- VG1054 Vercel AI SDK file-type whitelist bypass (CVE-2025-48985)
+- VG1055 Clerk clerkFrontendApiProxy SSRF — secret-key leak (CVE-2026-34076)
+- VG1056 @tanstack/* mass-malware supply chain (Mini Shai-Hulud, May 2026)
+- VG1057 Kysely JSON-path traversal injection (CVE-2026-44635)
+- VG1058 @nyariv/sandboxjs sandbox escape via Function.caller (CVE-2026-43898)
+- VG1059 @vitejs/plugin-rsc RSC DoS via bundled react-server-dom-webpack
+- VG1060 @wdio/browserstack-service command injection via git branch names (CVE-2026-25244)
+- VG1061 OpenClaude sandbox bypass via model-controlled dangerouslyDisableSandbox (CVE-2026-42074)
+- VG1062 protobuf.js multi-CVE cluster (CVE-2026-44289 / 44290 / 44291 / 44293 / 44295 / 42290)
+- VG1063 AI agent sandbox-disable flag detection (dangerouslyDisableSandbox: true code pattern)
+- VG1064 Strapi content-type-builder SQL injection (CVE-2026-22599)
+- VG1065 LangSmith SDK untrusted prompt-manifest deserialization (CVE-2026-45134)
+- VG1066 systeminformation Linux command injection via NetworkManager profile (CVE-2026-44724)
+- VG1067 tRPC experimental_nextAppDirCaller prototype pollution (CVE-2025-68130 / GHSA-43p4-m455-4f4j)
+- VG1068 MCP / AI tool description prompt-injection markers (OWASP MCP Top 10 alignment)
+
+### Changed
+- VG1043 (Hono pre-4.12.18 cluster) description extended to acknowledge CVE-2026-29045 (serveStatic arbitrary file access) and CVE-2026-27700 (AWS Lambda ALB IP-spoofing auth bypass); version pattern already covered both
+- CLI `rulesApplied` default constant bumped 390 → 406 (src/index.ts, src/tools/full-audit.ts)
+- package description updated to reflect 406 rules
+
+### Fixed — self-audit dependency hygiene
+- Pinned transitive `hono` (^4.12.18), `fast-uri` (^3.1.2), `ip-address` (^10.2.0) via `package.json` overrides so the SDK chain picks up patched releases (8 GHSA dep advisories cleared)
+- `.guardviberc` now excludes `package-lock.json` from regex code scan — VG1038 / VG1043 fire on peer-dep range strings inside the lockfile (e.g. `"hono": "^4.11.4"`) where the caret range already permits the patched version; the rule fires correctly on `package.json` declarations
+- Self-audit returns to PASS / A / 100 (was WARN / C / 63 with 10 transitive findings since v3.1.22)
+
 ## [3.0.26] - 2026-04-25
 
 ### Fixed
