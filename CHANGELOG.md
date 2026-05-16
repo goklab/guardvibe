@@ -5,6 +5,23 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.25] - 2026-05-16
+
+### Added — 2 new rules (422 → 424)
+- **VG1069** node-ipc malicious versions detection (CVE-2022-23812 / peacenotwar). Flags `node-ipc` pins on 9.2.2, 10.1.1–10.1.3, and the entire 11.x line — these versions ship maintainer-authored sabotage payloads (file overwrite on RU/BY-geolocated hosts and propaganda-file drops to `~/Desktop`). Fix advises pinning via `overrides`/`resolutions` to 12.0.0+ and treating any install host as compromised
+- **VG1070** CI npm install/ci without supply-chain hardening flag. Fires on `.github/workflows/*.yml` (or any YAML CI file) that calls `npm ci`, `npm install`, or `npm i` without `--expect-provenance` (npm 10.2+) or `--ignore-scripts`. Mitigates lifecycle-script execution from typosquatted or compromised packages — the same path the 2026 @tanstack Mini Shai-Hulud wave used to reach CI secrets
+
+### Changed
+- Dogfood: GuardVibe's own `.github/workflows/ci.yml` and `publish.yml` now run `npm ci --ignore-scripts` (was plain `npm ci`)
+- CLI `rulesApplied` default 422 → 424 (src/index.ts + src/tools/full-audit.ts)
+- package.json description refreshed: 422 → 424 rules, 60 → 61 CVE rules, mentions VG1070 supply-chain hardening
+
+### Skipped from the 2026-05-16 briefing (already covered)
+- P1 Next.js 15.5.18 / 16.2.6 upgrade → VG1047 (May 2026 cluster) already detects 12.2.0–15.5.17 and 16.0.0–16.2.5
+- P1 @tanstack/* compromised versions → VG1056 already detects the May 2026 Mini Shai-Hulud wave
+- P2 MCP Tool Poisoning kural seti → VG1068 already implements the OWASP MCP Top 10 tool-description prompt-injection markers
+- P3 EU AI Act August 2026 → handled by existing compliance_report module via `EUAIACT:Art14` / `EUAIACT:Art15` mappings; no new rule
+
 ## [3.1.24] - 2026-05-14
 
 ### Changed — docs / metadata refresh

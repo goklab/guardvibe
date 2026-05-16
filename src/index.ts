@@ -1064,7 +1064,7 @@ server.tool(
 // Tool 33: Full audit — single source of truth
 server.tool(
   "full_audit",
-  "Single command that runs ALL checks: code scan (422 rules), secret detection, dependency CVEs, config audit, taint analysis, and auth coverage. Returns PASS/FAIL/WARN verdict with deterministic hash. IMPORTANT: If verdict is FAIL or WARN, you MUST call remediation_plan next to get a section-by-section fix checklist — do NOT skip any section. After fixing, call verify_remediation to confirm ALL sections are addressed. Example: full_audit({path: '.'})",
+  "Single command that runs ALL checks: code scan (424 rules), secret detection, dependency CVEs, config audit, taint analysis, and auth coverage. Returns PASS/FAIL/WARN verdict with deterministic hash. IMPORTANT: If verdict is FAIL or WARN, you MUST call remediation_plan next to get a section-by-section fix checklist — do NOT skip any section. After fixing, call verify_remediation to confirm ALL sections are addressed. Example: full_audit({path: '.'})",
   {
     path: z.string().default(".").describe("Project root directory"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),

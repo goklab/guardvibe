@@ -74,4 +74,40 @@ describe("CI/CD Rules", () => {
     const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
     assert(!findings.some(f => f.rule.id === "VG216"));
   });
+
+  it("VG1070: detects plain `npm ci` without hardening flag", () => {
+    const code = "      - run: npm ci";
+    const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
+    assert(findings.some(f => f.rule.id === "VG1070"));
+  });
+
+  it("VG1070: detects plain `npm install` without hardening flag", () => {
+    const code = "      - run: npm install";
+    const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
+    assert(findings.some(f => f.rule.id === "VG1070"));
+  });
+
+  it("VG1070: detects `npm i` shorthand without hardening flag", () => {
+    const code = "      - run: npm i";
+    const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
+    assert(findings.some(f => f.rule.id === "VG1070"));
+  });
+
+  it("VG1070: does not trigger when --ignore-scripts is present", () => {
+    const code = "      - run: npm ci --ignore-scripts";
+    const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
+    assert(!findings.some(f => f.rule.id === "VG1070"));
+  });
+
+  it("VG1070: does not trigger when --expect-provenance is present", () => {
+    const code = "      - run: npm ci --expect-provenance";
+    const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
+    assert(!findings.some(f => f.rule.id === "VG1070"));
+  });
+
+  it("VG1070: does not trigger when both hardening flags are present", () => {
+    const code = "      - run: npm ci --expect-provenance --ignore-scripts";
+    const findings = analyzeCode(code, "yaml", undefined, ".github/workflows/ci.yml");
+    assert(!findings.some(f => f.rule.id === "VG1070"));
+  });
 });

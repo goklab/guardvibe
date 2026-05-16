@@ -91,4 +91,19 @@ export const cicdRules: SecurityRule[] = [
       '# Use pull_request for untrusted code\non:\n  pull_request:\n    branches: [main]\nsteps:\n  - uses: actions/checkout@v4\n  - run: npm test  # safe: runs YOUR code, not PR code',
     compliance: ["SOC2:CC7.1"],
   },
+  {
+    id: "VG1070",
+    name: "CI npm install/ci Without Supply-Chain Hardening Flag (--expect-provenance / --ignore-scripts)",
+    severity: "medium",
+    owasp: "A08:2025 Software & Data Integrity Failures",
+    description:
+      "A CI workflow runs `npm install` or `npm ci` without `--expect-provenance` (npm 10.2+, requires every installed package to ship an SLSA provenance attestation signed against the npm registry) or `--ignore-scripts` (skips lifecycle scripts that typosquats and compromised maintainers use as the execution beachhead). One of the two should be on every CI install step. The 2026 @tanstack mass-malware wave, the 2022 node-ipc protestware, and the long tail of post-install crypto-miners all execute through lifecycle scripts the first time the package lands on a build runner — once that command runs, the runner's secrets are reachable. `--expect-provenance` raises the bar further by refusing unsigned packages entirely; pair it with `--ignore-scripts` for packages whose maintainers have not yet published provenance.",
+    pattern:
+      /(?:^|\n)\s*(?:-\s+)?(?:run|cmd|shell):\s*[|>-]?\s*["'`]?[^"'`\n]*\bnpm\s+(?:ci|install|i)\b(?![^\n"'`]*--(?:expect-provenance|ignore-scripts))[^\n"'`]*/gi,
+    languages: ["yaml"],
+    fix: "Add `--expect-provenance` (recommended for new pipelines) or `--ignore-scripts` (broadest compatibility) to every `npm install` / `npm ci` invocation in CI. `--expect-provenance` will fail the install if any package lacks a signed SLSA attestation — combine with `--ignore-scripts` while upstream packages catch up to provenance. For deployments that must run `postinstall` (e.g. native binary build), narrow the allowlist instead of disabling the flag globally.",
+    fixCode:
+      "# BAD — no supply-chain gate\n- run: npm ci\n\n# GOOD — strict\n- run: npm ci --expect-provenance --ignore-scripts\n\n# GOOD — minimal\n- run: npm ci --ignore-scripts",
+    compliance: ["SOC2:CC7.1", "SOC2:CC8.1", "PCI-DSS:Req6.2"],
+  },
 ];
