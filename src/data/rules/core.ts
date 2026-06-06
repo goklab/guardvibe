@@ -64,9 +64,9 @@ export const coreRules: SecurityRule[] = [
     severity: "critical",
     owasp: "A02:2025 Injection",
     description:
-      "String concatenation, template literals, or f-strings used in SQL queries. This allows SQL injection attacks.",
+      "String concatenation, template literals, or f-strings used in SQL queries — whether inline in the DB call or assembled in a variable/return first. This allows SQL injection attacks.",
     pattern:
-      /(?:query|execute|raw|sql|all|run|get|exec|prepare|QueryRow|QueryContext)\s*\(\s*(?:`[^`]*\$\{|['"][^'"]*['"]\s*\+\s*|f"[^"]*\{|f'[^']*\{|['"][^'"]*['"]\s*%\s*|['"][^'"]*['"]\s*\.format\s*\(|['"][^'"]*['"]\s*,\s*(?:req\.|request\.|params\.|body\.|args))/gi,
+      /(?:query|execute|raw|sql|all|run|get|exec|prepare|QueryRow|QueryContext)\s*\(\s*(?:`[^`]*\$\{|['"][^'"]*['"]\s*\+\s*|f"[^"]*\{|f'[^']*\{|['"][^'"]*['"]\s*%\s*|['"][^'"]*['"]\s*\.format\s*\(|['"][^'"]*['"]\s*,\s*(?:req\.|request\.|params\.|body\.|args))|(?:=|return)\s*(?:`\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^`]*\b(?:FROM|INTO|SET|WHERE|VALUES)\b[^`]*\$\{|['"]\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n]*?\b(?:FROM|INTO|SET|WHERE|VALUES)\b[^\n]*?['"]\s*\+\s*\w)/gi,
     languages: ["javascript", "typescript", "python", "go"],
     fix: "Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). Python: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). Never concatenate user input into SQL strings.",
     fixCode: "// Use parameterized queries\ndb.query('SELECT * FROM users WHERE id = $1', [userId]);\n// Python: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))",

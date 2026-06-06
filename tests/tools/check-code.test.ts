@@ -616,6 +616,52 @@ describe("VG010 weak-trigger non-SQL receiver narrows (v3.1.14)", () => {
   });
 });
 
+describe("VG010 variable-assembled SQL (two-step injection, v3.1.28)", () => {
+  // Gap surfaced by ground-truth gt-sqli: query built into a variable, then passed to
+  // the sink on a later line — the inline-only pattern missed it entirely.
+  it("flags classic login-bypass concat assigned to a variable", () => {
+    const code = `const sql = "SELECT * FROM users WHERE username='" + username + "'"; db.get(sql);`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/server.js");
+    assert(findings.filter(f => f.rule.id === "VG010").length > 0);
+  });
+
+  it("flags simple concat query assigned to a variable", () => {
+    const code = `const sql = "SELECT * FROM u WHERE id=" + req.body.id; db.get(sql);`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/server.js");
+    assert(findings.filter(f => f.rule.id === "VG010").length > 0);
+  });
+
+  it("flags template-literal query assigned to a variable", () => {
+    const code = `const sql = \`SELECT * FROM u WHERE id=\${req.body.id}\`; db.get(sql);`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/server.js");
+    assert(findings.filter(f => f.rule.id === "VG010").length > 0);
+  });
+
+  it("flags SQL built from concat in a return statement", () => {
+    const code = `function buildQuery(id){ return "DELETE FROM t WHERE id=" + id; }`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/db.js");
+    assert(findings.filter(f => f.rule.id === "VG010").length > 0);
+  });
+
+  it("does NOT flag a parameterized query assigned to a variable", () => {
+    const code = `const sql = "SELECT * FROM users WHERE id = $1"; db.get(sql, [id]);`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/server.js");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("does NOT flag English prose that merely contains the word 'select'", () => {
+    const code = `const msg = "Please select an option " + name;`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/ui.js");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+
+  it("does NOT flag a non-SQL string concatenation (URL build)", () => {
+    const code = `const url = "https://api.example.com/" + path;`;
+    const findings = analyzeCode(code, "javascript", undefined, "/proj/client.js");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG010").length, 0);
+  });
+});
+
 describe("VG678 batch-script narrows (v3.1.14)", () => {
   it("does NOT flag scripts/ files that use createReadStream for local CSV processing", () => {
     const code = `import * as fs from "fs";

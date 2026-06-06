@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.28] - 2026-06-06
+
+### Fixed
+- **VG010 now catches two-step SQL injection** — queries assembled into a variable (or returned) before reaching the DB sink. Previously only inline `db.query("..." + userInput)` / `db.query(\`...${userInput}\`)` fired; the classic login-bypass shape `const sql = "SELECT ... WHERE u='" + name + "'"; db.get(sql)` slipped through both the regex rules and the taint analyzer. The pattern requires a real DML statement (DML keyword at string start + structural keyword `FROM`/`INTO`/`SET`/`WHERE`/`VALUES`) built via concatenation or template interpolation, so natural-language strings that merely mention SQL (e.g. LLM prompts) are not flagged.
+
+### Validation
+- Surfaced by a labeled ground-truth benchmark (gt-sqli now detects 3/3 expected SQLi, up from 2/3)
+- Cross-baseline across 11 real-world repos: 8 unchanged (no false-positive explosion), dvna +1 / payload +3 / unkey +7 — all genuine raw-SQL-construction sites (`sql.raw(\`…${where}…\`)`, ClickHouse builders, user-input login query). An LLM-prompt false-positive class found mid-validation was eliminated by requiring the DML keyword at string start
+- 7 new unit tests (4 positive var-built shapes, 3 false-positive guards); full suite 1781 → 1788, self-audit PASS A 100, no ReDoS
+
 ## [3.1.27] - 2026-06-06
 
 ### Fixed
