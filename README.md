@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 429 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 433 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,11 +14,11 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **429 security rules, 36 tools** purpose-built for the stacks AI agents generate
+- **433 security rules, 36 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
-- **CVE version intelligence** — detects 63 known vulnerable package versions in package.json, refreshed every day from GHSA / OSV.dev / CISA KEV
+- **CVE version intelligence** — detects 67 known vulnerable package versions in package.json, refreshed every day from GHSA / OSV.dev / CISA KEV
 - **AI agent & MCP security** — detects MCP server vulnerabilities, tool-description prompt injection (OWASP MCP Top 10), model-controlled sandbox-disable flags, excessive AI permissions, indirect prompt injection
 - **Auto-fix suggestions** — `fix_code` tool returns concrete patches and structured edits the AI agent can apply mechanically. Coverage: hardcoded credentials → env-var migration; public-prefix LLM keys (`NEXT_PUBLIC_/VITE_/EXPO_PUBLIC_/REACT_APP_`) → prefix removal; CORS wildcards → env allowlist; `dangerouslyAllowBrowser` flags → drop; sandbox bypass flags (`unsafe`/`noSandbox`/`allowEval`) → drop; agent loops → add `maxSteps`; raw-HTML React props → `<ReactMarkdown>`; missing auth checks → insert auth guard; SQL injection → parameterized queries; missing rate limiters / CSRF / security headers → snippet templates.
 - **Pre-commit hook** — block insecure code before it reaches your repo
@@ -49,10 +49,10 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 | AI/LLM security (prompt injection, MCP, tool abuse) | 68 rules | Experimental/None | None |
 | AI host security (CVE-2025-59536, CVE-2026-21852) | `guardvibe doctor` | Not supported | Not supported |
 | Auto-fix suggestions for AI agents | `fix_code` tool | CLI autofix | Not supported |
-| CVE version detection | 63 packages, refreshed daily | Extensive | Extensive |
+| CVE version detection | 67 packages, refreshed daily | Extensive | Extensive |
 | Compliance mapping (SOC2, PCI-DSS, HIPAA) | Built-in | Paid tier | None |
 | SARIF CI/CD export | Yes | Yes | Limited |
-| Rule count | 429 (focused, 68 AI-native) | 5000+ (broad) | N/A |
+| Rule count | 433 (focused, 68 AI-native) | 5000+ (broad) | N/A |
 
 **When to use GuardVibe:** You're building with AI agents and want security scanning integrated into your coding workflow — no dashboard, no account, no CI setup.
 
@@ -176,7 +176,7 @@ React Native, Expo — AsyncStorage secrets, deep link token exposure, hardcoded
 ### Firebase
 Firestore security rules, Firebase Admin SDK exposure, storage rules, custom token validation
 
-### CVE Version Intelligence (63 CVEs, refreshed daily)
+### CVE Version Intelligence (67 CVEs, refreshed daily)
 **Frameworks:** Next.js (CVE-2024-34351, CVE-2024-46982, CVE-2025-29927, CVE-2026-23869, CVE-2026-44573 / 44574 / 44575 / 44578 / 44579 / 45109 May 2026 cluster), React + react-server-dom-* (CVE-2025-55182, CVE-2026-23870), Express, Hono pre-4.12.18 cluster, @vitejs/plugin-rsc, Strapi content-type-builder (CVE-2026-22599)
 **Auth:** Clerk middleware bypass (GHSA-vqx2), Clerk `has()` org/billing/reverification bypass (GHSA-w24r), Clerk `clerkFrontendApiProxy` SSRF (CVE-2026-34076), NextAuth.js (2 CVEs), jsonwebtoken
 **ORMs / SQL:** Drizzle SQL identifier injection (CVE-2026-39356) + Drizzle `sql.raw` interpolation (VG1073), MikroORM SQL injection (CVE-2026-44680), Prisma raw-query call-form, Kysely JSON-path traversal (CVE-2026-44635)
@@ -242,7 +242,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 
 All scanning tools support `format: "json"` for machine-readable output.
 
-## Security Rules (429 rules across 25 modules)
+## Security Rules (433 rules across 25 modules)
 
 | Category | Rules | Coverage |
 |----------|-------|----------|
@@ -457,7 +457,7 @@ If your AI agent cannot connect to GuardVibe:
 
 1. **Restart your IDE/agent.** MCP servers are started by the host application. After running `npx guardvibe init`, restart Claude Code, Cursor, or Gemini CLI for the config to take effect.
 2. **Check the config path.** Run `npx guardvibe init claude` again and verify the output shows the correct config file location (`.mcp.json` in your project root for Claude Code, `.cursor/mcp.json` for Cursor).
-3. **Re-run `init` to upgrade.** When upgrading GuardVibe, re-run `npx guardvibe init claude` — `.mcp.json` is pinned to a specific version (e.g. `guardvibe@3.1.31`) at init time for fast deterministic startup. As of v3.1.2 the re-run also rewrites stale pins automatically (`Upgraded GuardVibe pin (3.1.27 → 3.1.28)`); since v3.1.27 the PostToolUse hook command is pinned to the same version (was `@latest`) and re-run upgrades a stale hook too. The same applies to `npx guardvibe hook install` and `npx guardvibe ci github` (since v3.1.3) — both are version-pinned at install/generate time and re-run to upgrade.
+3. **Re-run `init` to upgrade.** When upgrading GuardVibe, re-run `npx guardvibe init claude` — `.mcp.json` is pinned to a specific version (e.g. `guardvibe@3.1.32`) at init time for fast deterministic startup. As of v3.1.2 the re-run also rewrites stale pins automatically (`Upgraded GuardVibe pin (3.1.27 → 3.1.28)`); since v3.1.27 the PostToolUse hook command is pinned to the same version (was `@latest`) and re-run upgrades a stale hook too. The same applies to `npx guardvibe hook install` and `npx guardvibe ci github` (since v3.1.3) — both are version-pinned at install/generate time and re-run to upgrade.
 4. **Pre-3.1.1 users won't see the auto-update banner.** GuardVibe started writing a once-per-day "newer version available" notice to stderr in v3.1.1. If your install predates that, you'll never see it — run `npx -y guardvibe@latest init <host>` once to bake in the latest pin and start receiving banners on subsequent sessions.
 5. **Verify Node.js version.** GuardVibe requires Node.js >= 18.0.0. Check with `node --version`.
 6. **Check npx cache.** If you upgraded GuardVibe and the old version is cached, run `npx -y guardvibe@latest` to force the latest version.

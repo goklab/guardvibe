@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.32] - 2026-06-06
+
+### Added — 4 new CVE rules (429 → 433), sourced via `npm run intel`
+First rules added through the new intel-gap workflow: the daily check surfaced these as uncovered HIGH/CRITICAL npm advisories, each was written + tested + passed `npm run gate`.
+- **VG1076** vitest < 4.1.0 — UI/API server arbitrary file read & execute (CVE-2026-47429, GHSA-5xrq-8626-4rwp, critical)
+- **VG1077** @vitest/browser 4.0.17–4.1.5 + 5.0.0-beta.0→beta.2 — inline-script XSS via unsanitized `otelCarrier` query param (CVE-2026-47428, GHSA-2h32-95rg-cppp, critical)
+- **VG1078** liquidjs < 10.26.0 — remote code execution via attacker-influenced templates (CVE-2026-45618, GHSA-gf2q-c269-pqgc, critical)
+- **VG1079** tinymce < 5.11.1 / 6.0.0→7.9.2 / 8.0.0→8.5.0 — stored/DOM XSS cluster incl. media-plugin `data-mce-object` injection (CVE-2026-47759/47760/47761/47762, high)
+
+CVE-version intelligence count 63 → 67. Tests +24. Self-audit PASS A 100.
+
 ## [3.1.31] - 2026-06-06
 
 ### Added — daily intel-gap triage
