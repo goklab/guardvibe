@@ -54,4 +54,25 @@ describe("Database Rules", () => {
       testRule("VG439", "CREATE VIEW user_orders WITH (security_invoker = true) AS SELECT * FROM orders;", false);
     });
   });
+
+  describe("VG1073 - Drizzle sql.raw/sql.identifier interpolation (CVE-2026-39356 follow-on)", () => {
+    it("matches sql.raw with template-literal interpolation", () => {
+      testRule("VG1073", "await db.execute(sql.raw(`SELECT * FROM ${table} WHERE id = ${id}`));", true);
+    });
+    it("matches sql.identifier with template-literal interpolation", () => {
+      testRule("VG1073", "db.select().from(sql.identifier(`${schema}.users`));", true);
+    });
+    it("matches sql.raw with string concatenation", () => {
+      testRule("VG1073", "await db.execute(sql.raw('SELECT * FROM users WHERE name = ' + name));", true);
+    });
+    it("does NOT match sql.raw with a static string literal", () => {
+      testRule("VG1073", 'await db.execute(sql.raw("SELECT 1"));', false);
+    });
+    it("does NOT match sql.raw with a static backtick (no ${} interpolation)", () => {
+      testRule("VG1073", "await db.execute(sql.raw(`SELECT * FROM users`));", false);
+    });
+    it("does NOT match the safe tagged-template form sql`...${x}`", () => {
+      testRule("VG1073", "await db.execute(sql`SELECT * FROM users WHERE id = ${id}`);", false);
+    });
+  });
 });

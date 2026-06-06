@@ -196,4 +196,38 @@ describe("OWASP API Security Rules", () => {
       ));
     });
   });
+
+  // VG1071 — Axios proxy auth credential leak through redirect (CVE-2026-44486/44487)
+  describe("VG1071 - Axios Proxy Auth Leak Through Redirect", () => {
+    it("detects axios() with proxy.auth and no maxRedirects:0", () => {
+      assert(hasRule(
+        "axios({ url: '/x', proxy: { host: 'p.internal', port: 8080, auth: { username: u, password: p } } });",
+        "VG1071"
+      ));
+    });
+    it("detects axios.create() with proxy.auth and no maxRedirects:0", () => {
+      assert(hasRule(
+        "const c = axios.create({ proxy: { host: 'p.internal', port: 8080, auth: { username: u, password: p } } });",
+        "VG1071"
+      ));
+    });
+    it("detects Proxy-Authorization header in proxy block without maxRedirects:0", () => {
+      assert(hasRule(
+        "axios.create({ proxy: { host: 'p', port: 8080, headers: { 'Proxy-Authorization': 'Basic xxx' } } });",
+        "VG1071"
+      ));
+    });
+    it("does not match when maxRedirects: 0 is set in the same config", () => {
+      assert(!hasRule(
+        "axios.create({ proxy: { host: 'p.internal', port: 8080, auth: { username: u, password: p } }, maxRedirects: 0 });",
+        "VG1071"
+      ));
+    });
+    it("does not match a proxy block without auth", () => {
+      assert(!hasRule(
+        "axios.create({ proxy: { host: 'p.internal', port: 8080 } });",
+        "VG1071"
+      ));
+    });
+  });
 });

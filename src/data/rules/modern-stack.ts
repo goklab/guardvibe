@@ -702,4 +702,21 @@ export const modernStackRules: SecurityRule[] = [
       '// BAD: unvalidated Server Action argument\n"use server";\nexport async function updateUser(data: any) {\n  await prisma.user.update({ where: { id: data.id }, data });\n}\n\n// GOOD: validate with zod before any operation\n"use server";\nimport { z } from "zod";\nconst schema = z.object({ id: z.string().uuid(), name: z.string().max(100) });\nexport async function updateUser(raw: unknown) {\n  const data = schema.parse(raw);\n  await prisma.user.update({ where: { id: data.id }, data: { name: data.name } });\n}',
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.2", "PCI-DSS:Req6.5.1"],
   },
+  {
+    id: "VG1072",
+    name: "Hono setCookie sameSite/priority From User Input (CVE-2026-47675)",
+    severity: "medium",
+    owasp: "A02:2025 Injection",
+    description:
+      "Hono's setCookie / setSignedCookie helper accepts a config object with sameSite and priority attributes. When user-controlled input (c.req.X, c.get(), req.body, query/params, formData, etc.) flows into one of those attributes, an attacker can break out of the intended enum value and inject extra cookie attributes — flipping Secure or HttpOnly off, downgrading SameSite from Strict to None, or appending a duplicate Set-Cookie segment that overrides the legitimate one. CVE-2026-47675 documents the attribute-injection bypass in the affected hono line; the safe pattern always passes a literal enum value or maps the input through a strict allowlist first. Distinct from VG924, which is the older CRLF-injection CVE-2026-29086 in the cookie value itself.",
+    pattern:
+      /\b(?:setCookie|setSignedCookie)\s*\([\s\S]{0,300}?(?:\bsameSite\b|\bpriority\b)\s*:\s*(?:c\.req\.|c\.get\(|req\.|request\.|input\.|params\.|body\.|query\.|searchParams|formData|ctx\.|args\.)/g,
+    languages: ["javascript", "typescript"],
+    fix: "Never pass user-controlled input to the sameSite or priority cookie attributes. Use a literal enum value ('Strict'/'Lax'/'None' for sameSite, 'Low'/'Medium'/'High' for priority) or map the user input through a strict allowlist first. Also upgrade hono to the patched release.",
+    fixCode:
+      "// BAD — user input flows into sameSite attribute\nsetCookie(c, 'session', token, {\n  sameSite: c.req.query('site_mode'), // attacker chooses\n  httpOnly: true,\n});\n\n// GOOD — literal value, never user input\nsetCookie(c, 'session', token, {\n  sameSite: 'Strict',\n  httpOnly: true,\n  secure: true,\n});\n\n// GOOD — allowlist if you really need to vary\nconst SAFE_SAMESITE = { strict: 'Strict', lax: 'Lax' } as const;\nconst mode = SAFE_SAMESITE[c.req.query('site_mode') as keyof typeof SAFE_SAMESITE] ?? 'Strict';\nsetCookie(c, 'session', token, { sameSite: mode, httpOnly: true });",
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.10"],
+    exploit:
+      "Attacker submits a query parameter whose value contains cookie-attribute terminators (e.g. `Lax; Secure=false; HttpOnly=false` or `Strict\\r\\nSet-Cookie: tracker=x`). The helper renders the value into the Set-Cookie header verbatim — the browser then either downgrades the cookie's flags or treats the injected segment as a separate Set-Cookie, hijacking the session.",
+  },
 ];

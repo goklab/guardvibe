@@ -538,4 +538,34 @@ describe("Modern Stack Security Rules", () => {
       ));
     });
   });
+
+  // =====================================================
+  // VG1072 — Hono setCookie sameSite/priority from user input (CVE-2026-47675)
+  // =====================================================
+  describe("VG1072 - Hono setCookie attribute injection", () => {
+    it("detects sameSite fed from c.req.query()", () => {
+      assert(hasRule(
+        "setCookie(c, 'session', token, { sameSite: c.req.query('mode'), httpOnly: true });",
+        "VG1072"
+      ));
+    });
+    it("detects priority fed from req.body", () => {
+      assert(hasRule(
+        "setSignedCookie(c, 'csrf', value, 'secret', { priority: req.body.priority });",
+        "VG1072"
+      ));
+    });
+    it("does not match literal sameSite enum value", () => {
+      assert(!hasRule(
+        "setCookie(c, 'session', token, { sameSite: 'Strict', httpOnly: true, secure: true });",
+        "VG1072"
+      ));
+    });
+    it("does not match getCookie (different helper)", () => {
+      assert(!hasRule(
+        "const session = getCookie(c, 'session');",
+        "VG1072"
+      ));
+    });
+  });
 });

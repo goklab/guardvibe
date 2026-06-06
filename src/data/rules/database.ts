@@ -175,4 +175,21 @@ export const databaseRules: SecurityRule[] = [
       'import { sql } from "drizzle-orm";\n\n// BAD: user input in identifier\nconst col = req.query.sortBy;\ndb.select().from(sql.identifier(col)); // SQL injection!\n\n// GOOD: allowlist valid identifiers\nconst ALLOWED_COLUMNS = ["name", "email", "created_at"] as const;\nconst col = ALLOWED_COLUMNS.find(c => c === req.query.sortBy);\nif (!col) throw new Error("Invalid column");\ndb.select().from(users).orderBy(users[col]);',
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
   },
+  {
+    id: "VG1073",
+    name: "Drizzle sql.raw / sql.identifier with Interpolation or Concatenation (CVE-2026-39356 follow-on)",
+    severity: "critical",
+    owasp: "A02:2025 Injection",
+    description:
+      "A sql.raw(...) or sql.identifier(...) call receives either a backtick template with ${...} interpolation or a string built with + concatenation. Both bypass Drizzle's parameterizer — the constructed string is fed straight into the executed query, exposing the same identifier-escape gap CVE-2026-39356 patched (drizzle-orm < 0.45.2 / 1.0.0-beta.20). On older builds it is a hard SQL injection; on patched builds sql.raw still has no escape at all. The supported safe shape is the tagged template `sql`... ${value}`` (auto-parameterized) plus a strict allowlist for any identifier the caller must vary. Distinct from VG1011, which catches the variable-name form sql.identifier(req.X) only; this rule covers the template-literal and string-concatenation shapes plus the previously-uncovered sql.raw call.",
+    pattern:
+      /\bsql\s*\.\s*(?:raw|identifier)\s*\(\s*(?:`[^`]{0,400}\$\{|[\s\S]{0,200}?(?<![=!<>])\+(?!\+|=))/g,
+    languages: ["javascript", "typescript"],
+    fix: "Replace sql.raw / sql.identifier interpolation with the tagged-template form sql`... ${value}` (auto-parameterized) for values, and a hardcoded allowlist for any table/column identifier you must vary by request. Upgrade drizzle-orm to 0.45.2+ (stable) or 1.0.0-beta.20+ (beta) to close the escape gap covered by VG1052.",
+    fixCode:
+      "// BAD — template-literal interpolation feeds attacker input straight in\nawait db.execute(sql.raw(`SELECT * FROM ${table} WHERE id = ${id}`));\n\n// BAD — string concatenation into sql.raw\nawait db.execute(sql.raw('SELECT * FROM users WHERE name = \\'' + name + '\\''));\n\n// GOOD — tagged template auto-parameterizes the value\nimport { sql } from 'drizzle-orm';\nawait db.execute(sql`SELECT * FROM users WHERE id = ${id}`);\n\n// GOOD — strict allowlist when the identifier really must vary\nconst ALLOWED_TABLES = ['users', 'orders'] as const;\nif (!ALLOWED_TABLES.includes(table as never)) throw new Error('Invalid table');\nawait db.execute(sql`SELECT * FROM ${sql.identifier(table)}`);",
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+    exploit:
+      "Attacker controls a request field that becomes the value of `table` or `id`. A payload like `users WHERE 1=1; DROP TABLE users; --` is concatenated into the raw query string; Drizzle hands the whole string to the driver and the driver executes the injected statements with the application's database role.",
+  },
 ];

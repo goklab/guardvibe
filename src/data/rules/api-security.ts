@@ -166,4 +166,21 @@ export const apiSecurityRules: SecurityRule[] = [
       'catch (error) {\n  console.error("Internal error:", error); // log server-side\n  return Response.json(\n    { error: "Something went wrong" }, // generic to client\n    { status: 500 }\n  );\n}',
     compliance: ["SOC2:CC7.2"],
   },
+  {
+    id: "VG1071",
+    name: "Axios Proxy Auth Leak Through Redirect (CVE-2026-44486 / CVE-2026-44487)",
+    severity: "high",
+    owasp: "API8:2023 Security Misconfiguration",
+    description:
+      "An axios() call or axios.create() config sets a proxy with auth credentials (or a Proxy-Authorization header) without disabling redirect-following. When axios follows a 3xx redirect, the original Proxy-Authorization header is replayed against the redirect destination — leaking proxy credentials to whatever origin an attacker can redirect to. CVE-2026-44486 (Proxy-Authorization leak to redirect target) and CVE-2026-44487 (header carry-over to origin server) describe the dual leak; either is enough to compromise the proxy account. The rule fires when proxy auth is present and no nearby maxRedirects: 0 mitigation is set; pair the upgrade with a hard-coded maxRedirects: 0 on any request that traverses an authenticated proxy.",
+    pattern:
+      /\baxios(?:\.create)?\s*\(\s*\{(?:(?!maxRedirects\s*:\s*0)[\s\S]){0,800}?\bproxy\s*:\s*\{(?:(?!maxRedirects\s*:\s*0)[\s\S]){0,400}?(?:\bauth\s*:|Proxy-Authorization)(?!(?:(?!\}\s*\))[\s\S]){0,1500}?\bmaxRedirects\s*:\s*0\b)/g,
+    languages: ["javascript", "typescript"],
+    fix: "Upgrade axios to a patched release that strips Proxy-Authorization on redirects. For pre-patch versions, force maxRedirects: 0 on every request that traverses an authenticated proxy, or replace the credentialed proxy with a non-authenticated proxy plus a signed-URL pattern.",
+    fixCode:
+      "// BAD — proxy auth + default redirect-following leaks creds\nconst client = axios.create({\n  proxy: {\n    host: 'proxy.internal',\n    port: 8080,\n    auth: { username: process.env.PROXY_USER, password: process.env.PROXY_PASS },\n  },\n  // maxRedirects defaults to 5 — Proxy-Authorization travels with every hop\n});\n\n// GOOD — hard-disable redirects on the authenticated proxy path\nconst client = axios.create({\n  proxy: {\n    host: 'proxy.internal',\n    port: 8080,\n    auth: { username: process.env.PROXY_USER, password: process.env.PROXY_PASS },\n  },\n  maxRedirects: 0,\n});",
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req4.1", "ISO27001:A.13.2.1"],
+    exploit:
+      "Attacker controls a redirect target the proxied request reaches (open redirect on a partner site, attacker-owned subdomain, or DNS-rebinding). Axios issues the second-hop request and replays the cached Proxy-Authorization header — the attacker captures the proxy username/password from the second hop's logs and uses them to pivot inside the corporate network the proxy fronts.",
+  },
 ];
