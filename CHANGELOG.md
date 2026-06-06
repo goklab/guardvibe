@@ -5,6 +5,12 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.31] - 2026-06-06
+
+### Added — daily intel-gap triage
+- **`npm run intel`** (`scripts/intel-check.mjs`) — pulls recently-published reviewed npm advisories from the GitHub Advisory Database and cross-references each against GuardVibe's existing coverage (every CVE id, GHSA id, and package name in `src/data/rules/`). Reports HIGH/CRITICAL advisories not yet covered — the candidate list for new rules. Flags: `--since <days>`, `--json`. Read-only; never writes rules or commits.
+- **Daily scheduled workflow** (`.github/workflows/intel.yml`) — runs the gap check every morning and posts the report to the Actions step summary (no issue spam, injection-safe, `contents: read` only). The deliberate safe replacement for the old auto-update routine that committed untested rules: discovery is automated, but new rules are still written by a human and must pass `npm run gate` before release.
+
 ## [3.1.30] - 2026-06-06
 
 ### Added — release-integrity foundation

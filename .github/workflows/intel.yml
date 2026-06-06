@@ -1,0 +1,52 @@
+name: Intel gap check
+
+# Daily vulnerability-coverage triage: lists recent npm advisories GuardVibe does
+# not yet cover. Read-only and injection-safe — it only reports candidates to the
+# Actions step summary; it never generates rules or commits. New rules are still
+# written by a human and must pass `npm run gate` (build + tests + consistency +
+# self-audit) before release.
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      since_days:
+        description: "Only advisories published in the last N days"
+        required: false
+        default: "2"
+
+permissions:
+  contents: read
+
+jobs:
+  intel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Run intel gap check
+        env:
+          # read-only token: raises the GitHub Advisory API rate limit only
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SINCE_DAYS: ${{ github.event.inputs.since_days || '2' }}
+        run: |
+          node scripts/intel-check.mjs --since "$SINCE_DAYS" --json > intel.json || true
+          node scripts/intel-check.mjs --since "$SINCE_DAYS" > intel.txt || true
+          {
+            echo '## GuardVibe intel gap check'
+            echo ''
+            echo '```'
+            cat intel.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: intel-report
+          path: |
+            intel.json
+            intel.txt
+          retention-days: 14
