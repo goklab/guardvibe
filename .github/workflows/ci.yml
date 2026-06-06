@@ -34,7 +34,7 @@ jobs:
         run: node build/cli.js audit . --fail-on high
       - name: Upload coverage to Codecov
         if: matrix.node-version == 22
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
         with:
           files: ./coverage/lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
