@@ -5,6 +5,24 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.26] - 2026-06-06
+
+### Added — 5 new rules (424 → 429)
+- **VG1071** axios proxy-auth credential leak on cross-origin redirect. Flags axios client pins on vulnerable ranges where `proxy.auth` Basic credentials are forwarded to the redirect target host; fix advises pinning via `overrides`/`resolutions` to the patched line and stripping `Proxy-Authorization` on host change via a request interceptor
+- **VG1072** hono `setCookie` attribute injection / cookie smuggling. Detects untrusted input flowing into `setCookie(c, name, value, …)` without sanitization of CR / LF / `;` bytes — enables Set-Cookie header injection and downstream cookie smuggling on the same response
+- **VG1073** drizzle `sql.raw()` user-input interpolation. Flags `sql.raw(\`…${userInput}…\`)` and `db.execute(sql.raw(…))` patterns that splice request data into raw SQL — bypasses drizzle's parameterized-query safety net. Fix advises switching to the `sql\`…${userInput}\`` tagged-template form which parameterizes the binding
+- **VG1074** Miasma supply-chain IOC — `@redhat-cloud-services/*` namespace compromise (RHSB-2026-006). Pins the maintainer-account-takeover wave that shipped credential-exfil postinstall scripts under the Red Hat scope; fix advises pinning to pre-compromise versions via `overrides` and rotating any npm/CI tokens reachable from `npm install`
+- **VG1075** Session messenger exfil endpoint IOC (`filev2.getsession.org`). Detects callsites and stringified URLs that point at the Session-relay endpoint used by the Miasma wave (and other recent supply-chain payloads) to POST exfiltrated `process.env` + `~/.npmrc` content to attacker infrastructure
+
+### Changed
+- `overrides` bumped: `hono` → `^4.12.21` (covers VG1042 + VG1072 patched line)
+- CLI `rulesApplied` default 424 → 429 (src/index.ts + src/tools/full-audit.ts)
+- `server.json` (MCP registry metadata) refreshed: 390 → 429 rules, version 3.1.22 → 3.1.26
+- README updated end-to-end: hero count 422 → 429, CVE-version intelligence 60 → 63, new threat-intel bullet for VG1069 → VG1075, supply-chain section calls out VG1069 / VG1070 / VG1074 / VG1075
+
+### Self-audit
+- `npx guardvibe audit` after `npm audit fix` → PASS A 100 (0 findings, 0 advisories)
+
 ## [3.1.25] - 2026-05-16
 
 ### Added — 2 new rules (422 → 424)
