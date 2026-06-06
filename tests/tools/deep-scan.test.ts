@@ -34,6 +34,14 @@ describe("deep-scan", () => {
       const prompt = buildDeepScanPrompt("code", "typescript", []);
       assert(prompt.toLowerCase().includes("business logic"), "Prompt should include business logic focus");
     });
+
+    it("includes precision rules to curb speculative over-flagging (v3.1.29)", () => {
+      const prompt = buildDeepScanPrompt("code", "typescript", []);
+      const lower = prompt.toLowerCase();
+      assert(lower.includes("precision over recall"), "Prompt should instruct precision over recall");
+      assert(lower.includes("not shown") || lower.includes("not speculate"), "Prompt should forbid speculating about code not shown");
+      assert(lower.includes("when uncertain") || lower.includes("omit"), "Prompt should tell the model to omit uncertain findings");
+    });
   });
 
   describe("parseDeepScanResult", () => {

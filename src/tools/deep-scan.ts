@@ -101,6 +101,13 @@ export function buildDeepScanPrompt(
   }
 
   lines.push("");
+  lines.push("## Rules (precision over recall)");
+  lines.push("- Only report a vulnerability you can point to in the code SHOWN above. Cite the specific line or construct.");
+  lines.push("- Do NOT speculate about code that is not shown (imported helpers, middleware internals, DB layer). If `requireAuth` or a validator is referenced but not defined here, assume it works correctly.");
+  lines.push("- Do NOT report generic hardening or defense-in-depth suggestions (add rate limiting, shorten token lifetime, add logging) unless their absence is a concrete, exploitable flaw in THIS code.");
+  lines.push("- If the code already handles a concern correctly (e.g. an ownership/userId filter is present, input is validated, a parameterized query is used), do NOT flag it.");
+  lines.push("- When uncertain whether something is exploitable, OMIT it. A short, correct list beats a long, speculative one.");
+  lines.push("");
   lines.push("## Response Format");
   lines.push("Return ONLY a JSON object with this structure:");
   lines.push("```json");
@@ -227,6 +234,9 @@ export async function callLLM(prompt: string, options: CallLLMOptions = {}): Pro
       body: JSON.stringify({
         model: MODEL_IDS[model],
         max_tokens: 2048,
+        // temperature 0 — maximize determinism so the same code yields stable findings
+        // across runs (deep_scan is the one non-deterministic layer; keep variance minimal).
+        temperature: 0,
         messages: [{ role: "user", content: trimmedPrompt }],
       }),
     });
@@ -246,6 +256,7 @@ export async function callLLM(prompt: string, options: CallLLMOptions = {}): Pro
       body: JSON.stringify({
         model: model === "sonnet" ? "gpt-4o" : "gpt-4o-mini",
         max_tokens: 2048,
+        temperature: 0,
         messages: [{ role: "user", content: trimmedPrompt }],
       }),
     });

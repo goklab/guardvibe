@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.29] - 2026-06-06
+
+### Fixed — deep_scan (LLM) quality
+- **Determinism**: deep_scan now calls the LLM with `temperature: 0`. The same code previously produced different findings across identical runs (e.g. 0 findings one call, 3 the next); it now returns stable results (verified: 3 identical runs on the same input).
+- **Precision**: the prompt now enforces "precision over recall" — only report vulnerabilities present in the code shown, never speculate about code that isn't shown (imported middleware/helpers/DB layer), and never emit generic hardening suggestions (add rate limiting, shorten token lifetime) unless their absence is a concrete exploitable flaw. Correctly-handled concerns (ownership filter, validated input, parameterized query) are not flagged. A clean, auth-guarded, ownership-checked endpoint that previously drew 3 speculative findings now returns 0 while real IDOR/business-logic flaws are still caught.
+
+### Validation
+- Live before/after against the Anthropic API (Haiku): determinism 0/3-variance → identical-across-3-runs; clean-code false positives 3 → 0; real semantic vulns (IDOR, business-logic price tampering, TOCTOU race, auth-bypass) still detected
+- 1 new prompt-builder unit test; full suite 1788 → 1789, self-audit PASS A 100
+
 ## [3.1.28] - 2026-06-06
 
 ### Fixed
