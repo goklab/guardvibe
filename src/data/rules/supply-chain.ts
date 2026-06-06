@@ -248,4 +248,38 @@ export const supplyChainRules: SecurityRule[] = [
       '// package.json — pin to clean versions\n"@tanstack/react-router": "^1.169.9",  // or latest non-malicious\n"@tanstack/router-core": "^1.169.9",\n"@tanstack/react-start": "^1.167.72"\n\n// pnpm / yarn / npm overrides to evict transitive copies\n"overrides": {\n  "@tanstack/react-router": "^1.169.9",\n  "@tanstack/router-core": "^1.169.9"\n}\n\n// Network mitigation while rotating: block *.getsession.org egress',
     compliance: ["SOC2:CC6.1", "SOC2:CC7.1", "PCI-DSS:Req6.2", "PCI-DSS:Req3.5"],
   },
+  {
+    id: "VG1074",
+    name: "@redhat-cloud-services/* Miasma Supply-Chain Compromise (RHSB-2026-006)",
+    severity: "high",
+    owasp: "A03:2025 Software Supply Chain Failures",
+    description:
+      "On 2026-06-01 the Miasma campaign published trojanized versions across at least 32 packages in the @redhat-cloud-services npm namespace (combined ~80K weekly downloads). The attacker reused a compromised Red Hat employee GitHub account to push orphan commits, then leveraged the repository's GitHub Actions OIDC trusted-publisher chain to ship malicious packages WITH valid SLSA provenance attestations — provenance alone is no longer a sufficient trust signal here. A preinstall hook fetches a ~4.29 MB obfuscated dropper that downloads the Bun runtime and exfiltrates GitHub / npm / AWS / Azure / GCP credentials, SSH private keys, browser-stored secrets, and crypto-wallet data over the Session/Oxen messenger network (filev2.getsession.org — same exfil family as VG1056 @tanstack). Sources: Wiz blog, Microsoft Security Response Center, Red Hat RHSB-2026-006. Until the namespace publishes a clean, audited replacement series, treat every @redhat-cloud-services/* version reference in a package.json or lockfile as suspect; rotate every credential the install host could reach.",
+    pattern:
+      /["']@redhat-cloud-services\/[a-z0-9._-]+["']\s*:\s*["'](?:\^|~|>=?|=)?\s*[^"']{1,80}["']/g,
+    languages: ["json"],
+    fix: "Remove every @redhat-cloud-services/* dependency until Red Hat publishes a clean replacement series under a new (un-compromised) namespace or numbered re-release. Rotate every credential the install host could reach: AWS access keys, GCP service-account keys, Azure tokens, GitHub PATs, npm tokens, SSH private keys, browser-cached cookies, and any crypto-wallet seed. Wipe and reissue the CI runner if the install ran in CI. Add filev2.getsession.org and *.getsession.org to your egress denylist. Do NOT trust SLSA provenance as sole evidence — the attacker forged provenance via the OIDC trusted-publisher chain.",
+    fixCode:
+      '// package.json — remove every @redhat-cloud-services/* entry\n// (currently EVERY version in this namespace is suspect)\n\n// If a transitive copy is pulled in by another dep, evict via overrides:\n"overrides": {\n  "@redhat-cloud-services/some-package": "npm:noop@1.0.0"\n}\n\n// Egress controls while rotating credentials:\n// - block *.getsession.org\n// - block bun.sh and github.com/oven-sh/bun/releases on CI runners\n//   that have no legitimate Bun runtime usage',
+    compliance: ["SOC2:CC6.1", "SOC2:CC7.1", "PCI-DSS:Req6.2", "PCI-DSS:Req3.5"],
+    exploit:
+      "Attacker who compromised a Red Hat employee's GitHub credentials pushes an orphan commit that adds a preinstall lifecycle script to one or more @redhat-cloud-services/* packages, then triggers the repository's publish workflow. The workflow uses the OIDC trusted-publisher chain, so npm accepts the malicious tarball with a valid provenance attestation. Any developer or CI runner that runs `npm install` on a project depending on the package — directly or transitively — executes the preinstall script, which downloads the Bun runtime, decodes a credential-stealer payload, harvests environment files and cloud credentials, and exfiltrates them over Session messenger to filev2.getsession.org.",
+  },
+  {
+    id: "VG1075",
+    name: "Session Messenger Exfil Endpoint Reference (filev2.getsession.org)",
+    severity: "critical",
+    owasp: "A03:2025 Software Supply Chain Failures",
+    description:
+      "Code, configuration, or dependency references the Session/Oxen messenger file-relay endpoint filev2.getsession.org (or another *.getsession.org host) as a fetch target, base URL, or hardcoded constant. This endpoint is the documented exfiltration channel for two distinct 2026 supply-chain campaigns: @tanstack mass malware (CVE-2026-45321, VG1056) and the Miasma @redhat-cloud-services compromise (RHSB-2026-006, VG1074). A web/server codebase has no legitimate reason to talk to this host; presence is a high-confidence Indicator of Compromise. Audit the host running this code for credential rotation candidates immediately.",
+    pattern:
+      /\b(?:[a-z0-9-]+\.)?getsession\.org\b/gi,
+    languages: ["javascript", "typescript", "json"],
+    fix: "Treat the host running this code as potentially compromised. Block *.getsession.org egress at the firewall, rotate every cloud, npm, GitHub, and SSH credential reachable from the host, wipe and reissue the runner if it is a CI box, and search the lockfile for the upstream package that introduced the reference. Pin away from that package or use overrides to evict it. Search git history for when the reference appeared to estimate the exposure window.",
+    fixCode:
+      "// REMOVE — never legitimate in a web/server codebase\n// const exfilUrl = 'https://filev2.getsession.org/file';\n\n// If you genuinely use Session as an end-user feature (not as an exfil channel),\n// move the URL behind a feature flag and document why. Add an explicit allowlist\n// comment so this rule can be suppressed via .guardviberc:\n//   { rules: { allow: [{ id: 'VG1075', paths: ['src/features/session-link.ts'] }] } }",
+    compliance: ["SOC2:CC6.1", "SOC2:CC7.1", "PCI-DSS:Req6.2"],
+    exploit:
+      "Attacker leverages Session's anonymity-by-design file relay (no DNS exposure, encrypted at the network layer, no account binding) to exfiltrate stolen credentials. Any code or dependency that posts to filev2.getsession.org is almost certainly an installed credential stealer staged by a supply-chain compromise — most often a malicious npm preinstall script that has already executed once on this host.",
+  },
 ];

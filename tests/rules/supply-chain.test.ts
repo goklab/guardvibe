@@ -170,4 +170,37 @@ describe("Supply Chain Rules", () => {
       testRule("VG1056", '"@tanstack/react-query": "1.169.5"', false);
     });
   });
+
+  describe("VG1074 - Miasma @redhat-cloud-services namespace compromise (RHSB-2026-006)", () => {
+    it("detects any @redhat-cloud-services/* dep in package.json", () => {
+      testRule("VG1074", '"@redhat-cloud-services/insights": "^1.2.3"', true);
+    });
+    it("detects nested package name with dots", () => {
+      testRule("VG1074", '"@redhat-cloud-services/frontend-components.notifications": "2.0.0"', true);
+    });
+    it("detects exact pinned version", () => {
+      testRule("VG1074", '"@redhat-cloud-services/types": "3.0.1"', true);
+    });
+    it("ignores unrelated @redhat-* scope", () => {
+      testRule("VG1074", '"@redhat/other-tool": "1.0.0"', false);
+    });
+    it("ignores unscoped redhat-cloud-services name", () => {
+      testRule("VG1074", '"redhat-cloud-services": "1.0.0"', false);
+    });
+  });
+
+  describe("VG1075 - Session messenger exfil endpoint IOC (filev2.getsession.org)", () => {
+    it("detects filev2.getsession.org in JS string", () => {
+      testRule("VG1075", "const exfil = 'https://filev2.getsession.org/file';", true);
+    });
+    it("detects bare getsession.org reference", () => {
+      testRule("VG1075", "fetch('https://getsession.org/relay');", true);
+    });
+    it("detects subdomain.getsession.org variant", () => {
+      testRule("VG1075", "const u = 'https://sub.getsession.org/x';", true);
+    });
+    it("ignores unrelated session-related domain", () => {
+      testRule("VG1075", "const u = 'https://session.example.com';", false);
+    });
+  });
 });

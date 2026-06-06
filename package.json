@@ -1,8 +1,8 @@
 {
   "name": "guardvibe",
-  "version": "3.1.25",
+  "version": "3.1.26",
   "mcpName": "io.github.goklab/guardvibe",
-  "description": "Security MCP for vibe coding. 427 rules, 36 tools, CLI + doctor. Host security, auth coverage mapping, LLM-powered deep scan (IDOR/business logic), taint analysis. 61 CVE rules refreshed daily from GHSA/OSV/CISA KEV — Next.js May 2026 13-advisory cluster, Drizzle/MikroORM/Kysely SQL injection, Axios proxy-auth redirect leak, Hono setCookie attribute injection, Clerk SSRF, tRPC prototype pollution, @tanstack supply-chain, node-ipc protestware, OpenClaude sandbox bypass, plus the full AI-generated stack (Supabase, Stripe, Prisma, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK). 68 AI-native rules including OWASP MCP Top 10 tool-description prompt injection (VG1068), model-controlled sandbox-disable flag detection (VG1063), and CI/CD supply-chain hardening (VG1070 npm --expect-provenance / --ignore-scripts enforcement).",
+  "description": "Security MCP for vibe coding. 429 rules, 36 tools, CLI + doctor. Host security, auth coverage mapping, LLM-powered deep scan (IDOR/business logic), taint analysis. 63 CVE rules refreshed daily from GHSA/OSV/CISA KEV — Miasma @redhat-cloud-services compromise, Next.js May 2026 13-advisory cluster, Drizzle/MikroORM/Kysely SQL injection, Axios proxy-auth redirect leak, Hono setCookie attribute injection, Clerk SSRF, tRPC prototype pollution, @tanstack supply-chain, node-ipc protestware, OpenClaude sandbox bypass, plus the full AI-generated stack (Supabase, Stripe, Prisma, Hono, GraphQL, Convex, Turso, Uploadthing, AI SDK). 68 AI-native rules including OWASP MCP Top 10 tool-description prompt injection (VG1068), model-controlled sandbox-disable flag detection (VG1063), Session messenger exfil endpoint IOC (VG1075), and CI/CD supply-chain hardening (VG1070 npm --expect-provenance / --ignore-scripts enforcement).",
   "type": "module",
   "bin": {
     "guardvibe": "build/cli.js",
@@ -108,7 +108,7 @@
     "zod": "^3.25.0"
   },
   "overrides": {
-    "hono": "^4.12.18",
+    "hono": "^4.12.21",
     "fast-uri": "^3.1.2",
     "ip-address": "^10.2.0"
   },
