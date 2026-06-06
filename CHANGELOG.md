@@ -5,6 +5,13 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.30] - 2026-06-06
+
+### Added — release-integrity foundation
+- **Metadata consistency guard** (`tests/meta/consistency.test.ts`) — makes the actual `builtinRules.length` the single source of truth and fails CI if any public surface (package.json, README, server.json, CLAUDE.md) advertises a different rule count, if tool-count strings diverge, if rule ids are not unique, if CHANGELOG lacks the current version, or if server.json and package.json versions drift apart. Ends the recurring count-drift (390 → 406 → 422 → 429 each previously needed a manual multi-file fix).
+- **Release gate** (`npm run gate`, `scripts/release-gate.mjs`) — one command that runs build → lint → full test suite (incl. the consistency guard) → self-audit, and refuses to pass unless GuardVibe scans itself clean (PASS / A / 0). Run before every tag/release.
+- **CI dogfood step** — `ci.yml` now runs `guardvibe audit . --fail-on high` so every PR must keep the project self-clean, not just green on tests.
+
 ## [3.1.29] - 2026-06-06
 
 ### Fixed — deep_scan (LLM) quality
