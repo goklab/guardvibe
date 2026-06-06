@@ -121,16 +121,25 @@ function setupClaudeGuide(): void {
   const claudeSettingsPath = join(claudeSettingsDir, "settings.json");
   const existingSettings = readJsonFile(claudeSettingsPath) || {};
   if (!(existingSettings as any).hooks) (existingSettings as any).hooks = {};
+  const hookCommand = `jq -r '.tool_input.file_path' | xargs npx -y guardvibe@${pkg.version} check --format buddy 2>/dev/null || true`;
   if (!(existingSettings as any).hooks.PostToolUse) {
     (existingSettings as any).hooks.PostToolUse = [
       {
         matcher: "Edit|Write",
-        hooks: [{
-          type: "command",
-          command: "jq -r '.tool_input.file_path' | xargs npx -y guardvibe@latest check --format buddy 2>/dev/null || true"
-        }]
+        hooks: [{ type: "command", command: hookCommand }]
       }
     ];
+  } else {
+    // Re-run upgrade: rewrite any stale GuardVibe hook command (e.g. @latest or an
+    // older pin) to the current pinned version — keeps the hook scanner deterministic
+    // and in lock-step with the pinned MCP server.
+    for (const entry of (existingSettings as any).hooks.PostToolUse) {
+      for (const h of entry?.hooks ?? []) {
+        if (typeof h.command === "string" && /npx\s+-y\s+guardvibe@[^\s]+\s+check/.test(h.command)) {
+          h.command = hookCommand;
+        }
+      }
+    }
   }
   writeJsonFile(claudeSettingsPath, existingSettings as any);
   console.log(`  [OK] Claude Code hooks configured (.claude/settings.json)`);

@@ -253,5 +253,51 @@ describe("full-audit", () => {
       assert(output.includes("FAIL"), "Should show FAIL verdict");
       assert(output.includes("Action"), "Should show action items");
     });
+
+    it("sarif format is valid SARIF v2.1.0", async () => {
+      const result = await runFullAudit(".");
+      const output = formatAuditResult(result, "sarif");
+      const parsed = JSON.parse(output);
+      assert.equal(parsed.version, "2.1.0", "Should be SARIF v2.1.0");
+      assert(typeof parsed.$schema === "string" && parsed.$schema.includes("sarif"), "Should reference SARIF schema");
+      assert(Array.isArray(parsed.runs) && parsed.runs.length === 1, "Should have exactly one run");
+      assert.equal(parsed.runs[0].tool.driver.name, "GuardVibe", "Driver name should be GuardVibe");
+      assert(Array.isArray(parsed.runs[0].results), "Should have a results array");
+      assert(Array.isArray(parsed.runs[0].tool.driver.rules), "Should have a rules array");
+    });
+
+    it("sarif maps every section finding to a result with location + level", () => {
+      const mockResult: AuditResult = {
+        verdict: "FAIL",
+        score: 0,
+        grade: "F",
+        coverage: { filesScanned: 2, filesSkipped: 0, totalFiles: 2, coveragePercent: 100, rulesApplied: 429 },
+        resultHash: "deadbeefcafe0001",
+        timestamp: new Date().toISOString(),
+        sections: [
+          { name: "code", status: "ok", findings: 1, critical: 1, high: 0, medium: 0, details: "1 issue",
+            sectionFindings: [{ ruleId: "VG011", severity: "critical", file: "index.js", line: 18, name: "Command injection", description: "exec with user input", fix: "Use spawn() with array args" }] },
+          { name: "secrets", status: "ok", findings: 1, critical: 1, high: 0, medium: 0, details: "1 secret",
+            sectionFindings: [{ ruleId: "SECRET:stripe", severity: "critical", file: ".env", line: 2, name: "Stripe Live Key", description: "sk_live_ exposed", fix: "Move to env var" }] },
+        ],
+        truncation: { truncated: false, maxFindings: 50, totalFindings: 2, taintFileCap: 200, taintFilesProcessed: 0 },
+        summary: { totalFindings: 2, critical: 2, high: 0, medium: 0 },
+        actionItems: [],
+      };
+      const parsed = JSON.parse(formatAuditResult(mockResult, "sarif"));
+      const results = parsed.runs[0].results;
+      assert.equal(results.length, 2, "Both section findings should map to SARIF results");
+      const codeResult = results.find((r: any) => r.ruleId === "VG011");
+      assert(codeResult, "code finding should be present");
+      assert.equal(codeResult.level, "error", "critical maps to error level");
+      assert.equal(codeResult.locations[0].physicalLocation.artifactLocation.uri, "index.js");
+      assert.equal(codeResult.locations[0].physicalLocation.region.startLine, 18);
+      assert.equal(codeResult.properties.section, "code", "should tag originating section");
+      // covers a section scan never reaches via `scan --format sarif` (secrets)
+      assert(results.some((r: any) => r.properties.section === "secrets"), "secrets section should be covered");
+      // audit-level metadata travels in run properties
+      assert.equal(parsed.runs[0].properties.verdict, "FAIL");
+      assert.equal(parsed.runs[0].properties.resultHash, "deadbeefcafe0001");
+    });
   });
 });

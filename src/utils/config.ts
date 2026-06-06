@@ -123,7 +123,13 @@ export function loadConfig(dir?: string): GuardVibeConfig {
         densityModel: parsed.scoring.densityModel === "exponential" ? "exponential" : "linear",
       } : undefined,
     };
-  } catch {}
+  } catch (err) {
+    // A .guardviberc exists but could not be parsed. Warn on stderr (never stdout —
+    // stdout must stay clean for MCP JSON-RPC and CLI machine formats) so the user
+    // knows their rule disables / authExceptions / scan.exclude are NOT being applied.
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error(`[guardvibe] Warning: failed to parse ${configPath} — ${reason}. Using default config; your .guardviberc settings are NOT applied.`);
+  }
 
   configCache.set(configDir, resolvedConfig);
   return resolvedConfig;

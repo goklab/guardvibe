@@ -18,13 +18,14 @@ export async function runAudit(args: string[]): Promise<void> {
   const failOn = getStringFlag(flags, "fail-on") ?? "critical";
   const skipDeps = flags["skip-deps"] === true;
   const skipSecrets = flags["skip-secrets"] === true;
-  const full = flags["full"] === true;
+  // SARIF is consumed by CI / code-scanning — never silently truncate findings.
+  const full = flags["full"] === true || rawFormat === "sarif";
 
   setRules(builtinRules);
 
   // Terminal format by default when outputting to TTY, unless --format is specified
   const isTerminal = !outputFile && process.stdout.isTTY && !flags["format"];
-  const format = isTerminal ? "terminal" as const : rawFormat as "markdown" | "json";
+  const format = isTerminal ? "terminal" as const : rawFormat as "markdown" | "json" | "sarif";
 
   const result = await runFullAudit(targetPath, { skipDeps, skipSecrets, full });
   const output = formatAuditResult(result, format);

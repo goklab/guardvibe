@@ -8,6 +8,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { scanDirectory } from "./scan-directory.js";
@@ -19,6 +20,9 @@ import { analyzeAuthCoverage } from "./auth-coverage.js";
 import { getRules } from "../utils/rule-registry.js";
 import { loadConfig } from "../utils/config.js";
 import { isExcludedFilename } from "../utils/constants.js";
+
+const _require = createRequire(import.meta.url);
+const _pkg = _require("../../package.json") as { version: string };
 
 // --- Types ---
 
@@ -588,7 +592,89 @@ function buildInlineRemediationPlan(result: AuditResult): InlineRemediationStep[
 /**
  * Format audit result as markdown, JSON, or terminal-friendly output.
  */
-export function formatAuditResult(result: AuditResult, format: "markdown" | "json" | "terminal"): string {
+/**
+ * Map an audit severity string to a SARIF level.
+ */
+function auditSeverityToLevel(severity: string): "error" | "warning" | "note" {
+  if (severity === "critical" || severity === "high") return "error";
+  if (severity === "medium") return "warning";
+  return "note";
+}
+
+/**
+ * Build a SARIF v2.1.0 document from a full audit result.
+ * Covers every section (code, secrets, dependencies, config, taint, auth-coverage)
+ * — richer than `scan --format sarif`, which is code-only.
+ * Note: for complete CI coverage, run the audit with `full: true` so sectionFindings
+ * are not capped before they reach this formatter.
+ */
+export function formatAuditSarif(result: AuditResult): string {
+  const sarifResults = [];
+  const ruleMap = new Map<string, { id: string; name: string; description: string }>();
+
+  for (const section of result.sections) {
+    for (const f of section.sectionFindings ?? []) {
+      const ruleName = f.name ?? f.ruleId;
+      const description = f.description ?? f.name ?? f.ruleId;
+      if (!ruleMap.has(f.ruleId)) {
+        ruleMap.set(f.ruleId, { id: f.ruleId, name: ruleName, description });
+      }
+      const messageText = f.fix
+        ? `${ruleName}: ${description} Fix: ${f.fix}`
+        : `${ruleName}: ${description}`;
+      sarifResults.push({
+        ruleId: f.ruleId,
+        level: auditSeverityToLevel(f.severity),
+        message: { text: messageText },
+        locations: [{
+          physicalLocation: {
+            artifactLocation: { uri: f.file || "unknown" },
+            region: { startLine: f.line > 0 ? f.line : 1 },
+          },
+        }],
+        properties: { section: section.name, severity: f.severity },
+      });
+    }
+  }
+
+  const sarifRules = [...ruleMap.values()].map(r => ({
+    id: r.id,
+    name: r.name,
+    shortDescription: { text: r.name },
+    fullDescription: { text: r.description },
+    helpUri: "https://guardvibe.dev",
+  }));
+
+  const sarif = {
+    $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+    version: "2.1.0",
+    runs: [{
+      tool: {
+        driver: {
+          name: "GuardVibe",
+          version: _pkg.version,
+          informationUri: "https://guardvibe.dev",
+          rules: sarifRules,
+        },
+      },
+      results: sarifResults,
+      properties: {
+        verdict: result.verdict,
+        score: result.score,
+        grade: result.grade,
+        resultHash: result.resultHash,
+      },
+    }],
+  };
+
+  return JSON.stringify(sarif, null, 2);
+}
+
+export function formatAuditResult(result: AuditResult, format: "markdown" | "json" | "terminal" | "sarif"): string {
+  if (format === "sarif") {
+    return formatAuditSarif(result);
+  }
+
   if (format === "json") {
     // Embed remediation plan directly in JSON when verdict is not PASS
     if (result.verdict !== "PASS") {

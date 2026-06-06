@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.27] - 2026-06-06
+
+### Fixed
+- **`audit --format sarif` now emits real SARIF v2.1.0** (was silently falling back to a markdown report). The audit SARIF covers all six sections — code, secrets, dependencies, config, taint, auth-coverage — so it is strictly richer than `scan --format sarif` (code-only). `audit --format sarif` now implies `--full` so CI gets every finding with no silent truncation; each result carries its originating section + severity in `properties`, and run-level `properties` carry verdict / score / grade / resultHash
+- **`init claude` hook is now version-pinned** (was `guardvibe@latest`). The PostToolUse hook command now pins to the same version as the MCP server, restoring the determinism guarantee; re-running `init` also rewrites a stale `@latest` (or older-pinned) hook to the current version
+- **Malformed `.guardviberc` no longer fails silently.** A `.guardviberc` that is not valid JSON now prints a warning to **stderr** (stdout stays clean for MCP JSON-RPC and machine formats) telling the user their `rules.disable` / `authExceptions` / `scan.exclude` are NOT being applied — previously the parse error was swallowed and defaults were used with no signal
+
+### Notes
+- Surfaced by a fresh-user end-to-end simulation (CLI commands, MCP tools, host inits, output formats, edge cases, real-world dogfood). Self-audit PASS A 100; dogfood result hashes unchanged (dvna 58, juice-shop 199, nodejs-goof 295)
+
 ## [3.1.26] - 2026-06-06
 
 ### Added — 5 new rules (424 → 429)

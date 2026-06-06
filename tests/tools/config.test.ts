@@ -114,4 +114,40 @@ describe("config", () => {
     assert.deepStrictEqual(config.rules.disable, []);
     assert.strictEqual(config.scan.maxFileSize, 500 * 1024);
   });
+
+  it("warns on stderr when .guardviberc is not valid JSON (and falls back to defaults)", () => {
+    const dir = createTempDir("guardvibe-config-");
+    writeFileSync(join(dir, ".guardviberc"), "this is not json {");
+
+    const originalError = console.error;
+    let captured = "";
+    console.error = (...args: unknown[]) => { captured += args.join(" "); };
+    try {
+      resetConfigCache();
+      const config = loadConfig(dir);
+      // Falls back to defaults rather than crashing
+      assert.deepStrictEqual(config.rules.disable, []);
+      assert.strictEqual(config.scan.maxFileSize, 500 * 1024);
+    } finally {
+      console.error = originalError;
+    }
+    // The user is warned that their config was ignored
+    assert.match(captured, /\[guardvibe\] Warning: failed to parse/);
+    assert.match(captured, /\.guardviberc/);
+    assert.match(captured, /NOT applied/);
+  });
+
+  it("does NOT warn when no .guardviberc exists", () => {
+    const dir = createTempDir("guardvibe-config-");
+    const originalError = console.error;
+    let captured = "";
+    console.error = (...args: unknown[]) => { captured += args.join(" "); };
+    try {
+      resetConfigCache();
+      loadConfig(dir);
+    } finally {
+      console.error = originalError;
+    }
+    assert.strictEqual(captured, "", "absence of config is not an error");
+  });
 });
