@@ -146,7 +146,7 @@ export const modernStackRules: SecurityRule[] = [
     owasp: "A01:2025 Broken Access Control",
     description:
       "Vercel cron job endpoint does not verify the CRON_SECRET header. Anyone can trigger the cron job by calling the endpoint directly.",
-    pattern: /(?:\/api\/cron|cron)[\s\S]*?export\s+(?:async\s+)?function\s+GET\s*\([^)]*\)\s*\{(?:(?!CRON_SECRET|authorization|Bearer|verifySignature|x-vercel-cron)[\s\S]){10,}?(?:prisma|db|supabase|fetch|sql|resend|stripe)\.\w+/g,
+    pattern: /(?:\/api\/cron|cron)[\s\S]*?export\s+(?:async\s+)?function\s+GET\s*\([^)]*\)\s*\{(?:(?!CRON_SECRET|authorization|Bearer|verifySignature|x-vercel-cron|verifyVercelSignature|verifyQstash|verifyQstashSignature|verifySignatureAppRouter|Receiver|verifyCron)[\s\S]){10,}?(?:prisma|db|supabase|fetch|sql|resend|stripe)\.\w+/g,
     languages: ["javascript", "typescript"],
     fix: "Verify the CRON_SECRET header at the start of every cron endpoint.",
     fixCode:

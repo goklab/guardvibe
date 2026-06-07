@@ -24,7 +24,7 @@ export const paymentRules: SecurityRule[] = [
     description:
       "Stripe webhook endpoint processes events without verifying the webhook signature. Anyone can send fake payment events.",
     pattern:
-      /(?:\/api\/webhook|\/api\/stripe|webhook.*stripe)[\s\S]*?(?:req\.body|request\.json|JSON\.parse)[\s\S]{0,300}?(?![\s\S]{0,300}?(?:constructEvent|verifyHeader|stripe\.webhooks|svix\.verify|webhook\.verify|verify\w*Webhook|verifyWebhookSignature|wh\.verify|crypto\.timingSafeEqual))/g,
+      /(?:\/api\/webhook|\/api\/stripe|webhook.*stripe)[\s\S]*?(?:req\.body|request\.json|JSON\.parse)[\s\S]{0,300}?(?![\s\S]{0,300}?(?:constructEvent|verifyHeader|stripe\.webhooks|svix\.verify|webhook\.verify|verify\w*Webhook|verifyWebhookSignature|wh\.verify|crypto\.timingSafeEqual|verifyQstashSignature|verifyQstash|verifySignature|verifyVercelSignature|Receiver\b|new\s+Webhook\b))/g,
     languages: ["javascript", "typescript"],
     fix: "Always verify Stripe webhook signatures using stripe.webhooks.constructEvent().",
     fixCode:

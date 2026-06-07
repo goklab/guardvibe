@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.35] - 2026-06-07
+
+### Fixed — false-positive precision on real production apps (no rule-count change, 436 / 36)
+Surfaced by the precision half of the quality sweep; each narrowing was verified against the cited code and confirmed (via an old-vs-new diff over the corpus) to remove only false positives, with zero true-positive loss.
+- **VG123 / VG010** no longer flag a parameterized IN-clause built from placeholder generation (`id IN (${ids.map(() => '?').join(',')})` with values passed as the params array).
+- **VG137** (debug endpoint) no longer fires on build/test config files (`vite.config`, `jest-e2e`, `playwright.config`, `vitest`, etc.) where a `/test` path string sits near `process.env`.
+- **VG1005** (Supabase `.or()` filter injection) now requires actual Supabase usage in the file, ending the collision with Zod's `.or()` schema combinator.
+- **VG968** (cron `CRON_SECRET`) recognizes Vercel/QStash signature verification (`verifyVercelSignature`, `verifyQstashSignature`, `Receiver`) as valid cron auth.
+- **VG951** (BOLA) recognizes tenant compound-where ownership (`where: { id, projectId | workspaceId | teamId }`).
+- **VG601** (Stripe webhook) recognizes non-Stripe signature verification (QStash/Vercel/generic `verifySignature`).
+
+Self-audit PASS / A / 0, gate green.
+
 ## [3.1.34] - 2026-06-07
 
 ### Added — recall (false-negative) improvements (433 → 436 rules, 36 tools)

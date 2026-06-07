@@ -480,7 +480,17 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/__mocks__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409", "VG148", "VG424"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409", "VG148", "VG424", "VG137"].includes(rule.id)) continue;
+
+    // VG137 (Debug Endpoint Exposes System Information) also misfires on build/test config
+    // files: a `<rootDir>/test/` mapper or a `/test` path string near `process.env` in
+    // vite/jest/playwright/vitest/rollup/webpack/react-router config is not an exposed
+    // debug HTTP endpoint. Skip those config files.
+    if (rule.id === "VG137" && filePath && /(?:\.config\.[cm]?[jt]sx?$|(?:^|\/)(?:vite|vitest|jest|playwright|cypress|rollup|webpack|esbuild|tsup|react-router|svelte|astro|nuxt|babel|tailwind|postcss|drizzle)[.-][\w.-]*\.[cm]?[jt]sx?$)/i.test(filePath)) continue;
+
+    // VG1005 (Supabase .or() Filter Injection) collides with Zod's `.or()` schema combinator
+    // and any other `.or(` method. Only fire when the file actually uses Supabase.
+    if (rule.id === "VG1005" && !/\bsupabase\b|createClient\s*\(|from\s+["']@supabase/i.test(code)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
     // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
@@ -1025,7 +1035,12 @@ export function analyzeCode(
           const interps = tpl.match(/\$\{[^}]*\}/g) || [];
           const allSafe = interps.length > 0 && interps.every(s =>
             /\$\{\s*[\w$.]*(?:hash|sha\d*|md5|bcrypt|argon2?|hmac|digest|encode|escape|encodeURIComponent|toString|String|Number|parseInt|parseFloat)\b/i.test(s));
-          if (isParameterized && allSafe) continue;
+          // Placeholder generation for a parameterized IN-clause: `id IN (${ids.map(()=>'?').join(',')})`
+          // — the interpolation produces only `?` positional placeholders, values pass via the
+          // params array. Inherently parameterized; not injectable.
+          const allPlaceholderGen = interps.length > 0 && interps.every(s =>
+            /\.map\s*\(\s*\(?[\w,\s]*\)?\s*=>\s*["']\?["']/.test(s) || /^\$\{\s*["']\?["']\s*\}$/.test(s));
+          if ((isParameterized && allSafe) || allPlaceholderGen) continue;
         }
       }
 

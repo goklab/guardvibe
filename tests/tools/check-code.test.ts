@@ -1327,3 +1327,47 @@ describe("Recall improvements (v3.1.34)", () => {
     assert(!has(`const t = ejs.compile(STATIC_TEMPLATE); res.send(t({ name: req.body.name }));`, "VG1082"));
   });
 });
+
+describe("FP precision (v3.1.35)", () => {
+  const fire = (code: string, id: string, lang = "typescript", file?: string) =>
+    analyzeCode(code, lang, undefined, file).some(f => f.rule.id === id);
+
+  // VG123 — parameterized IN-clause placeholder generation is not injection
+  it("VG123/VG010 do NOT flag a placeholder-generated IN clause", () => {
+    const code = "db.query(`DELETE FROM partners WHERE id IN (${ids.map(() => '?').join(',')})`, ids);";
+    assert(!fire(code, "VG123") && !fire(code, "VG010"), "placeholder-gen IN-clause must not fire");
+  });
+  it("VG123 STILL flags real user-input interpolation", () => {
+    assert(fire("db.query(`SELECT * FROM t WHERE id = ${req.body.id}`);", "VG123"));
+  });
+
+  // VG137 — debug-endpoint rule must not fire on build/test config files
+  it("VG137 does NOT flag a /test mapper + process.env in a config file", () => {
+    const code = `export default { test: { dir: "/test" } }; const e = process.env.NODE_ENV;`;
+    assert(!fire(code, "VG137", "typescript", "/proj/vite.config.ts"));
+    assert(!fire(code, "VG137", "typescript", "/proj/apps/api/jest-e2e.ts"));
+  });
+  it("VG137 STILL flags a real debug endpoint exposing env in app code", () => {
+    const code = `app.get("/debug", (req, res) => res.json(process.env));`;
+    assert(fire(code, "VG137", "typescript", "/proj/server.ts"));
+  });
+
+  // VG1005 — Supabase .or() rule must not collide with Zod .or()
+  it("VG1005 does NOT flag .or() in a file with no Supabase usage", () => {
+    const code = "export const schema = a.or(b);"; // zod union
+    assert(!fire(code, "VG1005", "typescript", "/proj/schema.ts"));
+  });
+  it("VG1005 STILL flags a Supabase .or() with interpolated input", () => {
+    const code = "const c = createClient(u, k); await c.from('t').or(`name.eq.${req.query.q}`);";
+    assert(fire(code, "VG1005", "typescript", "/proj/api.ts"));
+  });
+
+  // VG951 — ownership via tenant compound-where (projectId/workspaceId/teamId)
+  it("VG951 does NOT flag an update scoped by projectId/workspaceId/teamId", () => {
+    assert(!fire("await prisma.token.delete({ where: { id: req.params.id, projectId: workspace.id } });", "VG951"));
+    assert(!fire("await prisma.x.update({ where: { id: req.params.id, workspaceId: ws.id } });", "VG951"));
+  });
+  it("VG951 STILL flags an unscoped delete by user id", () => {
+    assert(fire("await prisma.post.delete({ where: { id: req.params.id } });", "VG951"));
+  });
+});
