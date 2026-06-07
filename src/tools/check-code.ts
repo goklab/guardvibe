@@ -3,6 +3,7 @@ import { owaspRules, type SecurityRule } from "../data/rules/index.js";
 import { loadConfig } from "../utils/config.js";
 import { loadIgnoreFile, isIgnored } from "../utils/ignore.js";
 import { securityBanner } from "../utils/banner.js";
+import { looksMinified } from "../utils/constants.js";
 
 export interface Finding {
   rule: SecurityRule;
@@ -907,6 +908,24 @@ export function analyzeCode(
             `\\b(?:const|let|var)\\s+${varName}\\s*(?::\\s*[\\w<>\\[\\],\\s]+\\s*)?=\\s*(?:"[^"]*"|'[^']*'|\`[^\`$]*\`)\\s*;?`,
           );
           if (literalAssign.test(code)) continue;
+        }
+      }
+
+      // VG120 (SSRF via User-Controlled URL): the regex flags `fetch(variable)` for any
+      // bare identifier, so it over-fires on constant/config endpoints. Safely skip the
+      // cases that are provably NOT request-controlled: a minified bundle (not real
+      // source; taint already skips these), or a URL variable assigned from a literal
+      // https:// constant or process.env (incl. an env default parameter). Template URLs
+      // built from a constant *base var* (`${apiBase}/path`) and method-returned URLs
+      // need real dataflow to classify and are deliberately LEFT for the AST engine —
+      // narrowing them by regex would risk hiding a genuine SSRF. `new URL(...)` is NOT
+      // treated as safe (it may wrap user input).
+      if (rule.id === "VG120") {
+        if (looksMinified(code)) continue;
+        const v = match[0].match(/\(\s*([A-Za-z_$]\w*)\s*[,)]/)?.[1];
+        if (v) {
+          const safeOrigin = new RegExp(`\\b${v}\\s*=\\s*(?:["'\\\`]https?:\\/\\/|process\\.env\\b)`);
+          if (safeOrigin.test(code)) continue;
         }
       }
 

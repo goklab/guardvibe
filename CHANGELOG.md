@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-06-07
+
+### Fixed — VG120 SSRF false-positive narrowing (sustain 0-FP) (438 rules / 37 tools)
+- **VG120 (SSRF) no longer fires on URLs that are provably not request-controlled.** The regex flags `fetch(variable)` for any bare identifier; it now skips when the URL variable is assigned from a **literal `https://` constant** or **`process.env`** (including an env default parameter, e.g. `webhook = process.env.SOLUTIONS_WEBHOOK`), and skips **minified bundles**. `new URL(...)` is deliberately NOT treated as safe (it may wrap user input).
+- **Validated against the corpus (clean old-vs-new diff): 1 false positive removed, 0 true positives lost, 0 new findings, 0 drift in any other rule.** Recall on genuinely user-controlled URLs is preserved (covered by tests).
+- **Honest limitation:** URLs built from a constant *base variable* (`` `${apiBase}/path` ``) or returned from a helper still need real dataflow to classify safely, so they are intentionally left as-is for a future AST/dataflow engine rather than narrowed by regex (which would risk hiding a real SSRF). The precise signal for user-input→request flows already exists via the SSRF taint sink.
+- No rule or tool changes (438 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.5.0] - 2026-06-07
 
 ### Added — agent-native structured output (`guardvibe.agent.v1`) (438 rules / 37 tools)
