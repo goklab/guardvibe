@@ -23,3 +23,6 @@ coverage/
 .mcpregistry_*
 docs/superpowers/
 .guardvibe-auto-update.disabled
+
+# Internal planning (not published)
+SEASON2-ROADMAP.md
