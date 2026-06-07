@@ -5,6 +5,21 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.33] - 2026-06-07
+
+### Fixed — false-positive precision (no rule-count change, stays 433 / 36)
+Surfaced by an end-to-end accuracy sweep across the labeled fixture set and the real-world corpus; each change has positive + negative tests and was cross-checked against an uncapped before/after diff (removal-only, zero real findings lost).
+- **Engine:** multi-line `/* */` block comments are now stripped before matching (string-aware, scoped to C-style languages) so rules no longer fire on commented-out code; YAML/Python/shell/Dockerfile (which use `#`) are unaffected.
+- **VG060** no longer flags MD5/SHA-1 used for file/build-artifact checksums (keeps real password-hashing).
+- **VG1002** only flags query operators whose value is attacker-controlled (a static `{ $ne: true }` literal is skipped; `$where` built from a variable/concat/interpolation still fires).
+- **VG123 / VG010 / taint** skip queries that are parameterized (`bind`/`replacements`/`$1`/`:name`) and whose only interpolation is a hash/encode helper.
+- **VG951** recognizes ownership fields (`author`, `email`, `accountId`, …) in the where-clause.
+- **VG138** ignores confirm-password (`password === cpassword`) and emptiness checks.
+- **VG001** ignores UI/error-message string variables; **VG148**/**VG424** skip test (`.spec`) files.
+- **VG013** renamed to "ORM/NoSQL query injection risk" with stack-aware remediation (Sequelize/TypeORM operator injection, not Mongo-only).
+
+Tests 1820 → 1848. Self-audit PASS / A / 0. Determinism unchanged across the corpus.
+
 ## [3.1.32] - 2026-06-06
 
 ### Added — 4 new CVE rules (429 → 433), sourced via `npm run intel`

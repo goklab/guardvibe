@@ -73,6 +73,26 @@ const SANITIZERS = [
   /xss\s*\(/,
 ];
 
+/**
+ * A SQL sink is NOT injectable when the query is parameterized (sequelize
+ * bind/replacements, or $1 / :name placeholders) AND every ${...} interpolation
+ * in the template is a safe transform (hash/encode/escape/number) rather than raw
+ * user input. e.g. sequelize.query(`... email = $1 ... password = '${security.hash(pw)}'`,
+ * { bind: [req.body.email] }) — the only interpolation is a fixed-charset hash, and
+ * the user value is bound. Without this, the inline-source loop reports req.body.*
+ * appearing inside the hash() call as a SQLi flow (false positive).
+ */
+function isSafeParameterizedSqlSink(lines: string[], sinkIdx: number): boolean {
+  const ctx = lines.slice(sinkIdx, sinkIdx + 4).join("\n");
+  const parameterized = /\b(?:bind|replacements)\s*:/.test(ctx) || /[=\s](?:\$\d+|:[a-zA-Z_]\w*)\b/.test(ctx);
+  if (!parameterized) return false;
+  const sinkLine = lines[sinkIdx] ?? "";
+  const tpl = (sinkLine.match(/`[^`]*`/) || [""])[0];
+  const interps = tpl.match(/\$\{[^}]*\}/g) || [];
+  return interps.every(s =>
+    /\$\{\s*[\w$.]*(?:hash|sha\d*|md5|bcrypt|argon2?|hmac|digest|encode|escape|encodeURIComponent|toString|String|Number|parseInt|parseFloat)\b/i.test(s));
+}
+
 interface VariableAssignment {
   name: string;
   line: number;
@@ -159,6 +179,7 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
     for (const sink of TAINT_SINKS) {
       sink.pattern.lastIndex = 0;
       if (!sink.pattern.test(line)) continue;
+      if (sink.type === "sql-injection" && isSafeParameterizedSqlSink(lines, i)) continue;
 
       for (const tVar of taintedVars) {
         if (line.includes(tVar.name)) {
@@ -193,6 +214,7 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
     for (const sink of TAINT_SINKS) {
       sink.pattern.lastIndex = 0;
       if (!sink.pattern.test(line)) continue;
+      if (sink.type === "sql-injection" && isSafeParameterizedSqlSink(lines, i)) continue;
 
       for (const source of TAINT_SOURCES) {
         source.pattern.lastIndex = 0;

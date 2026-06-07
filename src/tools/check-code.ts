@@ -87,6 +87,58 @@ function isInComment(lines: string[], lineNumber: number): boolean {
 }
 
 /**
+ * Compute the set of 1-based line numbers that fall inside a multi-line block
+ * comment (slash-star ... star-slash). `isInComment` only catches lines whose
+ * trimmed start is a comment marker, so a line like `  res.cookie(...)` sitting
+ * INSIDE a commented-out block (common in teaching repos that keep "Fix for X"
+ * demos inline) was scanned as live code — a false-positive class for VG100,
+ * VG042 and any other non-CVE rule. This is a string-aware lexer pass (skips
+ * markers that appear inside ' " ` strings and after a // line comment) so URLs
+ * (`http://`), division, and regex-ish literals don't spuriously open a block.
+ */
+function computeBlockCommentLines(code: string): Set<number> {
+  const inBlock = new Set<number>();
+  let line = 1;
+  let state: "code" | "line" | "block" | "sq" | "dq" | "tpl" = "code";
+  for (let i = 0; i < code.length; i++) {
+    const c = code[i];
+    const c2 = i + 1 < code.length ? code[i + 1] : "";
+    if (c === "\n") {
+      line++;
+      if (state === "line") state = "code";
+      continue;
+    }
+    switch (state) {
+      case "code":
+        if (c === "/" && c2 === "/") { state = "line"; i++; }
+        else if (c === "/" && c2 === "*") { state = "block"; inBlock.add(line); i++; }
+        else if (c === "'") state = "sq";
+        else if (c === '"') state = "dq";
+        else if (c === "`") state = "tpl";
+        break;
+      case "block":
+        inBlock.add(line);
+        if (c === "*" && c2 === "/") { state = "code"; i++; }
+        break;
+      case "sq":
+        if (c === "\\") i++;
+        else if (c === "'") state = "code";
+        break;
+      case "dq":
+        if (c === "\\") i++;
+        else if (c === '"') state = "code";
+        break;
+      case "tpl":
+        if (c === "\\") i++;
+        else if (c === "`") state = "code";
+        break;
+      // "line" state is exited at the newline handler above
+    }
+  }
+  return inBlock;
+}
+
+/**
  * Check if a match is inside a multi-line string literal (template literal,
  * fixCode/description property, or string concatenation).
  * This prevents rule definition files, docs, and test fixtures from triggering
@@ -202,6 +254,7 @@ function hasAuthGuardPattern(code: string): boolean {
 
   // Pattern 3: function called with await that contains auth-like keywords in name
   // Broad catch: any function name containing auth/session/permission/guard/verify/protect
+  // guardvibe-ignore VG153 — dotted-identifier path matcher; each `\w+\.` segment is dot-anchored, so backtracking is linear, not catastrophic
   if (/await\s+(?:\w+\.)*\w*(?:auth|Auth|session|Session|permission|Permission|guard|Guard|verify|Verify|protect|Protect|check|Check|ensure|Ensure|require|Require|assert|Assert|authorize|Authorize)\w*\s*\(/i.test(code)) {
     return true;
   }
@@ -236,6 +289,7 @@ function hasRoleCheckPattern(code: string): boolean {
   if (/import\s+.*(?:requireAdmin|requireRole|checkAdmin|isAdmin|verifyAdmin|assertAdmin)\b/i.test(code) &&
       /(?:requireAdmin|requireRole|checkAdmin|isAdmin|verifyAdmin|assertAdmin)\s*\(/i.test(code)) return true;
   // await requireAdmin() with error check pattern (naming-agnostic admin guard)
+  // guardvibe-ignore VG153 — dotted-identifier path matcher; dot-anchored segments make backtracking linear
   if (/await\s+(?:\w+\.)*\w*(?:Admin|admin)\w*\s*\([^)]*\)\s*;?\s*\n\s*if\s*\(/i.test(code)) return true;
   return false;
 }
@@ -393,6 +447,15 @@ export function analyzeCode(
     if (customPattern.test(code)) codeHasAuthGuard = true;
   }
 
+  // Line numbers inside multi-line /* */ block comments — computed once per file
+  // (string-aware) so the per-match comment skip can drop matches on commented-out
+  // code whose own line doesn't start with a comment marker. Gated to languages that
+  // actually use C-style /* */ comments — YAML/Python/shell/Dockerfile/TOML use #, so
+  // a `/*` there (e.g. a `# .../health/*` path glob in a k8s manifest) is NOT a comment
+  // opener and must not suppress real findings.
+  const usesCStyleBlockComments = language === "javascript" || language === "typescript" || language === "go";
+  const blockCommentLines = usesCStyleBlockComments && code.includes("/*") ? computeBlockCommentLines(code) : null;
+
   const effectiveRules = rules ?? owaspRules;
 
   for (const rule of effectiveRules) {
@@ -417,7 +480,7 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/__mocks__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409", "VG148", "VG424"].includes(rule.id)) continue;
 
     // VG955 (Missing Pagination on List Endpoint): only fire on actual request-handling
     // surfaces — API routes, App Router `route.{ts,tsx}`, pages/api, or Server Actions.
@@ -846,6 +909,9 @@ export function analyzeCode(
       if (!CVE_VERSION_RULE.test(rule.id)) {
         const isMultiLineMatch = match[0].includes("\n");
         if (!isMultiLineMatch && isInComment(lines, lineNumber)) continue;
+        // Single-line match sitting inside a /* ... */ block comment (its own line
+        // may not start with a comment marker) — commented-out dead code, skip.
+        if (!isMultiLineMatch && blockCommentLines?.has(lineNumber)) continue;
         if (isInsideStringLiteral(lines, lineNumber, code, match.index)) continue;
       }
 
@@ -897,6 +963,70 @@ export function analyzeCode(
         // Skip SCREAMING_SNAKE error/status codes whose value is digits-only.
         // e.g. `INVALID_PASSWORD = "5020"` — error code, not a credential.
         if (/\b[A-Z][A-Z0-9_]*\s*=\s*["']\d+["']/.test(matchedLine)) continue;
+        // Skip UI/error message string variables: `invalidPasswordErrorMessage = "Invalid password"`.
+        // The identifier signals a user-facing message/label/error and the value is a prose phrase
+        // (letters + at least one space), not a credential. isHumanReadableString needs 4+ words;
+        // this catches shorter 2-3 word phrases when the name is clearly a message.
+        const msgPair = matchedLine.match(/\b([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*["']([^"']{3,})["']/);
+        if (msgPair
+          && /(?:message|msg|error|\berr\b|label|title|hint|text|placeholder|description|tooltip|notice|warning|caption|heading|prompt|copy)/i.test(msgPair[1])
+          && /^[A-Za-z][A-Za-z .,!?'’()-]*\s[A-Za-z .,!?'’()-]+$/.test(msgPair[2])) continue;
+      }
+
+      // VG138 (Plaintext Password Comparison): skip benign non-credential comparisons.
+      // (1) Confirm-password match: `req.body.password == req.body.cpassword` compares two
+      //     user inputs from the same form, not a submission against a stored secret.
+      // (2) Emptiness/presence check: `password === ''` validates that a field was provided.
+      if (rule.id === "VG138") {
+        const matchedLine = lines[lineNumber - 1] ?? "";
+        if (/(?:cpassword|confirm[_]?password|password[_]?confirm(?:ation)?|password2|repeat[_]?password|retype[_]?password|verify[_]?password)/i.test(matchedLine)) continue;
+        if (/(?:password|passwd|pwd)\s*(?:===|!==|==|!=)\s*(['"])\1/i.test(matchedLine)) continue;
+      }
+
+      // VG1002 (MongoDB NoSQL Injection via Query Operators): a query operator only enables
+      // injection when its value is attacker-controlled. Skip ONLY when the operator's value is
+      // a pure literal (`{ $ne: true }`, `{ $gt: 5 }`, `{ $regex: "^a" }`) — a static internal
+      // filter. A value built from a variable, concatenation, or template interpolation
+      // (`$where: 'this.x == ' + id`, `$where: `...${id}``) is a real injection vector — keep it.
+      if (rule.id === "VG1002") {
+        const after = code.slice(match.index + match[0].length, match.index + match[0].length + 80);
+        const staticLiteral = /^\s*:\s*(?:true|false|null|-?\d+(?:\.\d+)?|'[^'`$+]*'|"[^"`$+]*")\s*[},\]]/.test(after);
+        if (staticLiteral) continue;
+      }
+
+      // VG060 (Weak password hashing): MD5/SHA-1 have legitimate non-credential uses — file/
+      // build-artifact checksums, ETags, cache keys, content integrity. Skip when the context
+      // is clearly a checksum/digest-of-bytes (or a build-tool config) and not a password.
+      if (rule.id === "VG060") {
+        const isBuildConfig = filePath ? /(?:^|\/)(?:Gruntfile|gulpfile|webpack\.config|rollup\.config|vite\.config|esbuild|metro\.config)\.[cm]?[jt]s$/i.test(filePath) : false;
+        const start = Math.max(0, lineNumber - 5);
+        const window = lines.slice(start, lineNumber + 4).join("\n");
+        // NB: do NOT treat `.update(data)` / `.update(content)` as a checksum signal — `data`
+        // is too generic and `hash(data)` is exactly how weak password hashing looks. Require a
+        // file/byte-buffer or explicit checksum marker instead.
+        const looksLikeChecksum = /(?:readFileSync|createReadStream|\bBuffer\b|\.update\s*\(\s*(?:buffer|buf|fileBuffer)|fs\.read|\.md5\b|checksum|etag|integrity|cacheKey|cache[_-]?key|contentHash|fileHash|subresource)/i.test(window);
+        const looksLikePassword = /(?:password|passwd|\bpwd\b|credential|user\.pass|loginPass)/i.test(window);
+        if ((isBuildConfig || looksLikeChecksum) && !looksLikePassword) continue;
+      }
+
+      // VG123 (SQL Injection via Template Literal) + VG010 (SQL injection): skip when the query
+      // is parameterized (sequelize bind/replacements or $1/:name placeholders) AND every ${...}
+      // interpolation is a safe transform (hash/encode/escape/number) — not raw user input. e.g.
+      // `query(`... email = $1 ... password = '${security.hash(req.body.password)}'`, { bind: [..] })`.
+      // VG010 is included because the VG010↔VG123 dedup makes VG010 take over the same line once
+      // VG123 is suppressed — without this the FP is just relabeled, not removed.
+      if (rule.id === "VG123" || rule.id === "VG010") {
+        const tplStart = code.indexOf("`", match.index);
+        if (tplStart !== -1) {
+          const tplEnd = code.indexOf("`", tplStart + 1);
+          const tpl = tplEnd !== -1 ? code.slice(tplStart + 1, tplEnd) : "";
+          const callCtx = code.slice(match.index, (tplEnd !== -1 ? tplEnd : match.index) + 200);
+          const isParameterized = /\b(?:bind|replacements)\s*:/.test(callCtx) || /[=\s](?:\$\d+|:[a-zA-Z_]\w*)\b/.test(tpl);
+          const interps = tpl.match(/\$\{[^}]*\}/g) || [];
+          const allSafe = interps.length > 0 && interps.every(s =>
+            /\$\{\s*[\w$.]*(?:hash|sha\d*|md5|bcrypt|argon2?|hmac|digest|encode|escape|encodeURIComponent|toString|String|Number|parseInt|parseFloat)\b/i.test(s));
+          if (isParameterized && allSafe) continue;
+        }
       }
 
       // VG106 (Timing-Unsafe Secret Comparison): skip when one operand is a React useRef
@@ -928,6 +1058,7 @@ export function analyzeCode(
         //   - `z.enum(filterConfig.field.operators)` (TS `as const` config object) — when
         //     the file has any `as const` cast, treat nested property access as static
         const matchedLine = lines[lineNumber - 1] ?? "";
+        // guardvibe-ignore VG153 — dotted-identifier path matcher; dot-anchored segments make backtracking linear
         if (/z\.enum\s*\(\s*[\w$]+(?:\.[\w$]+)+/.test(matchedLine)) {
           if (/\.enumValues\b/.test(matchedLine)) continue;
           if (/\bas\s+const\b/.test(code)) continue;

@@ -115,16 +115,16 @@ export const coreRules: SecurityRule[] = [
   },
   {
     id: "VG013",
-    name: "NoSQL injection risk",
+    name: "ORM/NoSQL query injection risk",
     severity: "high",
     owasp: "A02:2025 Injection",
     description:
-      "User input passed directly to MongoDB/NoSQL query operators.",
+      "User input passed directly into an ORM/NoSQL query filter object — a MongoDB/Mongoose .find()/.findOne() or a SQL-ORM where clause (Sequelize .find({where}), TypeORM). When the value is an object instead of a scalar, an attacker can inject query operators (MongoDB $ne/$gt/$where, or Sequelize string-operator aliases like $gt/$ne in v4) to bypass authentication or filters. Express parses req.query via qs into nested objects, so query-param values reach the filter as objects unless coerced.",
     pattern:
       /(?:find|findOne|updateOne|deleteOne|aggregate)\s*\(\s*\{[^}]*(?:req\.|request\.|body\.|params\.)/gi,
     languages: ["javascript", "typescript"],
-    fix: "Validate and sanitize input before using in queries. Use mongoose schema validation. Reject objects where strings are expected.",
-    fixCode: "// Validate input type before query\nconst id = typeof req.params.id === 'string' ? req.params.id : '';\nawait collection.findOne({ _id: new ObjectId(id) });",
+    fix: "Coerce filter values to scalars before querying and reject objects where strings are expected: const id = typeof req.params.id === 'string' ? req.params.id : ''. For Mongoose use schema validation; for Sequelize wrap values (String(req.query.id)) and never spread raw req objects into a where clause.",
+    fixCode: "// Coerce to a scalar before using in any ORM/NoSQL query filter\nconst id = typeof req.params.id === 'string' ? req.params.id : '';\n// Mongoose: await collection.findOne({ _id: new ObjectId(id) });\n// Sequelize: await Model.findOne({ where: { id: String(req.query.id) } });",
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
   },
   {

@@ -6,12 +6,12 @@
     "url": "https://github.com/goklab/guardvibe",
     "source": "github"
   },
-  "version": "3.1.32",
+  "version": "3.1.33",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "guardvibe",
-      "version": "3.1.32",
+      "version": "3.1.33",
       "transport": {
         "type": "stdio"
       }

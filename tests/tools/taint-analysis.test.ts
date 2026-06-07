@@ -183,4 +183,32 @@ describe("taint analysis", () => {
     assert(findings.some(f => f.sink.type === "xss"),
       "Unsanitized data should still be flagged");
   });
+
+  describe("parameterized SQL barrier (v3.1.33)", () => {
+    it("does NOT report sql-injection for a bound query whose only interpolation is a hash", () => {
+      const code = [
+        "function login(req, res) {",
+        "  models.sequelize.query(`SELECT * FROM Users WHERE email = $1 AND password = '${security.hash(req.body.password)}'`,",
+        "    { bind: [req.body.email], model: models.User, plain: true });",
+        "}",
+      ].join("\n");
+      const findings = analyzeTaint(code, "typescript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 0,
+        `parameterized+hashed query should not be a SQLi flow: ${findings.map(f => f.sink.type + "@" + f.sink.line).join(", ")}`);
+    });
+    it("does NOT report sql-injection for a :name replacement query with a hashed interpolation", () => {
+      const code = [
+        "models.sequelize.query(`SELECT * FROM Users WHERE email = :mail AND password = '${security.hash(req.body.password)}'`,",
+        "  { replacements: { mail: req.body.email } });",
+      ].join("\n");
+      const findings = analyzeTaint(code, "typescript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 0);
+    });
+    it("STILL reports sql-injection for raw user-input interpolation", () => {
+      const code = "models.sequelize.query(`SELECT * FROM Users WHERE email = '${req.body.email}'`);";
+      const findings = analyzeTaint(code, "typescript");
+      assert(findings.some(f => f.sink.type === "sql-injection"),
+        "raw interpolation of req.body must still be a SQLi flow");
+    });
+  });
 });

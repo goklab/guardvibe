@@ -27,7 +27,7 @@ export const apiSecurityRules: SecurityRule[] = [
     description:
       "Delete or update operation uses user-supplied ID without verifying resource ownership. Any authenticated user can modify or delete other users' resources.",
     pattern:
-      /(?:delete|update|destroy|remove)\s*\(\s*\{?\s*(?:where\s*:\s*\{)?\s*(?:id|_id)\s*:\s*(?:req\.(?:params|query|body)|params\.|args\.|input\.)(?:(?!userId|user_id|ownerId|owner_id|createdBy|created_by)[\s\S]){0,200}?\}/gi,
+      /(?:delete|update|destroy|remove)\s*\(\s*\{?\s*(?:where\s*:\s*\{)?\s*(?:id|_id)\s*:\s*(?:req\.(?:params|query|body)|params\.|args\.|input\.)(?:(?!userId|user_id|ownerId|owner_id|createdBy|created_by|author|authorId|author_id|email|userEmail|accountId|account_id|tenantId|tenant_id|orgId|org_id|organizationId)[\s\S]){0,200}?\}/gi,
     languages: ["javascript", "typescript"],
     fix: "Include the authenticated user's ID in the where clause to prevent unauthorized modifications.",
     fixCode:

@@ -1111,3 +1111,145 @@ describe("VG920 React CVE-2025-55182 version-range tightening (v3.1.14)", () => 
     assert(findings.filter(f => f.rule.id === "VG920").length > 0);
   });
 });
+
+describe("E2E-sim FP narrows (v3.1.33)", () => {
+  // #1 — multi-line /* */ comment stripping (engine)
+  it("does NOT flag code inside a multi-line block comment", () => {
+    const code = [
+      "function handler(req, res) {",
+      "  /*",
+      "    const r = eval(req.body.expr);",
+      '    res.cookie("session", sessionId);',
+      "  */",
+      "  return res.end();",
+      "}",
+    ].join("\n");
+    const findings = analyzeCode(code, "javascript", undefined, "/app/server.js");
+    assert.strictEqual(findings.filter(f => ["VG014", "VG100", "VG042"].includes(f.rule.id)).length, 0,
+      `block-comment code should not fire: ${findings.map(f => f.rule.id + "@" + f.line).join(", ")}`);
+  });
+  it("STILL flags the same pattern as live code", () => {
+    const findings = analyzeCode("const r = eval(req.body.expr);", "javascript", undefined, "/app/server.js");
+    assert(findings.some(f => f.rule.id === "VG014"), "live eval must still fire");
+  });
+  it("does not let a URL (http://) spuriously open a block comment", () => {
+    const code = 'const u = "http://example.com/*notacomment";\nconst pw = "sk_live_abcdef123456789";';
+    const findings = analyzeCode(code, "javascript", undefined, "/app/a.js");
+    assert(findings.some(f => f.rule.id === "VG001" || f.rule.id === "VG003"),
+      "secret after a URL containing /* must still fire (URL is a string, not a comment)");
+  });
+  it("block-comment stripping is gated to C-style languages — a /* in a YAML # comment must NOT suppress findings", () => {
+    // A k8s manifest comment like `# .../health/*` contains `/*` but YAML uses # comments,
+    // not C-style block comments. The hostNetwork finding below must still fire.
+    const yaml = [
+      "spec:",
+      "  # exposes /metrics and /health/* on this port",
+      "  hostNetwork: true",
+      "  hostPID: true",
+    ].join("\n");
+    const findings = analyzeCode(yaml, "yaml", undefined, "/k8s/manifest.yaml");
+    assert(findings.some(f => f.rule.id === "VG523"),
+      `YAML hostNetwork must still fire despite a /* in a # comment: ${findings.map(f => f.rule.id).join(",")}`);
+  });
+
+  // #9 — VG138 confirm-password + emptiness
+  it("VG138 does NOT flag confirm-password equality", () => {
+    const findings = analyzeCode("if (req.body.password == req.body.cpassword) { return err(); }", "javascript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG138").length, 0);
+  });
+  it("VG138 does NOT flag emptiness check", () => {
+    const findings = analyzeCode("if (req.body.password === '') return res.status(400).end();", "javascript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG138").length, 0);
+  });
+  it("VG138 STILL flags real plaintext comparison against input", () => {
+    const findings = analyzeCode("if (user.password === req.body.password) login();", "javascript");
+    assert(findings.some(f => f.rule.id === "VG138"));
+  });
+
+  // #5 — VG1002 static operator vs user-input operator
+  it("VG1002 does NOT flag a static $ne with no user input", () => {
+    const findings = analyzeCode('usersCol.find({ "isAdmin": { $ne: true } });', "javascript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG1002").length, 0);
+  });
+  it("VG1002 STILL flags user-controlled operator", () => {
+    const findings = analyzeCode("usersCol.find({ age: { $gt: req.query.min } });", "javascript");
+    assert(findings.some(f => f.rule.id === "VG1002"));
+  });
+  it("VG1002 STILL flags $where built from a variable (concat) — real NoSQL injection", () => {
+    const findings = analyzeCode("db.reviewsCollection.find({ $where: 'this.product == ' + id });", "javascript");
+    assert(findings.some(f => f.rule.id === "VG1002"), "variable-concat $where must fire");
+  });
+  it("VG1002 STILL flags $where built from a template interpolation", () => {
+    const findings = analyzeCode("db.ordersCollection.find({ $where: `this.orderId === '${id}'` });", "javascript");
+    assert(findings.some(f => f.rule.id === "VG1002"), "interpolated $where must fire");
+  });
+
+  // #2 — VG060 checksum vs password
+  it("VG060 does NOT flag md5 used for a file checksum", () => {
+    const code = "const buffer = fs.readFileSync('dist/' + file);\nconst md5 = crypto.createHash('md5');\nmd5.update(buffer);";
+    const findings = analyzeCode(code, "javascript", undefined, "/Gruntfile.js");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG060").length, 0);
+  });
+  it("VG060 STILL flags md5 used for a password", () => {
+    const code = "const hash = crypto.createHash('md5').update(password).digest('hex');";
+    const findings = analyzeCode(code, "javascript", undefined, "/auth/login.js");
+    assert(findings.some(f => f.rule.id === "VG060"));
+  });
+  it("VG060 STILL flags a generic md5 hash(data) helper (no file/checksum context)", () => {
+    // juice-shop insecurity.ts shape — `data` must NOT be treated as a checksum-input var.
+    const code = "export const hash = (data) => crypto.createHash('md5').update(data).digest('hex');";
+    const findings = analyzeCode(code, "typescript", undefined, "/lib/insecurity.ts");
+    assert(findings.some(f => f.rule.id === "VG060"), "generic md5 hash(data) must still fire");
+  });
+
+  // #4 — VG001 message-name string
+  it("VG001 does NOT flag a UI error-message variable", () => {
+    const findings = analyzeCode('const invalidPasswordErrorMessage = "Invalid password";', "javascript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062").length, 0);
+  });
+  it("VG001 STILL flags a hardcoded password value", () => {
+    const findings = analyzeCode('const password = "hunter2secretvalue";', "javascript");
+    assert(findings.some(f => f.rule.id === "VG001"));
+  });
+
+  // #6 — VG123 parameterized + safe-interpolation
+  it("VG123/VG010 do NOT flag a parameterized query whose only interpolation is a hash", () => {
+    const code = "models.sequelize.query(`SELECT * FROM Users WHERE email = $1 AND password = '${security.hash(req.body.password)}'`, { bind: [req.body.email] });";
+    const findings = analyzeCode(code, "javascript");
+    // both the template-literal rule AND the concat rule (which dedup-takes-over) must stay silent
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG123" || f.rule.id === "VG010").length, 0,
+      `parameterized+hashed query should fire neither VG123 nor VG010: ${findings.map(f => f.rule.id).join(",")}`);
+  });
+  it("VG123 STILL flags raw user-input interpolation", () => {
+    const findings = analyzeCode("db.query(`SELECT * FROM t WHERE id = ${req.body.id}`);", "javascript");
+    assert(findings.some(f => f.rule.id === "VG123"));
+  });
+
+  // #7 — VG951 ownership field
+  it("VG951 does NOT flag an update scoped by an ownership field (author)", () => {
+    const findings = analyzeCode("db.reviews.update({ _id: req.body.id, author: user.data.email }, { $set: { m: req.body.m } });", "javascript");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG951").length, 0);
+  });
+  it("VG951 STILL flags an update with no ownership filter", () => {
+    const findings = analyzeCode("db.reviews.update({ _id: req.body.id }, { $set: { m: req.body.m } });", "javascript");
+    assert(findings.some(f => f.rule.id === "VG951"));
+  });
+
+  // #8 — VG013 relabel (still detects, ORM-agnostic name)
+  it("VG013 still fires and carries the ORM-agnostic name", () => {
+    const findings = analyzeCode("await db.User.find({ where: { id: req.query.id } });", "javascript");
+    const f = findings.find(x => x.rule.id === "VG013");
+    assert(f, "VG013 must still detect user input in an ORM query filter");
+    assert.strictEqual(f!.rule.name, "ORM/NoSQL query injection risk");
+  });
+
+  // #3 — VG424 test-file skip
+  it("VG424 does NOT flag a token literal in a .spec test file", () => {
+    const findings = analyzeCode("localStorage.setItem('token', 'TOKEN');", "typescript", undefined, "/app/app.guard.spec.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG424").length, 0);
+  });
+  it("VG424 STILL flags the same in production code", () => {
+    const findings = analyzeCode("localStorage.setItem('token', userToken);", "typescript", undefined, "/app/auth.ts");
+    assert(findings.some(f => f.rule.id === "VG424"));
+  });
+});
