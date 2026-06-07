@@ -312,7 +312,7 @@ export async function runFullAudit(
     }
     if (existsSync(manifestPath)) {
       try {
-        const depsJson = await scanDependencies(manifestPath, "json");
+        const depsJson = await scanDependencies(manifestPath, "json", { root: projectRoot });
         const parsed = safeJsonParse(depsJson);
         if (!parsed) {
           // scanDependencies returned a markdown error (OSV API unreachable, parse failed, etc).
@@ -323,9 +323,15 @@ export async function runFullAudit(
         }
         if (parsed) {
           const vulnPackages = parsed.summary?.vulnerable ?? 0;
+          const reachableVulnerable = (parsed.summary as Record<string, unknown> | undefined)?.reachableVulnerable as number | undefined;
           const depFindings: SectionFinding[] = [];
           let depCritical = 0, depHigh = 0, depMedium = 0;
           for (const pkg of parsed.packages ?? []) {
+            const pkgRec = pkg as Record<string, unknown>;
+            const reachable = pkgRec.reachable as boolean | undefined;
+            const reachNote = reachable === false
+              ? " [not directly imported — likely unreachable]"
+              : reachable === true ? " [imported in source]" : "";
             for (const v of (pkg as Record<string, unknown[]>).vulnerabilities ?? []) {
               const vuln2 = v as Record<string, unknown>;
               const sev = (vuln2.severity ?? "high") as string;
@@ -337,17 +343,20 @@ export async function runFullAudit(
                 severity: sev,
                 file: "package.json",
                 line: 0,
-                name: `${(pkg as Record<string, unknown>).name ?? "unknown"}: ${(vuln2.id ?? "CVE") as string}`,
-                description: (vuln2.summary ?? vuln2.details ?? "") as string,
-                fix: `Run: npm update ${(pkg as Record<string, unknown>).name ?? ""}`,
+                name: `${pkgRec.name ?? "unknown"}: ${(vuln2.id ?? "CVE") as string}`,
+                description: `${(vuln2.summary ?? vuln2.details ?? "") as string}${reachNote}`,
+                fix: `Run: npm update ${pkgRec.name ?? ""}`,
               });
               allFindings.push({ ruleId: `DEP:${vuln2.id ?? "CVE"}` as string, severity: sev, file: "package.json", line: 0 });
             }
           }
           const counts = { findings: depFindings.length, critical: depCritical, high: depHigh, medium: depMedium };
+          const reachText = typeof reachableVulnerable === "number" && vulnPackages > 0
+            ? ` (${reachableVulnerable} of ${vulnPackages} directly imported in source)`
+            : "";
           const detailText = depFindings.length === 0
             ? "No known CVEs"
-            : `${depFindings.length} CVE(s) across ${vulnPackages} vulnerable package(s)`;
+            : `${depFindings.length} CVE(s) across ${vulnPackages} vulnerable package(s)${reachText}`;
           sections.push({ name: "dependencies", status: "ok", ...counts, details: detailText, sectionFindings: depFindings });
         }
       } catch { sections.push({ name: "dependencies", status: "error", findings: 0, critical: 0, high: 0, medium: 0, details: "Scan error" }); }

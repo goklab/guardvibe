@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-06-07
+
+### Added — dependency reachability: is the vulnerable package actually imported? (438 rules / 37 tools)
+- **The dependency scan now annotates each vulnerable package with reachability** — whether it is actually imported/required anywhere in your source. A flagged dependency you never import is far lower priority than one your code calls into; this turns the daily-CVE freshness signal into a *prioritized*, actionable one.
+- **Annotate, never suppress:** findings are labeled `reachable: true/false` (and `[imported in source]` / `[not directly imported — likely unreachable]` in the audit), but nothing is dropped — a package can still be reached transitively or via dynamic/framework loading, so there are no new false negatives.
+- New module `src/tools/reachability.ts`: `packageRoot` (specifier → installable name, scoped-package aware), `extractImportedPackages` (import/require/dynamic-import/re-export forms), `collectImportedPackages` (source-tree walk, node_modules excluded), `analyzeReachability`. Import-level (package granularity).
+- Surfaced in `scan_dependencies` (per-package `reachable` + `reachabilityStatus`, summary `reachableVulnerable`) and the `audit` dependency section (`N of M directly imported in source`).
+- No rule or tool changes (438 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.3.0] - 2026-06-07
 
 ### Added — diff-aware scanning: block what you just wrote, not the backlog (438 rules / 37 tools)

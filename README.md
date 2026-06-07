@@ -219,7 +219,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 | `check_project` | Scan multiple files with security scoring (A-F) |
 | `scan_directory` | Scan a project directory from disk |
 | `scan_staged` | Pre-commit scan of git-staged files |
-| `scan_dependencies` | Check all dependencies for known CVEs (OSV) |
+| `scan_dependencies` | Check all dependencies for known CVEs (OSV) — annotates each vulnerable package with **reachability** (is it actually imported in your source?) |
 | `scan_secrets` | Detect leaked secrets, API keys, tokens |
 | `check_dependencies` | Check individual packages against OSV |
 | `check_package_health` | Typosquat detection, maintenance status, adoption metrics |

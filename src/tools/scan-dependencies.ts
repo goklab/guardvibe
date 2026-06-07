@@ -1,9 +1,21 @@
 import { readFileSync } from "fs";
-import { basename } from "path";
+import { basename, dirname } from "path";
 import { parseManifest } from "../utils/manifest-parser.js";
 import { queryOsvBatch, formatVulnerability, normalizeSeverity } from "../utils/osv-client.js";
+import { analyzeReachability, type ReachabilityResult } from "./reachability.js";
 
-export async function scanDependencies(manifestPath: string, format: "markdown" | "json" = "markdown"): Promise<string> {
+export interface ScanDependenciesOptions {
+  /** Source root to scan for imports (defaults to the manifest's directory). */
+  root?: string;
+  /** Annotate each vulnerable package with whether it is imported in source. Default true. */
+  reachability?: boolean;
+}
+
+export async function scanDependencies(
+  manifestPath: string,
+  format: "markdown" | "json" = "markdown",
+  opts: ScanDependenciesOptions = {},
+): Promise<string> {
   let content: string;
   try {
     content = readFileSync(manifestPath, "utf-8");
@@ -46,8 +58,20 @@ export async function scanDependencies(manifestPath: string, format: "markdown" 
   let totalVulns = 0;
   const criticalPackages: string[] = [];
 
+  // --- Reachability: is each vulnerable package actually imported in YOUR source? ---
+  // Annotate only (never suppress) — a package may still be reached transitively.
+  const vulnerableNames = packages
+    .filter(p => (vulnResults.get(`${p.name}@${p.version}`) || []).length > 0)
+    .map(p => p.name);
+  let reach: Map<string, ReachabilityResult> | null = null;
+  if (opts.reachability !== false && vulnerableNames.length > 0) {
+    try {
+      reach = analyzeReachability(vulnerableNames, opts.root ?? dirname(manifestPath));
+    } catch { reach = null; }
+  }
+
   // Build per-package vulnerability data
-  const pkgResults: Array<{ name: string; version: string; ecosystem: string; vulnerabilities: any[] }> = [];
+  const pkgResults: Array<{ name: string; version: string; ecosystem: string; reachable?: boolean; reachabilityStatus?: string; vulnerabilities: any[] }> = [];
 
   for (const pkg of packages) {
     const key = `${pkg.name}@${pkg.version}`;
@@ -57,8 +81,11 @@ export async function scanDependencies(manifestPath: string, format: "markdown" 
 
     totalVulns += vulns.length;
     criticalPackages.push(key);
+    const r = reach?.get(pkg.name);
     pkgResults.push({
       name: pkg.name, version: pkg.version, ecosystem: pkg.ecosystem,
+      reachable: r?.reachable,
+      reachabilityStatus: r?.status,
       vulnerabilities: vulns.map(v => ({
         id: v.id, severity: normalizeSeverity(v), summary: v.summary,
         fixedIn: (v.affected ?? []).flatMap((a: any) => (a.ranges ?? []).flatMap((r: any) => r.events.filter((e: any) => e.fixed).map((e: any) => e.fixed))).join(", ") || undefined,
@@ -67,6 +94,11 @@ export async function scanDependencies(manifestPath: string, format: "markdown" 
     });
 
     lines.push(`## ${key} (${pkg.ecosystem}) — ${vulns.length} vulnerabilities`, ``);
+    if (r) {
+      lines.push(r.reachable
+        ? `_Reachability: imported in your source._`
+        : `_Reachability: not directly imported — likely unreachable (may still be used transitively)._`, ``);
+    }
     for (const vuln of vulns) {
       lines.push(formatVulnerability(vuln), ``);
     }
@@ -85,6 +117,7 @@ export async function scanDependencies(manifestPath: string, format: "markdown" 
         vulnerable: criticalPackages.length,
         vulnerablePackages: criticalPackages.length,
         totalAdvisories: totalVulns,
+        ...(reach ? { reachableVulnerable: [...reach.values()].filter(x => x.reachable).length } : {}),
         ...sevCounts,
       },
       packages: pkgResults,
@@ -98,6 +131,10 @@ export async function scanDependencies(manifestPath: string, format: "markdown" 
   } else {
     lines.push(`**${totalVulns} vulnerabilities** found in ${criticalPackages.length} packages:`, ``);
     for (const pkg of criticalPackages) lines.push(`- ${pkg}`);
+    if (reach) {
+      const reachableCount = [...reach.values()].filter(x => x.reachable).length;
+      lines.push(``, `**Reachability:** ${reachableCount} of ${reach.size} vulnerable package(s) are directly imported in your source — prioritize those.`);
+    }
     lines.push(``, `**Action:** Update affected packages to their fixed versions.`);
   }
 
