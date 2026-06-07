@@ -6,9 +6,21 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
+> **Security infrastructure your AI can't be.**
+> No matter how good your coding agent gets, it can't know the CVE published after its training cutoff, it can't deterministically guarantee the same check every run, it can't hold your whole repo in context, and it can't objectively review its own code. GuardVibe does all four — the deterministic, post-cutoff-current, whole-repo, author-independent verification layer for AI-written code.
+
+- **🗓️ Knows what your AI doesn't.** CVE rules refreshed **daily** from GHSA / OSV.dev / CISA KEV — GuardVibe flags vulnerable dependencies published *after* your model's training cutoff. (67 CVE rules, `npm run intel` daily triage.)
+- **🎯 Deterministic, not probabilistic.** Same code = same result, every run (content-hashed). Your AI guesses; GuardVibe doesn't.
+- **🗺️ Sees the whole repo.** Cross-file taint + auth-coverage across every route — catches the unprotected endpoint your agent's narrow context missed.
+- **🔍 An independent second pair of eyes.** The thing that wrote the code can't review itself. GuardVibe is the outside checker on AI-written code — in the loop *while* your AI codes (real-time edit hook), not after.
+
 **The security MCP built for vibe coding.** 438 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
+
+## Why a tool, when your AI is so good?
+
+"More rules" was never the moat — a strong model already knows most security rules by heart. What it *can't* do is be deterministic, know the CVE published after its training cutoff, hold your whole repo in context, or objectively review the code it just wrote. Those four gaps are structural; they don't close as models improve. GuardVibe is the layer that fills them — running *while* your AI codes, not in a separate audit later.
 
 ## Why GuardVibe
 

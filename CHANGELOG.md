@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.41] - 2026-06-07
+
+### Changed — positioning: lead with the durable moat (no rule-count change, 438 / 36)
+- Surfaced the core value story across every user-facing surface: GuardVibe is the security layer an AI agent **structurally can't be** — (1) deterministic, (2) current past the model's training cutoff via daily GHSA/OSV/CISA KEV intel, (3) whole-repo aware, (4) independent of the code's author.
+- **README** — new lead message + four-pillar bullets above the rule/tool counts, and a "Why a tool, when your AI is so good?" section.
+- **package.json** / **server.json** descriptions — prepended the moat one-liner (rule/tool count substrings preserved).
+- **`init` CLAUDE.md/cursorrules/GEMINI.md template** — added one line so the agent tells the user *why* GuardVibe catches what a single-file, training-cutoff-bound view can't.
+- No engine, rule, or tool changes — counts unchanged (438 rules / 36 tools).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.1.40] - 2026-06-07
 
 ### Added — recall: Mongoose direct mass-assignment (no rule-count change, 438 / 36)
