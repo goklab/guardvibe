@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.36] - 2026-06-07
+
+### Added — high-value recall rules (436 → 438, 36 tools)
+- **VG1083** JWT verification bypass — flags `jwt.decode()` of a request-supplied token used without a real signature check, and `jwt.verify(..., { algorithms: ['none'] })` (algorithm-confusion / signature stripping). The decode branch is suppressed when the same file also verifies the token (decode-then-verify is legitimate).
+- **VG1084** DOM XSS via jQuery HTML insertion — `.html()/.append()/.prepend()/.after()/.before()/.replaceWith()` with user-controlled or concatenated/interpolated content (skips `.text()` and static literals).
+
+Both validated against the real-world corpus: zero false positives (the one borderline juice-shop `jwt.decode`-then-`verify` hit is correctly suppressed). The ReDoS guard now re-measures any over-budget pattern and uses the minimum across runs, so CPU/GC load spikes can no longer cause a flaky failure while genuine backtracking (consistently slow) is still caught.
+
 ## [3.1.35] - 2026-06-07
 
 ### Fixed — false-positive precision on real production apps (no rule-count change, 436 / 36)

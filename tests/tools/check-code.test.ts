@@ -1371,3 +1371,29 @@ describe("FP precision (v3.1.35)", () => {
     assert(fire("await prisma.post.delete({ where: { id: req.params.id } });", "VG951"));
   });
 });
+
+describe("Recall: JWT bypass + jQuery XSS (v3.1.36)", () => {
+  const fire = (code: string, id: string) => analyzeCode(code, "javascript").some(f => f.rule.id === id);
+  // VG1083 — JWT verification bypass
+  it("VG1083 catches jwt.decode of a request token used without verify", () => {
+    assert(fire("const u = jwt.decode(req.headers.authorization); res.json(u);", "VG1083"));
+  });
+  it("VG1083 catches algorithms:['none']", () => {
+    assert(fire("jwt.verify(token, key, { algorithms: ['none'] });", "VG1083"));
+  });
+  it("VG1083 does NOT fire on decode-then-verify (inspection + real verification)", () => {
+    const code = "const d = jwt.decode(token); jwt.verify(token, security.publicKey, cb);";
+    assert(!fire(code, "VG1083"));
+  });
+  // VG1084 — jQuery DOM XSS
+  it("VG1084 catches inline jQuery .html(location.hash)", () => {
+    assert(fire("$('#out').html(location.hash);", "VG1084"));
+  });
+  it("VG1084 catches concat into .append()", () => {
+    assert(fire("$('#out').append('<div>' + req.query.q);", "VG1084"));
+  });
+  it("VG1084 does NOT fire on .text() or a static literal", () => {
+    assert(!fire("$('#out').text(userValue);", "VG1084"));
+    assert(!fire("$('#out').html('<b>static</b>');", "VG1084"));
+  });
+});

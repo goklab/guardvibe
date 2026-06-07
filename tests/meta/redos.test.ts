@@ -40,22 +40,34 @@ const ATTACKS: string[] = [
 
 const PER_PATTERN_BUDGET_MS = 250;
 
+// Worst (max) single-input match time for a pattern across the adversarial battery.
+function worstMs(source: string, flags: string): number {
+  let worst = 0;
+  for (const input of ATTACKS) {
+    const re = new RegExp(source, flags);
+    const t0 = process.hrtime.bigint();
+    re.lastIndex = 0;
+    re.test(input);
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    if (ms > worst) worst = ms;
+  }
+  return worst;
+}
+
 describe("ReDoS guard — rule patterns must not catastrophically backtrack", () => {
   it("every builtin rule pattern stays under the time budget on adversarial input", { timeout: 60000 }, () => {
     const offenders: string[] = [];
     for (const rule of builtinRules) {
       if (!(rule.pattern instanceof RegExp)) continue;
       const flags = rule.pattern.flags.includes("g") ? rule.pattern.flags : rule.pattern.flags + "g";
-      let worst = 0;
-      for (const input of ATTACKS) {
-        const re = new RegExp(rule.pattern.source, flags);
-        const t0 = process.hrtime.bigint();
-        re.lastIndex = 0;
-        re.test(input);
-        const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-        if (ms > worst) worst = ms;
-      }
-      if (worst >= PER_PATTERN_BUDGET_MS) offenders.push(`${rule.id} (${Math.round(worst)}ms)`);
+      // First pass. If it trips the budget, re-measure a few times and take the MIN — this
+      // washes out GC/CPU load spikes (a 0ms pattern can momentarily measure 300ms under the
+      // gate's concurrent build+lint+test) while a genuine ReDoS stays consistently slow
+      // (the VG103 O(n²) regression this guard caught was ~1000ms every run).
+      if (worstMs(rule.pattern.source, flags) < PER_PATTERN_BUDGET_MS) continue;
+      const samples = [worstMs(rule.pattern.source, flags), worstMs(rule.pattern.source, flags), worstMs(rule.pattern.source, flags)];
+      const best = Math.min(...samples);
+      if (best >= PER_PATTERN_BUDGET_MS) offenders.push(`${rule.id} (${Math.round(best)}ms)`);
     }
     assert.deepStrictEqual(offenders, [], `Pattern(s) exceeded ${PER_PATTERN_BUDGET_MS}ms on adversarial input (possible ReDoS): ${offenders.join(", ")}`);
   });

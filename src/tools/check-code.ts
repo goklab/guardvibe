@@ -983,6 +983,11 @@ export function analyzeCode(
           && /^[A-Za-z][A-Za-z .,!?'’()-]*\s[A-Za-z .,!?'’()-]+$/.test(msgPair[2])) continue;
       }
 
+      // VG1083 (JWT verification bypass): jwt.decode() is fine when used only to peek at a
+      // token that is ALSO verified (decode-then-verify). Skip the decode branch when a real
+      // signature verification exists in the file. (The none-algorithm branch always fires.)
+      if (rule.id === "VG1083" && /\.decode\s*\(/.test(match[0]) && /jwt\.verify\s*\(|jwtVerify\s*\(|jose[\s\S]{0,60}?(?:jwtVerify|verify)/i.test(code)) continue;
+
       // VG138 (Plaintext Password Comparison): skip benign non-credential comparisons.
       // (1) Confirm-password match: `req.body.password == req.body.cpassword` compares two
       //     user inputs from the same form, not a submission against a stored secret.

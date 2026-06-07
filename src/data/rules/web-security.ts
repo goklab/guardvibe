@@ -247,4 +247,34 @@ export const webSecurityRules: SecurityRule[] = [
       "// BAD: ejs.render(req.body.template, data)\n// GOOD: fixed template, user value as data only\nconst tpl = ejs.compile(STATIC_TEMPLATE);\nres.send(tpl({ name: req.body.name }));",
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
   },
+  {
+    id: "VG1083",
+    name: "JWT Verification Bypass (decode/none-algorithm)",
+    severity: "critical",
+    owasp: "A07:2025 Auth Failures",
+    description:
+      "A JWT is trusted without a real signature check: jwt.decode() of a request-supplied token returns the payload WITHOUT verifying the signature (any forged token is accepted), or jwt.verify() is called with algorithms including 'none' (algorithm-confusion / signature-stripping). Either lets an attacker mint arbitrary identities/claims.",
+    pattern:
+      /(?:jwt\.verify\s*\([^;]{0,200}?algorithms\s*:\s*\[[^\]]*["']none["']|(?:jwt|jsonwebtoken|jose)\s*\.\s*decode\s*\(\s*(?:req\.|request\.|token\b|authToken|bearerToken|accessToken|authorization\b|headers\b))/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Always verify the signature with an explicit algorithm allowlist: jwt.verify(token, secret, { algorithms: ['HS256'] }). Never use jwt.decode() for authentication/authorization, and never include 'none' in the algorithms list.",
+    fixCode:
+      "// BAD: const user = jwt.decode(req.headers.authorization);\n// GOOD:\nconst user = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });",
+    compliance: ["SOC2:CC6.6", "PCI-DSS:Req6.5.10", "HIPAA:§164.312(d)"],
+  },
+  {
+    id: "VG1084",
+    name: "DOM XSS via jQuery HTML insertion",
+    severity: "high",
+    owasp: "A03:2025 Injection",
+    description:
+      "jQuery DOM-insertion methods (.html(), .append(), .prepend(), .after(), .before(), .replaceWith(), .wrap*) parse their argument as HTML. Passing user-controlled or concatenated/interpolated content (location, query params, .val(), .data()) into them causes DOM-based cross-site scripting.",
+    pattern:
+      /\$\([^)]*\)(?:\.\w+\([^)]*\))*?\.(?:html|append|prepend|after|before|replaceWith|wrap|wrapAll|wrapInner)\s*\(\s*(?:[^)]*?(?:location|document\.(?:URL|cookie|referrer)|searchParams|req\.|request\.|params\.|query\.|window\.name|\.val\s*\(\s*\)|\.data\s*\()|`[^`]*\$\{|["'][^"']*["']\s*\+)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Use .text() instead of .html() for untrusted content, or sanitize with DOMPurify before insertion. Build elements with $('<div>').text(value) rather than concatenating HTML strings.",
+    fixCode:
+      "// BAD: $('#out').html(location.hash)\n// GOOD:\n$('#out').text(userValue); // auto-escaped\n// or: $('#out').html(DOMPurify.sanitize(html));",
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.7"],
+  },
 ];

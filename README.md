@@ -6,7 +6,7 @@
 [![npm provenance](https://img.shields.io/badge/provenance-verified-brightgreen)](https://www.npmjs.com/package/guardvibe)
 [![codecov](https://codecov.io/gh/goklab/guardvibe/graph/badge.svg)](https://codecov.io/gh/goklab/guardvibe)
 
-**The security MCP built for vibe coding.** 436 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 438 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -14,7 +14,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **436 security rules, 36 tools** purpose-built for the stacks AI agents generate
+- **438 security rules, 36 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -52,7 +52,7 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 | CVE version detection | 67 packages, refreshed daily | Extensive | Extensive |
 | Compliance mapping (SOC2, PCI-DSS, HIPAA) | Built-in | Paid tier | None |
 | SARIF CI/CD export | Yes | Yes | Limited |
-| Rule count | 436 (focused, 68 AI-native) | 5000+ (broad) | N/A |
+| Rule count | 438 (focused, 68 AI-native) | 5000+ (broad) | N/A |
 
 **When to use GuardVibe:** You're building with AI agents and want security scanning integrated into your coding workflow — no dashboard, no account, no CI setup.
 
@@ -242,7 +242,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 
 All scanning tools support `format: "json"` for machine-readable output.
 
-## Security Rules (436 rules across 25 modules)
+## Security Rules (438 rules across 25 modules)
 
 | Category | Rules | Coverage |
 |----------|-------|----------|
@@ -457,7 +457,7 @@ If your AI agent cannot connect to GuardVibe:
 
 1. **Restart your IDE/agent.** MCP servers are started by the host application. After running `npx guardvibe init`, restart Claude Code, Cursor, or Gemini CLI for the config to take effect.
 2. **Check the config path.** Run `npx guardvibe init claude` again and verify the output shows the correct config file location (`.mcp.json` in your project root for Claude Code, `.cursor/mcp.json` for Cursor).
-3. **Re-run `init` to upgrade.** When upgrading GuardVibe, re-run `npx guardvibe init claude` — `.mcp.json` is pinned to a specific version (e.g. `guardvibe@3.1.35`) at init time for fast deterministic startup. As of v3.1.2 the re-run also rewrites stale pins automatically (`Upgraded GuardVibe pin (3.1.27 → 3.1.28)`); since v3.1.27 the PostToolUse hook command is pinned to the same version (was `@latest`) and re-run upgrades a stale hook too. The same applies to `npx guardvibe hook install` and `npx guardvibe ci github` (since v3.1.3) — both are version-pinned at install/generate time and re-run to upgrade.
+3. **Re-run `init` to upgrade.** When upgrading GuardVibe, re-run `npx guardvibe init claude` — `.mcp.json` is pinned to a specific version (e.g. `guardvibe@3.1.36`) at init time for fast deterministic startup. As of v3.1.2 the re-run also rewrites stale pins automatically (`Upgraded GuardVibe pin (3.1.27 → 3.1.28)`); since v3.1.27 the PostToolUse hook command is pinned to the same version (was `@latest`) and re-run upgrades a stale hook too. The same applies to `npx guardvibe hook install` and `npx guardvibe ci github` (since v3.1.3) — both are version-pinned at install/generate time and re-run to upgrade.
 4. **Pre-3.1.1 users won't see the auto-update banner.** GuardVibe started writing a once-per-day "newer version available" notice to stderr in v3.1.1. If your install predates that, you'll never see it — run `npx -y guardvibe@latest init <host>` once to bake in the latest pin and start receiving banners on subsequent sessions.
 5. **Verify Node.js version.** GuardVibe requires Node.js >= 18.0.0. Check with `node --version`.
 6. **Check npx cache.** If you upgraded GuardVibe and the old version is cached, run `npx -y guardvibe@latest` to force the latest version.
