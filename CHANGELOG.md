@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0] - 2026-06-07
+
+### Changed — diff-aware is now the default across every gating surface (441 rules / 37 tools)
+- FAZ 2a made `guardvibe diff` diff-aware; this extends it to the surfaces that actually gate commits and PRs:
+- **Pre-commit (`scan_staged` / `guardvibe-scan`)** now reports only findings on **newly-staged lines** by default — the hook blocks what you just wrote, not pre-existing debt in a file you touched. Opt out with `--all-lines` (CLI) or `diff_aware:false` (MCP).
+- **`scan_changed_files` (MCP)** now reports only findings on **newly-added lines** vs the base by default (`diff_aware:false` for whole changed files).
+- **Transparent, never silent:** both report how many pre-existing findings on unchanged lines were hidden (`preExistingHidden`; a note in the pre-commit markdown). Reuses the FAZ 2a git-free hunk parser and `getAddedLinesStaged`/`getAddedLinesForDiff`. Verified end-to-end in a temp repo. No rule or tool changes (441 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.8.0] - 2026-06-07
 
 ### Fixed — auth-coverage no longer crashes on (and now understands) Clerk/Next.js middleware (441 rules / 37 tools)

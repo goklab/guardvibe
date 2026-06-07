@@ -285,14 +285,15 @@ server.tool(
 // Tool 8: Scan git-staged files before committing
 server.tool(
   "scan_staged",
-  "Scan git-staged files for security vulnerabilities before committing. Run this before every commit to catch issues early. No input needed — automatically reads staged files.",
+  "Scan git-staged files for security vulnerabilities before committing. Run this before every commit to catch issues early. No input needed — automatically reads staged files. Diff-aware by default: reports only issues on newly-staged lines (set diff_aware:false for whole staged files).",
   {
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable for agents)"),
+    diff_aware: z.boolean().default(true).describe("Report only findings on newly-staged lines (true, default) vs. all lines in staged files (false)"),
   },
-  async ({ format }) => {
+  async ({ format, diff_aware }) => {
     const rules = getRules();
     const cwd = process.cwd();
-    const results = scanStaged(cwd, format, rules);
+    const results = scanStaged(cwd, format, rules, { diffAware: diff_aware });
     let findingCount = 0;
     try {
       const parsed = JSON.parse(results);
@@ -690,17 +691,19 @@ server.tool(
 // Tool 24: Scan changed files only — for incremental CI/CD and PR workflows
 server.tool(
   "scan_changed_files",
-  "Scan only files that have changed since a given git ref (branch, commit, or HEAD~N). Ideal for PR checks, pre-push hooks, and incremental CI. Returns findings only for modified/added files.",
+  "Scan only files that have changed since a given git ref (branch, commit, or HEAD~N). Ideal for PR checks, pre-push hooks, and incremental CI. Diff-aware by default: returns only findings on newly-added lines (set diff_aware:false for whole changed files).",
   {
     path: z.string().default(".").describe("Repository root path"),
     base: z.string().default("HEAD~1").describe("Git ref to diff against (e.g. 'main', 'HEAD~3', commit SHA)"),
     format: z.enum(["markdown", "json"]).default("markdown").describe("Output format"),
+    diff_aware: z.boolean().default(true).describe("Report only newly-introduced findings on added lines (true, default) vs. all findings in changed files (false)"),
   },
-  async ({ path: repoPath, base, format }) => {
+  async ({ path: repoPath, base, format, diff_aware }) => {
     const { execFileSync } = await import("child_process");
     const { readFileSync, existsSync } = await import("fs");
     const { resolve, extname, basename } = await import("path");
     const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("./utils/constants.js");
+    const { getAddedLinesForDiff, filterToAddedLines } = await import("./tools/diff-aware.js");
 
     const root = resolve(repoPath);
     let changedFiles: string[];
@@ -720,6 +723,7 @@ server.tool(
 
     const rules = getRules();
     const allFindings: Array<{ file: string; id: string; name: string; severity: string; owasp: string; line: number; match: string; fix: string; fixCode?: string }> = [];
+    let preExistingHidden = 0;
 
     for (const relPath of changedFiles) {
       const fullPath = resolve(root, relPath);
@@ -733,7 +737,13 @@ server.tool(
 
       try {
         const content = readFileSync(fullPath, "utf-8");
-        const findings = analyzeFileSecurity(content, language, undefined, fullPath, root, rules);
+        let findings = analyzeFileSecurity(content, language, undefined, fullPath, root, rules);
+        if (diff_aware) {
+          const added = getAddedLinesForDiff(base, relPath, root);
+          const kept = filterToAddedLines(findings, added);
+          preExistingHidden += findings.length - kept.length;
+          findings = kept;
+        }
         for (const f of findings) {
           allFindings.push({
             file: relPath, id: f.rule.id, name: f.rule.name,
@@ -753,7 +763,7 @@ server.tool(
       const high = allFindings.filter(f => f.severity === "high").length;
       const medium = allFindings.filter(f => f.severity === "medium").length;
       return { content: [{ type: "text", text: mergeStatsIntoOutput(JSON.stringify({
-        summary: { total: allFindings.length, critical, high, medium, low: 0, blocked: critical > 0 || high > 0, changedFiles: changedFiles.length },
+        summary: { total: allFindings.length, critical, high, medium, low: 0, blocked: critical > 0 || high > 0, changedFiles: changedFiles.length, diffAware: diff_aware, preExistingHidden },
         findings: allFindings,
       }), statsSummary, format) }] };
     }

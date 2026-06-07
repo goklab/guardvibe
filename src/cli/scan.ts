@@ -30,7 +30,7 @@ export async function runScan(): Promise<void> {
     result = exportSarif(process.cwd());
   } else {
     const { scanStaged } = await import("../tools/scan-staged.js");
-    result = scanStaged(process.cwd(), format === "json" ? "json" : "markdown");
+    result = scanStaged(process.cwd(), format === "json" ? "json" : "markdown", undefined, { diffAware: flags["all-lines"] !== true });
   }
 
   if (outputFile) {

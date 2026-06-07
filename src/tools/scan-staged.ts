@@ -2,6 +2,7 @@ import { execFileSync } from "child_process";
 import { extname, basename } from "path";
 import { formatFindingsJson, type Finding } from "./check-code.js";
 import { analyzeFileSecurity } from "./file-security.js";
+import { getAddedLinesStaged, filterToAddedLines } from "./diff-aware.js";
 import type { SecurityRule } from "../data/rules/types.js";
 import { securityBanner } from "../utils/banner.js";
 
@@ -65,7 +66,15 @@ function detectLanguage(filePath: string): string | null {
   return null;
 }
 
-export function scanStaged(cwd: string = process.cwd(), format: "markdown" | "json" = "markdown", rules?: SecurityRule[]): string {
+export function scanStaged(
+  cwd: string = process.cwd(),
+  format: "markdown" | "json" = "markdown",
+  rules?: SecurityRule[],
+  opts: { diffAware?: boolean } = {},
+): string {
+  // Diff-aware by default: the pre-commit gate blocks issues on lines you just
+  // staged, not pre-existing debt in files you happened to touch. --all-lines opts out.
+  const diffAware = opts.diffAware !== false;
   const stagedFiles = getStagedFiles(cwd);
 
   if (stagedFiles.length === 0) {
@@ -78,6 +87,7 @@ export function scanStaged(cwd: string = process.cwd(), format: "markdown" | "js
 
   const results: StagedResult[] = [];
   const skippedFiles: string[] = [];
+  let preExistingHidden = 0;
 
   for (const filePath of stagedFiles) {
     const language = detectLanguage(filePath);
@@ -92,7 +102,13 @@ export function scanStaged(cwd: string = process.cwd(), format: "markdown" | "js
       continue;
     }
 
-    const findings = analyzeFileSecurity(content, language, undefined, filePath, cwd, rules);
+    let findings = analyzeFileSecurity(content, language, undefined, filePath, cwd, rules);
+    if (diffAware) {
+      const added = getAddedLinesStaged(filePath, cwd);
+      const kept = filterToAddedLines(findings, added);
+      preExistingHidden += findings.length - kept.length;
+      findings = kept;
+    }
     if (findings.length > 0) {
       results.push({ path: filePath, findings });
     }
@@ -117,10 +133,14 @@ export function scanStaged(cwd: string = process.cwd(), format: "markdown" | "js
     "# GuardVibe Pre-Commit Report",
     "",
     `Staged files scanned: ${scannedCount}`,
+    `Mode: ${diffAware ? "newly-staged lines only" : "all lines"}`,
     `Total issues: ${totalIssues}`,
     `Security Score: ${grade} (${score}/100)`,
     "",
   ];
+  if (diffAware && preExistingHidden > 0) {
+    lines.push(`> ${preExistingHidden} pre-existing finding(s) on unchanged lines hidden — re-run with \`--all-lines\` to see them.`, "");
+  }
 
   if (totalIssues > 0) {
     lines.push("## Summary", "", "| Severity | Count |", "|----------|-------|");

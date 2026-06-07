@@ -218,7 +218,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 | `check_code` | Analyze a code snippet for security issues |
 | `check_project` | Scan multiple files with security scoring (A-F) |
 | `scan_directory` | Scan a project directory from disk |
-| `scan_staged` | Pre-commit scan of git-staged files |
+| `scan_staged` | Pre-commit scan of git-staged files — **diff-aware** (blocks only newly-staged lines; `diff_aware:false` for whole files) |
 | `scan_dependencies` | Check all dependencies for known CVEs (OSV) — annotates each vulnerable package with **reachability** (is it actually imported in your source?) |
 | `scan_secrets` | Detect leaked secrets, API keys, tokens |
 | `check_dependencies` | Check individual packages against OSV |
@@ -240,7 +240,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 | `repo_security_posture` | Assess overall repository security posture and map sensitive areas |
 | `explain_remediation` | Get detailed remediation guidance with exploit scenarios and fix strategies |
 | `scan_file` | Real-time single-file scan — designed for post-edit hooks |
-| `scan_changed_files` | Scan only git-changed files — for PRs and incremental CI |
+| `scan_changed_files` | Scan only git-changed files — for PRs and incremental CI; **diff-aware** (only newly-added lines; `diff_aware:false` for whole files) |
 | `security_stats` | Cumulative security dashboard — scans, fixes, grade trend over time |
 | `guardvibe_doctor` | **Host security audit** — CVE-2025-59536, CVE-2026-21852, MCP config, env scanner |
 | `audit_mcp_config` | Audit MCP server configurations for hook injection, file:// abuse, sensitive paths |
