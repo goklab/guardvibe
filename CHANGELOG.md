@@ -5,6 +5,18 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-06-07
+
+### Added — 3 fresh CVE rules from daily intel (438 → 441 rules / 37 tools)
+- The freshness moat in action — June 2026 advisories (past typical model training cutoffs) for mainstream stack libraries, surfaced via `npm run intel`:
+- **VG1085** — DOMPurify XSS via `<selectedcontent>` re-clone (CVE-2026-47423). Only `dompurify` 3.4.4 is affected; 3.4.5 fixes it.
+- **VG1086** — React Router 7 multi-CVE cluster (CVE-2026-33245 RSC `javascript:` XSS, CVE-2026-42211 turbo-stream deserialization → unauth RCE, CVE-2026-42342 + CVE-2026-34077 DoS): `react-router` 7.0.0–7.14.x (fixed 7.15.0) and `@remix-run/server-runtime` 2.10.0–2.17.4 (fixed 2.17.5).
+- **VG1087** — Better Auth device-authorization approval bypass (CVE-2026-45337): `better-auth` 1.6.0–1.6.10 (fixed 1.6.11).
+- **0-FP semver:** patterns only match the genuinely-vulnerable pins — a caret/tilde range that resolves to the fixed patch is NOT flagged (DOMPurify/Better Auth exact-only; React Router exact/tilde, not caret). Validated against the corpus: **0 false positives** across all `package.json` files. 22 new version-range unit tests.
+- Counts updated everywhere (consistency guard enforces 441); CVE-rule count 67 → 70.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.6.0] - 2026-06-07
 
 ### Fixed — VG120 SSRF false-positive narrowing (sustain 0-FP) (438 rules / 37 tools)
