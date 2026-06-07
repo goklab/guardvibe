@@ -292,7 +292,8 @@ All scanning tools support `format: "json"` for machine-readable output.
 npx guardvibe scan [path]            # Scan a directory for security issues
 npx guardvibe scan . --format json   # JSON output for automation
 npx guardvibe check <file>           # Scan a single file
-npx guardvibe diff [base]            # Scan only changed files since git ref
+npx guardvibe diff [base]            # Scan changed files — reports only newly-introduced issues
+npx guardvibe diff [base] --all-lines # Include pre-existing findings in changed files too
 
 # Close the loop — scan, apply verified fixes, re-verify
 npx guardvibe secure-this <file>          # Dry run: show the fixes that would land + remaining manual work

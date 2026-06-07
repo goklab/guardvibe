@@ -29,7 +29,7 @@ function printUsage(): void {
 
   Commands:
     npx guardvibe scan [path]        Scan a directory for security issues
-    npx guardvibe diff [base]        Scan only changed files since a git ref
+    npx guardvibe diff [base]        Scan changed files; reports only newly-introduced issues (--all-lines for whole files)
     npx guardvibe check <file>       Scan a single file for security issues
     npx guardvibe doctor [path]      Run host security audit
     npx guardvibe audit [path]       Full security audit with PASS/FAIL verdict
@@ -56,6 +56,7 @@ function printUsage(): void {
                           critical (default) | high | medium | low | none
     --baseline <file>     Compare against a previous scan JSON for fix tracking
     --save-baseline       Save current scan as baseline (.guardvibe-baseline.json)
+    --all-lines           (diff) Report all findings in changed files, not just newly-added lines
     --version, -V         Print version and exit
     --help, -h            Show this help message
 

@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-06-07
+
+### Added — diff-aware scanning: block what you just wrote, not the backlog (438 rules / 37 tools)
+- **`guardvibe diff [base]` is now diff-aware by default** — it reports only findings on lines the change actually **added**, instead of re-reporting pre-existing debt in every file you touched. This makes the gate actionable: it blocks the issues newly introduced vs the base, the ones an AI agent just wrote.
+- **Transparent, never silent:** the report states the mode and how many pre-existing findings on unchanged lines were hidden (`preExistingHidden` in JSON; a note in markdown). `--all-lines` restores the whole-changed-file view.
+- New module `src/tools/diff-aware.ts` — a pure, git-free unified-diff hunk parser (`addedLinesFromUnifiedDiff`) plus thin `git diff` wrappers (`getAddedLinesForDiff`, `getAddedLinesStaged`) and a `filterToAddedLines` helper. Unit-tested independent of git; works at any `--unified` context level; counts newly-added files as fully added; ignores deletions.
+- No rule or tool changes (438 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.2.0] - 2026-06-07
 
 ### Added — `secure_this`: close the loop from "warns" to "guarantees the fix landed" (438 rules / 37 tools)

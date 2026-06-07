@@ -87,10 +87,14 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
   const { execFileSync } = await import("child_process");
   const { analyzeFileSecurity } = await import("../tools/file-security.js");
   const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("../utils/constants.js");
+  const { getAddedLinesForDiff, filterToAddedLines } = await import("../tools/diff-aware.js");
 
   const format = validateFormat(flags);
   const outputFile = getOutputPath(flags);
   const root = resolve(".");
+  // Diff-aware by default: report only issues on newly-added lines. --all-lines
+  // restores the old whole-changed-file behavior (surfaces pre-existing debt too).
+  const allLines = flags["all-lines"] === true;
 
   let changedFiles: string[];
   try {
@@ -107,6 +111,7 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
   }
 
   const allFindings: Array<{ file: string; severity: string; name: string; id: string; line: number; fix: string }> = [];
+  let preExistingHidden = 0;
 
   for (const relPath of changedFiles) {
     const fullPath = resolve(root, relPath);
@@ -121,11 +126,19 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
     try {
       const content = readFileSync(fullPath, "utf-8");
       const findings = analyzeFileSecurity(content, language, undefined, fullPath, root);
-      for (const f of findings) {
+      let kept = findings;
+      if (!allLines) {
+        const added = getAddedLinesForDiff(base, relPath, root);
+        kept = filterToAddedLines(findings, added);
+        preExistingHidden += findings.length - kept.length;
+      }
+      for (const f of kept) {
         allFindings.push({ file: relPath, severity: f.rule.severity, name: f.rule.name, id: f.rule.id, line: f.line, fix: f.rule.fix });
       }
     } catch { /* skip */ }
   }
+
+  const mode = allLines ? "all changed lines" : "newly-introduced lines only";
 
   let result: string;
   if (format === "json") {
@@ -133,11 +146,14 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
     const high = allFindings.filter(f => f.severity === "high").length;
     const medium = allFindings.filter(f => f.severity === "medium").length;
     result = JSON.stringify({
-      summary: { total: allFindings.length, critical, high, medium, changedFiles: changedFiles.length, blocked: critical > 0 || high > 0 },
+      summary: { total: allFindings.length, critical, high, medium, changedFiles: changedFiles.length, blocked: critical > 0 || high > 0, diffAware: !allLines, preExistingHidden },
       findings: allFindings,
     });
   } else {
-    const lines = [`# GuardVibe Diff Report`, ``, `Base: ${base}`, `Changed files: ${changedFiles.length}`, `Issues: ${allFindings.length}`, ``];
+    const lines = [`# GuardVibe Diff Report`, ``, `Base: ${base}`, `Mode: ${mode}`, `Changed files: ${changedFiles.length}`, `Issues: ${allFindings.length}`, ``];
+    if (!allLines && preExistingHidden > 0) {
+      lines.push(`> ${preExistingHidden} pre-existing finding(s) on unchanged lines hidden — re-run with \`--all-lines\` to see them.`, ``);
+    }
     if (allFindings.length === 0) {
       lines.push(`All changed files passed security checks.`);
     } else {
