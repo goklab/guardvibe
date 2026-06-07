@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.0] - 2026-06-07
+
+### Added — Season 3 S3-2: proof-carrying fixes (441 rules / 37 tools)
+- **`secure_this` now returns a `proofTest`** when it applies fixes — a runnable regression test that proves the resolved findings stay fixed, using GuardVibe's deterministic scan as the oracle: it **fails on the vulnerable code and passes on the fixed code**. It's an honest scan-based proof (not an exploit test), and a real CI regression guard: drop it in the suite and the build breaks if the vuln is reintroduced.
+- **CLI:** `guardvibe secure-this <file>` shows the proof test in markdown; `--emit-proof [path]` writes it (default `<file>.guardvibe.test.ts`). **MCP:** the `secure_this` result carries `proofTest` so agents can drop it into the project.
+- Generated only when fixes were applied (nothing to prove for already-clean or non-auto-fixable code). New `node:test`-based template; 4 new tests. No rule or tool changes (441 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.11.0] - 2026-06-07
 
 ### Changed — S3-1 (cont.): reachability-weighted dependency prioritization (441 rules / 37 tools)

@@ -392,7 +392,7 @@ server.tool(
 // Tool 37: secure_this — close the loop (scan → apply verified fix → re-verify)
 server.tool(
   "secure_this",
-  "Close the loop on vulnerabilities in code: scan, apply only the fixes that VERIFIABLY land (each candidate edit is re-scanned and rolled back if it fails to resolve the issue or introduces a new one), and return the verified code plus a definition-of-done gate. Prefer this over fix_code+verify_fix when you want a guarantee the fix landed — not just a suggestion. Returns { status: clean|secured|partial|no_autofix, fixedCode, applied[], remaining[], definitionOfDone:{passed,message} }. Write fixedCode to disk, then require definitionOfDone.passed before claiming the task complete; anything in remaining[] needs a manual fix. Example: secure_this({code: '...', language: 'typescript'})",
+  "Close the loop on vulnerabilities in code: scan, apply only the fixes that VERIFIABLY land (each candidate edit is re-scanned and rolled back if it fails to resolve the issue or introduces a new one), and return the verified code plus a definition-of-done gate. Prefer this over fix_code+verify_fix when you want a guarantee the fix landed — not just a suggestion. Returns { status: clean|secured|partial|no_autofix, fixedCode, applied[], remaining[], definitionOfDone:{passed,message}, proofTest }. Write fixedCode to disk, then require definitionOfDone.passed before claiming the task complete; anything in remaining[] needs a manual fix. When fixes were applied, proofTest is a runnable regression test (GuardVibe-as-oracle) you can drop into the project to guard against regressions. Example: secure_this({code: '...', language: 'typescript'})",
   {
     code: z.string().describe("The code to scan and secure"),
     language: z

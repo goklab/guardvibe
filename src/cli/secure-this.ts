@@ -58,6 +58,9 @@ function renderMarkdown(r: SecureThisResult, file: string, wrote: boolean): stri
   }
 
   lines.push(`**Definition of done:** ${r.definitionOfDone.passed ? "PASSED ✅" : "FAILED ❌"} — ${r.definitionOfDone.message}`);
+  if (r.proofTest) {
+    lines.push("", "## Regression proof test", "Run on the fixed file to prove it stays fixed (`--emit-proof <path>` to save it):", "", "```ts", r.proofTest.trimEnd(), "```");
+  }
   return lines.join("\n");
 }
 
@@ -87,6 +90,14 @@ export async function runSecureThis(args: string[]): Promise<void> {
   const write = flags.write === true || flags.apply === true;
   if (write && result.changed) {
     writeFileSync(resolved, result.fixedCode, "utf-8");
+  }
+
+  // --emit-proof [path]: write the regression proof test (default: <file>.guardvibe.test.ts).
+  const emitProof = flags["emit-proof"];
+  if (emitProof && result.proofTest) {
+    const proofPath = typeof emitProof === "string" ? resolve(emitProof) : `${resolved}.guardvibe.test.ts`;
+    writeFileSync(proofPath, result.proofTest, "utf-8");
+    console.log(`  [OK] Proof test written to ${proofPath}`);
   }
 
   const format = flags.format === "json" ? "json" : "markdown";
