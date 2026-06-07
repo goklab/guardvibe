@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.0] - 2026-06-07
+
+### Changed — S3-1 (cont.): reachability-weighted dependency prioritization (441 rules / 37 tools)
+- The audit's dependency section now **prioritizes** findings: severity first, then **imported (reachable) packages ahead of unused ones** within the same tier — so the agent fixes what its code actually calls into first. Severity is never altered (an unreachable dep can still be exploitable), so no false negatives are introduced.
+- Each dependency `SectionFinding` now carries a structured `reachable` field (agent-consumable), in addition to the existing in-description annotation and the section's "N of M directly imported" count.
+- New exported pure helper `sortDepFindings` (severity-rank + reachable-first), unit-tested. No rule or tool changes (441 / 37). Completes S3-1.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.10.0] - 2026-06-07
 
 ### Added — Season 3 S3-1: autonomous, prioritized threat intel (441 rules / 37 tools)

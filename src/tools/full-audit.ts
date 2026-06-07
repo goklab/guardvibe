@@ -52,6 +52,22 @@ export interface SectionFinding {
   name?: string;
   description?: string;
   fix?: string;
+  /** Dependency findings: is the vulnerable package actually imported in source? */
+  reachable?: boolean;
+}
+
+const DEP_SEV_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
+
+/**
+ * Order dependency findings by severity first, then surface reachable (imported)
+ * packages ahead of unreachable ones within the same tier — so the agent fixes
+ * what its code actually calls into first. Severity is never altered (an
+ * unreachable dep can still be exploitable), so this introduces no false negatives.
+ */
+export function sortDepFindings(findings: SectionFinding[]): SectionFinding[] {
+  return [...findings].sort((a, b) =>
+    (DEP_SEV_RANK[a.severity] ?? 9) - (DEP_SEV_RANK[b.severity] ?? 9) ||
+    (Number(b.reachable === true) - Number(a.reachable === true)));
 }
 
 export interface AuditSection {
@@ -346,10 +362,15 @@ export async function runFullAudit(
                 name: `${pkgRec.name ?? "unknown"}: ${(vuln2.id ?? "CVE") as string}`,
                 description: `${(vuln2.summary ?? vuln2.details ?? "") as string}${reachNote}`,
                 fix: `Run: npm update ${pkgRec.name ?? ""}`,
+                reachable,
               });
               allFindings.push({ ruleId: `DEP:${vuln2.id ?? "CVE"}` as string, severity: sev, file: "package.json", line: 0 });
             }
           }
+          // Prioritize: severity first, then imported-and-vulnerable ahead of unused.
+          depFindings.sort((a, b) =>
+            (DEP_SEV_RANK[a.severity] ?? 9) - (DEP_SEV_RANK[b.severity] ?? 9) ||
+            (Number(b.reachable === true) - Number(a.reachable === true)));
           const counts = { findings: depFindings.length, critical: depCritical, high: depHigh, medium: depMedium };
           const reachText = typeof reachableVulnerable === "number" && vulnPackages > 0
             ? ` (${reachableVulnerable} of ${vulnPackages} directly imported in source)`
