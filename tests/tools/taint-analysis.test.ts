@@ -39,6 +39,19 @@ const pathTraversalWrite = [
   "writeFileSync(filename, data);",
 ].join("\n");
 
+const cmdInjectionViaVar = [
+  "const host = req.body.host;",
+  "const cmd = `ping -c 1 ${host}`;",
+  "execSync(cmd);",
+].join("\n");
+
+const cmdInjectionExec = [
+  "const name = req.query.name;",
+  "exec(`ls ${name}`);",
+].join("\n");
+
+const safeExecLiteral = "execSync('git status');";
+
 const taintPropagation = [
   "const raw = req.body.input;",
   "const processed = raw.trim();",
@@ -87,6 +100,51 @@ describe("taint analysis", () => {
   it("detects path traversal via file write", () => {
     const findings = analyzeTaint(pathTraversalWrite, "typescript");
     assert(findings.some(f => f.sink.type === "path-traversal"));
+  });
+
+  it("detects command injection via variable (execSync of tainted var)", () => {
+    const findings = analyzeTaint(cmdInjectionViaVar, "typescript");
+    assert(findings.some(f => f.sink.type === "command-injection"), "Should detect command-injection sink");
+  });
+
+  it("detects command injection via inline exec", () => {
+    const findings = analyzeTaint(cmdInjectionExec, "javascript");
+    assert(findings.some(f => f.sink.type === "command-injection"));
+  });
+
+  it("does not flag exec with a static string literal", () => {
+    const findings = analyzeTaint(safeExecLiteral, "javascript");
+    assert(findings.every(f => f.sink.type !== "command-injection"), "Static exec literal is not tainted");
+  });
+
+  it("does not flag redirect to a same-origin root-relative path", () => {
+    const internalRedirect = [
+      "const params = await props.params;",
+      "redirect(`/${params.slug}/settings/integrations`);",
+    ].join("\n");
+    const findings = analyzeTaint(internalRedirect, "typescript");
+    assert(
+      findings.every(f => f.sink.type !== "open-redirect"),
+      "Root-relative redirect target cannot be an open redirect"
+    );
+  });
+
+  it("still flags redirect to an external URL built from user input", () => {
+    const externalRedirect = [
+      "const params = await props.params;",
+      "redirect(`https://${params.domain}`);",
+    ].join("\n");
+    const findings = analyzeTaint(externalRedirect, "typescript");
+    assert(findings.some(f => f.sink.type === "open-redirect"), "External redirect target is an open redirect");
+  });
+
+  it("still flags redirect to a protocol-relative URL", () => {
+    const protoRelative = [
+      'const next = searchParams.get("next");',
+      "redirect(`//${next}`);",
+    ].join("\n");
+    const findings = analyzeTaint(protoRelative, "typescript");
+    assert(findings.some(f => f.sink.type === "open-redirect"), "Protocol-relative // is an open redirect");
   });
 
   it("tracks taint through variable propagation", () => {

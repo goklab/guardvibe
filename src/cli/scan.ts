@@ -85,7 +85,7 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
 
 export async function runDiffScan(base: string, flags: Record<string, string | true>): Promise<void> {
   const { execFileSync } = await import("child_process");
-  const { analyzeCode } = await import("../tools/check-code.js");
+  const { analyzeFileSecurity } = await import("../tools/file-security.js");
   const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("../utils/constants.js");
 
   const format = validateFormat(flags);
@@ -120,7 +120,7 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
 
     try {
       const content = readFileSync(fullPath, "utf-8");
-      const findings = analyzeCode(content, language, undefined, fullPath, root);
+      const findings = analyzeFileSecurity(content, language, undefined, fullPath, root);
       for (const f of findings) {
         allFindings.push({ file: relPath, severity: f.rule.severity, name: f.rule.name, id: f.rule.id, line: f.line, fix: f.rule.fix });
       }
@@ -177,7 +177,8 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
 }
 
 export async function runFileCheck(filePath: string, flags: Record<string, string | true>): Promise<void> {
-  const { checkCode } = await import("../tools/check-code.js");
+  const { renderFindings } = await import("../tools/check-code.js");
+  const { analyzeFileSecurity } = await import("../tools/file-security.js");
 
   const resolved = resolve(filePath);
   if (!existsSync(resolved)) {
@@ -205,7 +206,8 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
 
   const format = validateFormat(flags);
   const formatArg = format === "json" ? "json" as const : format === "buddy" ? "buddy" as const : "markdown" as const;
-  const result = checkCode(content, language, undefined, resolved, undefined, formatArg);
+  const findings = analyzeFileSecurity(content, language, undefined, resolved, undefined);
+  const result = renderFindings(findings, language, undefined, formatArg, resolved);
 
   const outputFile = getOutputPath(flags);
   if (outputFile) {

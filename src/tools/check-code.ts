@@ -1512,7 +1512,21 @@ export function checkCode(
   rules?: SecurityRule[]
 ): string {
   const findings = analyzeCode(code, language, framework, filePath, configDir, rules);
+  return renderFindings(findings, language, framework, format, filePath);
+}
 
+/**
+ * Render a pre-computed Finding[] into the requested output format. Split out of
+ * `checkCode` so the `check` path can run the combined analyzer (`analyzeFileSecurity`
+ * = regex + taint + secrets) and still reuse the exact same rendering.
+ */
+export function renderFindings(
+  findings: Finding[],
+  language: string,
+  framework?: string,
+  format: "markdown" | "json" | "buddy" = "markdown",
+  filePath?: string,
+): string {
   if (format === "json") {
     return formatFindingsJson(findings);
   }

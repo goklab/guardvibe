@@ -51,6 +51,12 @@ const TAINT_SINKS = [
   { pattern: /new\s+Function\s*\(/g, type: "code-injection", severity: "critical" as const,
     description: "User input flows into Function constructor, enabling arbitrary code execution.",
     fix: "Never construct functions from user input. Use a safe evaluator or predefined functions." },
+  // Command injection: bare child_process exec()/execSync() (the shell-invoking forms).
+  // The negative lookbehind excludes method calls like `regex.exec(...)`, `query.exec()`,
+  // and `db.execSync(...)` — only the imported, shell-spawning function is a sink.
+  { pattern: /(?<!\.)\bexec(?:Sync)?\s*\(/g, type: "command-injection", severity: "critical" as const,
+    description: "User input flows into a shell command (exec/execSync), enabling OS command injection.",
+    fix: "Use execFile()/spawn() with an argument array (no shell) and validate input against an allowlist." },
   { pattern: /writeFileSync?\s*\(/g, type: "path-traversal", severity: "high" as const,
     description: "User input flows into file write path, enabling arbitrary file overwrite.",
     fix: "Validate and sanitize file paths. Use path.resolve() and verify the result is within allowed directories." },
@@ -91,6 +97,18 @@ function isSafeParameterizedSqlSink(lines: string[], sinkIdx: number): boolean {
   const interps = tpl.match(/\$\{[^}]*\}/g) || [];
   return interps.every(s =>
     /\$\{\s*[\w$.]*(?:hash|sha\d*|md5|bcrypt|argon2?|hmac|digest|encode|escape|encodeURIComponent|toString|String|Number|parseInt|parseFloat)\b/i.test(s));
+}
+
+/**
+ * A `redirect(...)` whose target is a root-relative, same-origin path
+ * (e.g. redirect("/login") or redirect(`/${slug}/settings`)) cannot be an open
+ * redirect — the browser stays on the current origin. Only external URLs
+ * (`https://…`), protocol-relative URLs (`//host`), or non-literal targets are
+ * candidates. This kills the dominant open-redirect FP class on Next.js pages,
+ * which routinely build internal navigation paths from route params/searchParams.
+ */
+function isSameOriginRedirect(line: string): boolean {
+  return /\bredirect\s*\(\s*["'`]\/(?!\/)/.test(line);
 }
 
 interface VariableAssignment {
@@ -180,6 +198,7 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
       sink.pattern.lastIndex = 0;
       if (!sink.pattern.test(line)) continue;
       if (sink.type === "sql-injection" && isSafeParameterizedSqlSink(lines, i)) continue;
+      if (sink.type === "open-redirect" && isSameOriginRedirect(line)) continue;
 
       for (const tVar of taintedVars) {
         if (line.includes(tVar.name)) {
@@ -215,6 +234,7 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
       sink.pattern.lastIndex = 0;
       if (!sink.pattern.test(line)) continue;
       if (sink.type === "sql-injection" && isSafeParameterizedSqlSink(lines, i)) continue;
+      if (sink.type === "open-redirect" && isSameOriginRedirect(line)) continue;
 
       for (const source of TAINT_SOURCES) {
         source.pattern.lastIndex = 0;

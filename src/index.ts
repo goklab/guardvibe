@@ -4,7 +4,8 @@ import { createRequire } from "module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { checkCode, analyzeCode } from "./tools/check-code.js";
+import { renderFindings } from "./tools/check-code.js";
+import { analyzeFileSecurity } from "./tools/file-security.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
@@ -84,8 +85,8 @@ server.tool(
   },
   async ({ code, language, framework, format }) => {
     const rules = getRules();
-    const results = checkCode(code, language, framework, undefined, undefined, format, rules);
-    const findings = analyzeCode(code, language, framework, undefined, undefined, rules);
+    const findings = analyzeFileSecurity(code, language, framework, undefined, undefined, rules);
+    const results = renderFindings(findings, language, framework, format, undefined);
     const cwd = process.cwd();
     recordScan(cwd, { toolName: "check_code", filesScanned: 1, findings: findings.map(f => ({ severity: f.rule.severity, ruleId: f.rule.id })) });
     const summary = getSummaryLine(cwd, findings.length, format);
@@ -632,8 +633,8 @@ server.tool(
     }
 
     const rules = getRules();
-    const result = checkCode(content, language, undefined, resolved, dirname(resolved), format, rules);
-    const findings = analyzeCode(content, language, undefined, resolved, dirname(resolved), rules);
+    const findings = analyzeFileSecurity(content, language, undefined, resolved, dirname(resolved), rules);
+    const result = renderFindings(findings, language, undefined, format, resolved);
     const cwd = dirname(resolved);
     recordScan(cwd, { toolName: "scan_file", filesScanned: 1, findings: findings.map(f => ({ severity: f.rule.severity, ruleId: f.rule.id })) });
     const summary = getSummaryLine(cwd, findings.length, format);
@@ -703,7 +704,7 @@ server.tool(
 
       try {
         const content = readFileSync(fullPath, "utf-8");
-        const findings = analyzeCode(content, language, undefined, fullPath, root, rules);
+        const findings = analyzeFileSecurity(content, language, undefined, fullPath, root, rules);
         for (const f of findings) {
           allFindings.push({
             file: relPath, id: f.rule.id, name: f.rule.name,

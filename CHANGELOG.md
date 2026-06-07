@@ -5,6 +5,20 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.37] - 2026-06-07
+
+### Added — taint + secret scanning on the `check` path (no rule-count change, 438 / 36)
+Until now only `audit` ran taint analysis and secret-pattern scanning; the everyday `check` / `scan <file>` commands, the MCP `check_code` / `scan_file` / `scan_changed_files` tools, the `diff` path and the pre-commit hook ran regex rules only. They now share one combined analyzer, so two-step variable-indirection flows and hardcoded secrets are caught before code is committed:
+- **Two-step taint** — a query, file path or shell command assembled into a variable before reaching the sink (path traversal, SQL/code injection, XSS) is now reported on the check path, not just inline patterns.
+- **Command-injection taint sink** — `exec()` / `execSync()` fed tainted input is now a sink (the lookbehind excludes method calls like `regex.exec()` / `db.execSync()`). Validated against the corpus: 2 hits, both real RCE, zero hits on 9 production repos.
+- **Hardcoded secrets** — PEM private keys, cloud keys and tokens are flagged on the check path even when the variable name is innocuous.
+
+### Fixed — taint precision (improves both `check` and `audit`)
+- **Open redirect** no longer fires on same-origin root-relative targets (`redirect("/path")`, `` redirect(`/${slug}/settings`) ``); external (`https://…`) and protocol-relative (`//host`) targets are still flagged.
+- Taint and secrets are skipped on minified/vendor bundles (`.min.js` and long-line content), matching the audit, and secret patterns are skipped in test fixtures that carry fake keys by design.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.1.36] - 2026-06-07
 
 ### Added — high-value recall rules (436 → 438, 36 tools)

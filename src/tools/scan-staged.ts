@@ -1,6 +1,7 @@
 import { execFileSync } from "child_process";
 import { extname, basename } from "path";
-import { analyzeCode, formatFindingsJson, type Finding } from "./check-code.js";
+import { formatFindingsJson, type Finding } from "./check-code.js";
+import { analyzeFileSecurity } from "./file-security.js";
 import type { SecurityRule } from "../data/rules/types.js";
 import { securityBanner } from "../utils/banner.js";
 
@@ -91,7 +92,7 @@ export function scanStaged(cwd: string = process.cwd(), format: "markdown" | "js
       continue;
     }
 
-    const findings = analyzeCode(content, language, undefined, filePath, cwd, rules);
+    const findings = analyzeFileSecurity(content, language, undefined, filePath, cwd, rules);
     if (findings.length > 0) {
       results.push({ path: filePath, findings });
     }
