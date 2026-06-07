@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.40] - 2026-06-07
+
+### Added — recall: Mongoose direct mass-assignment (no rule-count change, 438 / 36)
+- **VG953** now also flags request bodies passed *directly* as the update document to Mongoose writes — `findByIdAndUpdate(id, req.body)`, `findOneAndUpdate(q, req.body)`, `updateOne/updateMany/findOneAndReplace/replaceOne(q, req.body)` — not just the `{ ...req.body }` spread form. Explicit-field updates (`findByIdAndUpdate(id, { name, email })`) are not flagged. Zero new corpus hits (no false positives).
+
+### Internal — test coverage
+- Overall test coverage raised from ~90.6% to ~97% via 24 new offline, deterministic test files; the MCP server entry point (`src/index.ts`) is excluded from coverage (it is the stdio bootstrap, exercised via integration, not unit tests).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.1.39] - 2026-06-07
 
 ### Added — SSRF taint detection + taint-engine precision (no rule-count change, 438 / 36)

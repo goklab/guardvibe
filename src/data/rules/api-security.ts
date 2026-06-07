@@ -61,7 +61,7 @@ export const apiSecurityRules: SecurityRule[] = [
     description:
       "Request body is spread directly into a database create/update operation. Attackers can inject extra fields (like role, isAdmin, price) that the API didn't intend to accept.",
     pattern:
-      /(?:create|update|upsert|insert)\s*\(\s*\{[\s\S]{0,100}?(?:\.\.\.(?:req\.body|body|input|data|args)|(?:data|values)\s*:\s*(?:req\.body|body|input))\s*\}/gi,
+      /(?:create|update|upsert|insert)\s*\(\s*\{[\s\S]{0,100}?(?:\.\.\.(?:req\.body|body|input|data|args)|(?:data|values)\s*:\s*(?:req\.body|body|input))\s*\}|(?:findByIdAndUpdate|findOneAndUpdate|findOneAndReplace|updateOne|updateMany|replaceOne)\s*\(\s*[^,()]+,\s*req\.(?:body|query)\s*[,)]/gi,
     languages: ["javascript", "typescript"],
     fix: "Explicitly pick allowed fields instead of spreading the entire request body. Use a validation schema (zod) to define exactly which fields are accepted.",
     fixCode:

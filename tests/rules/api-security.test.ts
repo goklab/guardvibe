@@ -88,6 +88,19 @@ describe("OWASP API Security Rules", () => {
         "VG953"
       ));
     });
+    it("detects req.body passed directly to a Mongoose findByIdAndUpdate", () => {
+      assert(hasRule(
+        `await User.findByIdAndUpdate(req.params.id, req.body, { new: true });`,
+        "VG953"
+      ));
+    });
+    it("detects req.body passed directly to findOneAndUpdate/updateOne", () => {
+      assert(hasRule(`await User.findOneAndUpdate({ _id: id }, req.body);`, "VG953"));
+      assert(hasRule(`await User.updateOne({ _id: id }, req.body);`, "VG953"));
+    });
+    it("does NOT flag a Mongoose update with an explicit field object", () => {
+      assert(!hasRule(`await User.findByIdAndUpdate(id, { name, email });`, "VG953"));
+    });
   });
 
   describe("VG954 - Mass Assignment: Object.assign", () => {
