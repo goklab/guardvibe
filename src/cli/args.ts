@@ -2,7 +2,7 @@
  * CLI argument parsing utilities
  */
 
-const VALID_FORMATS = new Set(["markdown", "json", "sarif", "buddy"]);
+const VALID_FORMATS = new Set(["markdown", "json", "sarif", "buddy", "agent"]);
 
 export function getStringFlag(flags: Record<string, string | true>, key: string): string | null {
   const val = flags[key];

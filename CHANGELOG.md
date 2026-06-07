@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-06-07
+
+### Added — agent-native structured output (`guardvibe.agent.v1`) (438 rules / 37 tools)
+- **New `agent` output format** that returns one stable, documented contract per finding so a coding agent can act on data instead of parsing prose: `{ id, name, severity, owasp, file, line, confidence, autoFixable, exactEdit, manualFix, verify }`.
+- **`exactEdit`** is the structured line edit when the finding is auto-applicable (from `fix_code`); **`confidence`** is surfaced per finding; **`verify`** is a deterministic, runnable step (`guardvibe check … --format json`, expect the rule absent) so the agent can *prove* the fix landed.
+- Exposed via CLI `guardvibe check <file> --format agent` and the MCP `scan_file` tool (`format: "agent"`). New module `src/tools/agent-output.ts` (`buildAgentReport`); deterministic, no new dependency.
+- This unifies what was scattered across `fix_code`, `scan_file` and per-finding confidence into a single agent contract; complements `secure_this` (auto-apply loop) with a structured manual-fix path.
+- No rule or tool changes (438 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.4.0] - 2026-06-07
 
 ### Added — dependency reachability: is the vulnerable package actually imported? (438 rules / 37 tools)

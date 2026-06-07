@@ -45,6 +45,7 @@ import { formatHostFindings, redactSecrets } from "./server/types.js";
 import { verifyFix } from "./tools/verify-fix.js";
 import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js";
 import { secureThis } from "./tools/secure-this.js";
+import { buildAgentReport } from "./tools/agent-output.js";
 import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
 import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
 import { runFullAudit, formatAuditResult } from "./tools/full-audit.js";
@@ -630,10 +631,10 @@ server.tool(
 // guardvibe-ignore VG880
 server.tool(
   "scan_file",
-  "Scan a single file on disk by path for security vulnerabilities. Pass a file path — the tool reads the file itself. For inline code snippets, use check_code instead. Example: scan_file({file_path: 'src/api/route.ts'})",
+  "Scan a single file on disk by path for security vulnerabilities. Pass a file path — the tool reads the file itself. For inline code snippets, use check_code instead. The 'agent' format returns the structured guardvibe.agent.v1 contract (finding + exact edit + confidence + verify step). Example: scan_file({file_path: 'src/api/route.ts', format: 'agent'})",
   {
     file_path: z.string().describe("Absolute or relative path to the file to scan"),
-    format: z.enum(["markdown", "json"]).default("json").describe("Output format"),
+    format: z.enum(["markdown", "json", "agent"]).default("json").describe("Output format. 'agent' = machine-actionable guardvibe.agent.v1 (exact edits + confidence + verify)"),
   },
   async ({ file_path, format }) => {
     const { readFileSync, existsSync } = await import("fs");
@@ -657,6 +658,11 @@ server.tool(
 
     const rules = getRules();
     const findings = analyzeFileSecurity(content, language, undefined, resolved, dirname(resolved), rules);
+    if (format === "agent") {
+      const cwdA = dirname(resolved);
+      recordScan(cwdA, { toolName: "scan_file", filesScanned: 1, findings: findings.map(f => ({ severity: f.rule.severity, ruleId: f.rule.id })) });
+      return { content: [{ type: "text", text: JSON.stringify(buildAgentReport(findings, content, language, resolved, rules)) }] };
+    }
     const result = renderFindings(findings, language, undefined, format, resolved);
     const cwd = dirname(resolved);
     recordScan(cwd, { toolName: "scan_file", filesScanned: 1, findings: findings.map(f => ({ severity: f.rule.severity, ruleId: f.rule.id })) });

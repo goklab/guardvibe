@@ -50,7 +50,8 @@ function printUsage(): void {
     npx guardvibe-scan --format sarif --output results.sarif
 
   Options:
-    --format <type>       Output format: markdown (default), json, sarif, buddy
+    --format <type>       Output format: markdown (default), json, sarif, buddy, agent
+                          agent = guardvibe.agent.v1 (finding + exact edit + confidence + verify)
     --output <file>       Write results to file instead of stdout
     --fail-on <level>     Exit 1 when findings at this level or above exist
                           critical (default) | high | medium | low | none

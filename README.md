@@ -330,7 +330,9 @@ npx guardvibe-scan                   # Scan staged files (for pre-commit)
 npx guardvibe-scan --format sarif --output results.sarif  # CI mode
 
 # Options (all scan commands)
-#   --format markdown|json|sarif|buddy
+#   --format markdown|json|sarif|buddy|agent
+#       agent = guardvibe.agent.v1 — per finding: { id, severity, confidence, exactEdit, manualFix, verify }
+#       so an AI agent can apply the exact edit and run the verify step to prove the fix
 #   --output <file>     Write results to file
 #   --fail-on <level>   Exit 1 on findings: critical|high|medium|low|none
 #   --full              Bypass response-size caps (50 JSON / 30 markdown / 200-file taint)

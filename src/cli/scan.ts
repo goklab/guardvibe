@@ -221,9 +221,16 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
   }
 
   const format = validateFormat(flags);
-  const formatArg = format === "json" ? "json" as const : format === "buddy" ? "buddy" as const : "markdown" as const;
   const findings = analyzeFileSecurity(content, language, undefined, resolved, undefined);
-  const result = renderFindings(findings, language, undefined, formatArg, resolved);
+  let result: string;
+  if (format === "agent") {
+    // Agent-native contract: finding + exact-edit + confidence + verify step.
+    const { buildAgentReport } = await import("../tools/agent-output.js");
+    result = JSON.stringify(buildAgentReport(findings, content, language, resolved));
+  } else {
+    const formatArg = format === "json" ? "json" as const : format === "buddy" ? "buddy" as const : "markdown" as const;
+    result = renderFindings(findings, language, undefined, formatArg, resolved);
+  }
 
   const outputFile = getOutputPath(flags);
   if (outputFile) {
