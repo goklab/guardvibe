@@ -33,8 +33,12 @@ describe("Database Rules", () => {
   it("VG433: detects $queryRawUnsafe", () => {
     testRule("VG433", 'prisma.$queryRawUnsafe("SELECT * FROM " + table)', true);
   });
-  it("VG434: detects Drizzle sql with interpolation", () => {
-    testRule("VG434", "db.execute(sql`SELECT * FROM users WHERE id = ${userId}`)", true);
+  it("VG434: detects sql.raw() interpolated into an executed Drizzle query", () => {
+    testRule("VG434", "db.execute(sql`SELECT * FROM users WHERE id = ${sql.raw(userInput)}`)", true);
+  });
+  it("VG434: does NOT flag the safe Drizzle sql tag (interpolations are parameterized)", () => {
+    // Drizzle's sql`` tag binds ${value} as a parameter — this is the recommended, safe API.
+    testRule("VG434", "db.execute(sql`SELECT * FROM users WHERE id = ${userId}`)", false);
   });
   it("VG435: detects DATABASE_URL in client code", () => {
     testRule("VG435", '"use client";\nconst url = process.env.DATABASE_URL;', true);

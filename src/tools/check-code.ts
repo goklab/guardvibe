@@ -480,7 +480,7 @@ export function analyzeCode(
     //   agent.get('/?q=' + sqlPayload) which match the regex but aren't database calls
     // - VG042/VG678: HTTP-response/security-header rules (tests don't serve to real users)
     const isTestFile = filePath && /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/__mocks__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/)/i.test(filePath);
-    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409", "VG148", "VG424", "VG137"].includes(rule.id)) continue;
+    if (isTestFile && ["VG001", "VG003", "VG062", "VG010", "VG011", "VG012", "VG013", "VG014", "VG042", "VG100", "VG130", "VG678", "VG955", "VG133", "VG1021", "VG409", "VG148", "VG424", "VG137", "VG139"].includes(rule.id)) continue;
 
     // VG137 (Debug Endpoint Exposes System Information) also misfires on build/test config
     // files: a `<rootDir>/test/` mapper or a `/test` path string near `process.env` in
@@ -970,6 +970,22 @@ export function analyzeCode(
           const canonical = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
           if (canonical(idValuePair[1]) === canonical(idValuePair[2])) continue;
         }
+        // Skip enum/constant members whose value is a kebab-case slug (lowercase words
+        // joined by hyphens, no digits) under an uppercase-led name — error codes like
+        // `UserMissingPassword = "missing-password"`. The uppercase-name requirement keeps a
+        // lowercase `password = "my-secret"` firing (only enum/const members get the pass).
+        // The value is captured with a flat (ReDoS-safe) char class, then validated by
+        // splitting on '-' rather than a nested-quantifier regex.
+        const slugPair = matchedLine.match(/\b([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*["']([a-z][a-z-]*)["']/);
+        if (slugPair && /^[A-Z]/.test(slugPair[1])) {
+          const parts = slugPair[2].split("-");
+          const isKebabSlug = parts.length >= 2 && parts.every(p => p.length > 0 && /^[a-z]+$/.test(p));
+          if (isKebabSlug) continue;
+        }
+        // Skip values explicitly marked as mock/placeholder — `DAILY_API_KEY = "MOCK_DAILY_API_KEY"`,
+        // `apiKey: "your-api-key-here"`. A value literally named as a placeholder is not a secret.
+        const valuePair = matchedLine.match(/[:=]\s*["']([^"'\n]{3,})["']/);
+        if (valuePair && /^(?:mock|example|sample|demo|fake|dummy|stub|placeholder|changeme|change-me|your[-_]|xxx|todo|replace[-_]?me)/i.test(valuePair[1])) continue;
         // Skip SCREAMING_SNAKE error/status codes whose value is digits-only.
         // e.g. `INVALID_PASSWORD = "5020"` — error code, not a credential.
         if (/\b[A-Z][A-Z0-9_]*\s*=\s*["']\d+["']/.test(matchedLine)) continue;
@@ -981,6 +997,16 @@ export function analyzeCode(
         if (msgPair
           && /(?:message|msg|error|\berr\b|label|title|hint|text|placeholder|description|tooltip|notice|warning|caption|heading|prompt|copy)/i.test(msgPair[1])
           && /^[A-Za-z][A-Za-z .,!?'’()-]*\s[A-Za-z .,!?'’()-]+$/.test(msgPair[2])) continue;
+      }
+
+      // VG514 (Docker Compose Hardcoded Secret): the match spans the `environment:` block,
+      // so the flagged secret VALUE is the last `KEY: value` in match[0]. When that value is
+      // an env-var reference (`${VAR}` / `$VAR`) it is NOT hardcoded — the canonical secure
+      // pattern (compose reads it from .env). Hardcoded literals (`POSTGRES_PASSWORD=magical`)
+      // still fire.
+      if (rule.id === "VG514") {
+        const secretVal = match[0].match(/(?:SECRET|PASSWORD|TOKEN|KEY|CREDENTIAL)\w*\s*[=:]\s*["']?([^"'\s]+)/i);
+        if (secretVal && /^\$\{?\w+\}?$/.test(secretVal[1])) continue;
       }
 
       // VG1083 (JWT verification bypass): jwt.decode() is fine when used only to peek at a

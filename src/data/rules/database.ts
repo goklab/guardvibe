@@ -49,14 +49,14 @@ export const databaseRules: SecurityRule[] = [
   },
   {
     id: "VG434",
-    name: "Drizzle Unsafe SQL Interpolation",
+    name: "Drizzle sql.raw() Injection",
     severity: "critical",
     owasp: "A03:2025 Injection",
     description:
-      "Drizzle sql tagged template with direct variable interpolation. Use sql.placeholder() for safe parameterization.",
-    pattern: /(?:db\.execute|db\.run|db\.get|db\.all)\s*\(\s*sql`[^`]*\$\{/g,
+      "sql.raw() interpolated into an executed Drizzle query bypasses parameter binding, enabling SQL injection. Drizzle's sql`${value}` tag binds interpolations safely — only sql.raw() escapes that.",
+    pattern: /(?:db\.execute|db\.run|db\.get|db\.all)\s*\(\s*sql`[^`]*\$\{\s*sql\.raw\b/g,
     languages: ["javascript", "typescript"],
-    fix: "Use sql.placeholder() for dynamic values in Drizzle queries.",
+    fix: "Avoid sql.raw() with dynamic input. Use bound ${value} interpolation, or restrict raw fragments to a hardcoded allowlist of column/table identifiers.",
     fixCode:
       'import { sql } from "drizzle-orm";\n\nconst result = await db.execute(\n  sql`SELECT * FROM users WHERE id = ${sql.placeholder("id")}`,\n  { id: userId }\n);',
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],

@@ -102,6 +102,67 @@ describe("VG001/VG062 false-positive narrows", () => {
     const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
     assert.strictEqual(credentialHits.length, 0);
   });
+
+  it("does NOT flag PascalCase enum members whose value is a kebab slug (partial name)", () => {
+    // cal.com ErrorCode: name has a `User` prefix the value drops, so it isn't an exact
+    // re-casing — but a kebab slug value under an uppercase-led name is an error code.
+    const findings = analyzeCode(
+      `enum ErrorCode {\n  UserMissingPassword = "missing-password",\n}`,
+      "typescript",
+    );
+    const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
+    assert.strictEqual(credentialHits.length, 0);
+  });
+
+  it("does NOT flag values explicitly marked as MOCK/placeholder", () => {
+    const findings = analyzeCode(
+      `process.env.DAILY_API_KEY = "MOCK_DAILY_API_KEY";`,
+      "typescript",
+      undefined,
+      "vitest.config.mts",
+    );
+    const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
+    assert.strictEqual(credentialHits.length, 0);
+  });
+
+  it("STILL flags a lowercase-named hardcoded kebab password", () => {
+    // A lowercase var name (not an enum/constant) keeps firing even with a slug value.
+    const findings = analyzeCode(`const password = "super-secret-prod";`, "typescript", undefined, "src/db.ts");
+    const credentialHits = findings.filter(f => f.rule.id === "VG001" || f.rule.id === "VG062");
+    assert(credentialHits.length > 0, "lowercase password var with a slug value should still fire");
+  });
+});
+
+describe("VG139 TLS-verification false-positive narrows", () => {
+  it("STILL flags rejectUnauthorized:false in production code", () => {
+    const findings = analyzeCode(`const t = { rejectUnauthorized: false };`, "typescript", undefined, "src/lib/mailer.ts");
+    assert(findings.some(f => f.rule.id === "VG139"), "real TLS-disable should fire");
+  });
+  it("STILL flags Python requests verify=False", () => {
+    const findings = analyzeCode(`requests.get(url, verify=False)`, "python", undefined, "app/client.py");
+    assert(findings.some(f => f.rule.id === "VG139"));
+  });
+  it("does NOT flag InsecureSkipVerify in Go test files", () => {
+    const findings = analyzeCode(`tlsConfig := &tls.Config{ InsecureSkipVerify: true }`, "go", undefined, "pkg/zen/server_tls_test.go");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG139").length, 0);
+  });
+  it("does NOT match a 'skipVerify = false' substring (boolean flag, not TLS verify)", () => {
+    const findings = analyzeCode(`const skipVerify = false;`, "typescript", undefined, "src/x.ts");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG139").length, 0);
+  });
+});
+
+describe("VG514 docker-compose-secret false-positive narrows", () => {
+  it("STILL flags a hardcoded literal password in compose", () => {
+    const yaml = `services:\n  db:\n    environment:\n      - POSTGRES_PASSWORD=magical_password\n`;
+    const findings = analyzeCode(yaml, "yaml", undefined, "docker-compose.yml");
+    assert(findings.some(f => f.rule.id === "VG514"), "hardcoded compose secret should fire");
+  });
+  it("does NOT flag env-var references in compose", () => {
+    const yaml = `services:\n  db:\n    environment:\n      POSTGRES_USER: \${POSTGRES_USER}\n      POSTGRES_DB: \${POSTGRES_DB}\n      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}\n`;
+    const findings = analyzeCode(yaml, "yaml", undefined, "docker-compose.yml");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG514").length, 0);
+  });
 });
 
 describe("VG106 false-positive narrows", () => {

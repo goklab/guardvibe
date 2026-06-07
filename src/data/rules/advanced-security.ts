@@ -165,7 +165,7 @@ export const advancedSecurityRules: SecurityRule[] = [
     description:
       "TLS certificate verification is disabled, allowing man-in-the-middle attacks. All HTTPS connections become insecure.",
     pattern:
-      /(?:NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["']0["']|rejectUnauthorized\s*:\s*false|verify\s*=\s*False|InsecureSkipVerify\s*:\s*true)/gi,
+      /(?:NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["']0["']|rejectUnauthorized\s*:\s*false|(?<![\w$])verify\s*=\s*False|InsecureSkipVerify\s*:\s*true)/gi,
     languages: ["javascript", "typescript", "python", "go"],
     fix: "Never disable TLS verification in production. Fix certificate issues instead.",
     fixCode:

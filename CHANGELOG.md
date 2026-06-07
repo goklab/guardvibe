@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.38] - 2026-06-07
+
+### Fixed — false-positive precision, verified one rule at a time (no rule-count change, 438 / 36)
+Each claimed false positive was checked against the actual code in the real-world corpus; only genuine FP classes were narrowed, with an old-vs-new diff confirming zero true-positive loss (14 FPs removed corpus-wide, 0 TP lost).
+- **VG434** (Drizzle) retargeted from the *safe* `sql\`${value}\`` tag (which parameterizes interpolations) to the real injection vector — `sql.raw()` interpolated into an executed query. Renamed to "Drizzle sql.raw() Injection".
+- **VG514** (Docker Compose secret) no longer fires when the value is an env-var reference (`${VAR}` / `$VAR`); hardcoded literals still fire.
+- **VG001** (hardcoded credentials) skips kebab-case slug values under an uppercase-led enum/constant name (e.g. `UserMissingPassword = "missing-password"`) and values explicitly marked as mock/placeholder (e.g. `"MOCK_DAILY_API_KEY"`).
+- **VG139** (TLS verification disabled) is skipped in test files and no longer matches a `skipVerify = false` substring; real `rejectUnauthorized: false` in production code still fires (the prior "FP" claim was wrong — those are real vulnerabilities).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.1.37] - 2026-06-07
 
 ### Added — taint + secret scanning on the `check` path (no rule-count change, 438 / 36)
