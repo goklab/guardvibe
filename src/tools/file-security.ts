@@ -24,7 +24,7 @@ import { basename } from "path";
 import { analyzeCode, type Finding } from "./check-code.js";
 import { analyzeTaint, type TaintFinding } from "./taint-analysis.js";
 import { scanContent, type SecretFinding } from "./scan-secrets.js";
-import { isExcludedFilename } from "../utils/constants.js";
+import { isExcludedFilename, looksMinified } from "../utils/constants.js";
 import type { SecurityRule } from "../data/rules/types.js";
 
 const TAINT_OWASP: Record<string, string> = {
@@ -34,6 +34,7 @@ const TAINT_OWASP: Record<string, string> = {
   "xss": "A03:2021 Injection",
   "open-redirect": "A01:2021 Broken Access Control",
   "path-traversal": "A01:2021 Broken Access Control",
+  "ssrf": "A10:2021 Server-Side Request Forgery",
 };
 
 // Regex VG rules that already represent the same vuln class as a taint sink type.
@@ -45,6 +46,7 @@ const TAINT_REGEX_OVERLAP: Record<string, Set<string>> = {
   "xss": new Set(["VG012", "VG408", "VG852", "VG1080", "VG1084"]),
   "open-redirect": new Set(["VG101", "VG409", "VG425", "VG660"]),
   "path-traversal": new Set(["VG102"]),
+  "ssrf": new Set(["VG120"]),
 };
 
 // Regex rules that already report a hardcoded secret; drop a secret-pattern hit on the
@@ -60,20 +62,6 @@ const TEST_FILE_RE = /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|j
 // pre-computed findings, never run against source.
 const NEVER_MATCH = /(?!)/;
 
-// Minified bundles pack everything onto a few enormous lines; mangled `e`/`t` params
-// then masquerade as taint sources (`e.target.value`) feeding innerHTML sinks — a pure
-// FP class. The audit excludes these from taint via collectJsFiles+isExcludedFilename;
-// the check path mirrors that with a name pattern plus a content fallback for bundles
-// that aren't named `.min.js`.
-function looksMinified(code: string): boolean {
-  if (code.length < 5000) return false;
-  let lineLen = 0;
-  for (let i = 0; i < code.length; i++) {
-    if (code[i] === "\n") { if (lineLen > 1000) return true; lineLen = 0; }
-    else lineLen++;
-  }
-  return lineLen > 1000;
-}
 
 function taintToFinding(t: TaintFinding): Finding {
   const rule: SecurityRule = {

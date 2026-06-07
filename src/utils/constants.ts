@@ -49,3 +49,18 @@ export const DEFAULT_FILE_PATTERN_EXCLUDES: RegExp[] = [
 export function isExcludedFilename(name: string): boolean {
   return DEFAULT_FILE_PATTERN_EXCLUDES.some((pattern) => pattern.test(name));
 }
+
+/**
+ * Heuristic: does this source look like a minified/generated bundle? Such files pack
+ * everything onto a few enormous lines, and their mangled `e`/`t` params masquerade as
+ * taint sources — a pure false-positive class. Detect by a very long single line.
+ */
+export function looksMinified(code: string): boolean {
+  if (code.length < 5000) return false;
+  let lineLen = 0;
+  for (let i = 0; i < code.length; i++) {
+    if (code[i] === "\n") { if (lineLen > 1000) return true; lineLen = 0; }
+    else lineLen++;
+  }
+  return lineLen > 1000;
+}

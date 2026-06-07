@@ -258,9 +258,14 @@ export async function runFullAudit(
       const secretsJson = scanSecrets(projectRoot, true, "json");
       const parsed = safeJsonParse(secretsJson);
       if (parsed) {
-        // Filter out gitignored secrets — they're local dev files, not a security risk
+        // Filter out gitignored secrets — they're local dev files, not a security risk —
+        // and secrets in test fixtures, which carry fake keys by design (e.g. a test PEM in
+        // a *.spec.ts crypto test). Mirrors the check path's file-security test-file skip.
+        const isTestSecretFile = (f: string) =>
+          /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.(?:ts|tsx|js|jsx|mjs|cjs)$|_test\.go$|\/__tests__\/|\/__mocks__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/dockertest\/|\/testutil\/|\/testhelpers?\/|\/testfixtures?\/|\/fixtures?\/)/i.test(f);
         const rawFindings = parsed.findings ?? [];
-        const actionableFindings = rawFindings.filter((f: Record<string, unknown>) => f.gitStatus !== "ignored");
+        const actionableFindings = rawFindings.filter((f: Record<string, unknown>) =>
+          f.gitStatus !== "ignored" && !isTestSecretFile((f.file ?? "") as string));
         const ignoredCount = rawFindings.length - actionableFindings.length;
 
         const actionableCritical = actionableFindings.filter((f: Record<string, unknown>) => f.severity === "critical").length;

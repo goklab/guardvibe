@@ -147,6 +147,35 @@ describe("taint analysis", () => {
     assert(findings.some(f => f.sink.type === "open-redirect"), "Protocol-relative // is an open redirect");
   });
 
+  it("detects SSRF when a tainted variable is the request URL", () => {
+    const code = ["const target = req.query.url;", "await fetch(target);"].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(findings.some(f => f.sink.type === "ssrf"), "tainted fetch URL should be SSRF");
+  });
+
+  it("detects SSRF for an external URL built from user input", () => {
+    const code = ["const host = req.query.host;", "await fetch(`https://${host}/data`);"].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(findings.some(f => f.sink.type === "ssrf"));
+  });
+
+  it("does NOT flag SSRF when only the POST body is tainted (URL is safe)", () => {
+    const code = ["const data = req.body;", 'await axios.post("https://api.internal/log", data);'].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(findings.every(f => f.sink.type !== "ssrf"), "tainted body is not SSRF — only the URL position counts");
+  });
+
+  it("does NOT flag SSRF for a same-origin root-relative fetch", () => {
+    const code = ["const id = req.params.id;", "await fetch(`/api/items/${id}`);"].join("\n");
+    const findings = analyzeTaint(code, "typescript");
+    assert(findings.every(f => f.sink.type !== "ssrf"), "relative URL stays same-origin");
+  });
+
+  it("does NOT flag SSRF for a fetch to a static literal URL", () => {
+    const findings = analyzeTaint('fetch("https://api.example.com/data");', "typescript");
+    assert(findings.every(f => f.sink.type !== "ssrf"));
+  });
+
   it("tracks taint through variable propagation", () => {
     const findings = analyzeTaint(taintPropagation, "typescript");
     assert(findings.length > 0, "Should track taint through propagation");

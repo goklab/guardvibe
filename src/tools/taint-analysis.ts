@@ -5,6 +5,7 @@
  */
 
 import { isRuleDefinitionFile } from "./check-code.js";
+import { looksMinified } from "../utils/constants.js";
 
 export interface TaintFinding {
   source: { type: string; line: number; variable: string };
@@ -99,6 +100,11 @@ function isSafeParameterizedSqlSink(lines: string[], sinkIdx: number): boolean {
     /\$\{\s*[\w$.]*(?:hash|sha\d*|md5|bcrypt|argon2?|hmac|digest|encode|escape|encodeURIComponent|toString|String|Number|parseInt|parseFloat)\b/i.test(s));
 }
 
+// Outbound-request calls whose FIRST argument is the URL. The capture group grabs the
+// first argument (up to the first top-level comma) so SSRF detection can scope to the URL
+// position only. Covers fetch, axios.*, got.*, http(s).get/request, superagent.*.
+const SSRF_CALL = /\b(?:fetch|axios(?:\.(?:get|post|put|delete|patch|head|request))?|got(?:\.(?:get|post|put|delete|patch|head))?|https?\.(?:get|request)|superagent\.(?:get|post|del|put))\s*\(\s*([^,)]+)/g;
+
 /**
  * A `redirect(...)` whose target is a root-relative, same-origin path
  * (e.g. redirect("/login") or redirect(`/${slug}/settings`)) cannot be an open
@@ -184,6 +190,9 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
   // code snippets in pattern regexes, fixCode strings, and exploit examples.
   if (isRuleDefinitionFile(code, filePath)) return [];
 
+  // Skip minified/generated bundles — mangled `e`/`t` params masquerade as taint sources.
+  if (looksMinified(code)) return [];
+
   const lines = code.split("\n");
   const findings: TaintFinding[] = [];
   const assignments = extractAssignments(lines);
@@ -251,6 +260,70 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
           });
         }
       }
+    }
+  }
+
+  // SSRF: a tainted value used as the HOST of the URL (FIRST argument) of an outbound
+  // request. Scoped to the first arg so a tainted POST *body* (axios.post(url, body)) is
+  // not a false positive, and to the host region so a tainted path/query on a FIXED host
+  // (`fetch(`${WEBAPP_URL}/api?${q}`)`) is not flagged — only an attacker-controlled host
+  // can reach internal services. Root-relative URLs stay same-origin and are excluded.
+  // Client components (browser fetch ≠ SSRF) and test files are skipped. This is far more
+  // precise than the VG120 regex, which flags any fetch(variable).
+  const isClientComponent = /^\s*['"]use client['"]/m.test(code.slice(0, 400));
+  const isTestPath = filePath ? /(?:\.(?:[\w-]+-)?(?:spec|test|e2e|stories|cy)\.[cm]?[jt]sx?$|_test\.go$|\/__tests__\/|\/__mocks__\/|\/tests?\/|\/cypress\/|\/playwright\/|\/fixtures?\/)/i.test(filePath) : false;
+  // SSRF-validated files (allowlist / private-IP block / SSRF-specific validators) are
+  // treated as protected — the user URL is checked before the request.
+  const hasSsrfGuard = /\b(?:validateUrlForSSRF|isTrustedInternalUrl|isAllowedUrl|assertSafeUrl|ssrfFilter|blockPrivateIp|isPublicUrl)\b/i.test(code);
+  const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!isClientComponent && !isTestPath && !hasSsrfGuard) for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    SSRF_CALL.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = SSRF_CALL.exec(line)) !== null) {
+      const urlArg = m[1].trim();
+      // Same-origin root-relative target (fetch("/api/x"), fetch(`/api/${id}`)) is not SSRF.
+      if (/^["'`]\/(?!\/)/.test(urlArg)) continue;
+      // Host region: strip a leading quote/backtick and scheme, then take up to the first
+      // path/query separator. Only a tainted value HERE (the host) is SSRF.
+      const stripped = urlArg.replace(/^[`'"]/, "");
+      const hasScheme = /^https?:\/\//i.test(stripped);
+      const host = stripped.replace(/^https?:\/\//i, "").split(/[/?#`'"]/)[0];
+
+      let srcType: string | null = null;
+      let srcVar = "(inline)";
+      let direct = false;
+      // Word-boundary match so a tainted `req` does not match the substring of `request`.
+      const tv = taintedVars.find(v => new RegExp(`\\b${escapeRe(v.name)}\\b`).test(host));
+      if (tv) {
+        srcType = tv.sourceType ?? "propagated";
+        srcVar = tv.name;
+        direct = srcType !== "propagated" && srcType !== "return-propagated";
+      }
+      if (!srcType) {
+        for (const source of TAINT_SOURCES) {
+          source.pattern.lastIndex = 0;
+          if (source.pattern.test(host)) { srcType = source.type; direct = true; break; }
+        }
+      }
+      if (!srcType) continue;
+      // A no-scheme host (bare var or `${x}/...`) is only SSRF when the value is the WHOLE
+      // user-controlled URL (a direct source) — a propagated var may be a relative/fixed
+      // path. A scheme-prefixed external URL with a tainted host is always SSRF.
+      if (!hasScheme && !direct) continue;
+      // `new URL(path, base)` resolves its host from the 2nd argument (base). When the var
+      // was built that way, the tainted part is only the path — the host is the fixed base.
+      if (tv && srcType === "url-input" && /new\s+URL\s*\([^;\n]*,/.test(lines[tv.line - 1] ?? "")) continue;
+
+      if (findings.some(f => f.sink.line === i + 1 && f.sink.type === "ssrf")) continue;
+      findings.push({
+        source: { type: srcType, line: tv ? tv.line : i + 1, variable: srcVar },
+        sink: { type: "ssrf", line: i + 1, code: line.trim().substring(0, 100) },
+        chain: [`[SOURCE] ${srcType} -> URL`, `[SINK] ssrf (line ${i + 1})`],
+        severity: "high",
+        description: "User input flows into the URL of a server-side request, enabling SSRF (internal services, cloud metadata at 169.254.169.254).",
+        fix: "Validate the URL against an allowlist of trusted hosts and block private/internal IP ranges before making the request.",
+      });
     }
   }
 

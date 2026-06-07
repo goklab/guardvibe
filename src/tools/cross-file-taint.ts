@@ -305,6 +305,8 @@ function extractFunctions(file: string, content: string): FunctionSignature[] {
   const functions: FunctionSignature[] = [];
   const lines = content.split("\n");
 
+  // guardvibe-ignore VG011 — these are function-detection regex literals (this file defines
+  // analysis patterns, not vulnerable code); the `WORD = /...\(/` shape self-matches VG011.
   const funcPattern = /(?:export\s+(?:default\s+)?)?(?:async\s+)?function\s+([\w$]+)\s*\(([^)]*)\)/;
   const arrowPattern = /(?:export\s+)?(?:const|let|var)\s+([\w$]+)\s*=\s*(?:async\s+)?(?:\(([^)]*)\)\s*=>|\([^)]*\)\s*:\s*\w+\s*=>|function\s*\(([^)]*)\))/;
 
@@ -363,6 +365,10 @@ const SINK_PATTERNS = [
   { pattern: /new\s+Function\s*\(/g, type: "code-injection" },
   { pattern: /writeFileSync?\s*\(/g, type: "path-traversal" },
   { pattern: /readFileSync?\s*\(/g, type: "path-traversal" },
+  // Bare child_process exec()/execSync() (shell-invoking). Lookbehind excludes method
+  // calls like regex.exec()/db.execSync(). Mirrors the per-file taint sink so cross-file
+  // command injection (input flows through an imported helper into exec) is caught too.
+  { pattern: /(?<!\.)\bexec(?:Sync)?\s*\(/g, type: "command-injection" },
 ];
 
 // Patterns that break the taint chain (validation/sanitization)
@@ -699,7 +705,7 @@ function extractCallArgs(line: string, funcName: string): string[] {
 }
 
 function deriveSeverity(sinkType: string): "critical" | "high" | "medium" {
-  if (sinkType === "code-injection" || sinkType === "sql-injection") return "critical";
+  if (sinkType === "code-injection" || sinkType === "sql-injection" || sinkType === "command-injection") return "critical";
   if (sinkType === "xss" || sinkType === "path-traversal") return "high";
   return "medium";
 }
@@ -709,6 +715,7 @@ function getSinkFix(sinkType: string): string {
   const fixes: Record<string, string> = {
     "sql-injection": "Use parameterized queries instead of string interpolation.",
     "code-injection": "Never pass user input to eval() or Function constructor.",
+    "command-injection": "Use execFile()/spawn() with an argument array (no shell) and validate input against an allowlist.",
     "xss": "Use textContent instead of innerHTML, or sanitize with DOMPurify.",
     "open-redirect": "Validate redirect URLs against a trusted domain allowlist.",
     "path-traversal": "Validate file paths with path.resolve() and check they stay within allowed directories.",

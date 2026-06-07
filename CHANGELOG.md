@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.39] - 2026-06-07
+
+### Added — SSRF taint detection + taint-engine precision (no rule-count change, 438 / 36)
+- **SSRF taint sink** — user input flowing into the URL of an outbound request (fetch/axios/got/http.request) is now detected on the check path and in the audit. It is **host-position-aware**: only a tainted host is flagged, so a tainted path/query on a fixed host (`fetch(`${BASE}/api?${q}`)`), a tainted POST body, a same-origin relative URL, or a `new URL(path, base)` with a fixed base are NOT false-positived. Client components, test files, and SSRF-validated code are skipped. Validated against the corpus: 1 hit, a real SSRF, with zero false positives — far more precise than a plain `fetch(variable)` regex.
+- **Minified/generated bundles are skipped for taint** (shared `looksMinified` heuristic), removing a false-positive class where mangled `e`/`t` parameters in bundles masquerade as taint sources.
+- **Cross-file taint** now also detects command injection (`exec`/`execSync` via an imported helper), matching the per-file analyzer.
+- The audit's secret section now skips test fixtures (matching the check path), so fake keys in `*.spec`/test files no longer surface as findings.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.1.38] - 2026-06-07
 
 ### Fixed — false-positive precision, verified one rule at a time (no rule-count change, 438 / 36)
