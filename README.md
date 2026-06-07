@@ -150,7 +150,8 @@ npx guardvibe hook uninstall # Remove hook
 ### CI/CD (GitHub Actions)
 
 ```bash
-npx guardvibe ci github      # Generates .github/workflows/guardvibe.yml
+npx guardvibe ci github          # Generates .github/workflows/guardvibe.yml (SARIF scan)
+npx guardvibe ci github --pr     # + a diff-aware PR review workflow that posts inline comments
 ```
 
 ## What GuardVibe Scans

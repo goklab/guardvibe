@@ -43,7 +43,7 @@ function printUsage(): void {
     npx guardvibe init <platform>    Setup MCP server configuration
     npx guardvibe hook install       Install pre-commit security hook
     npx guardvibe hook uninstall     Remove pre-commit security hook
-    npx guardvibe ci github          Generate GitHub Actions workflow
+    npx guardvibe ci github [--pr]   Generate GitHub Actions workflow (--pr: diff-aware PR review with inline comments)
 
   Scan CLI (used by pre-commit hook and CI):
     npx guardvibe-scan               Scan git-staged files

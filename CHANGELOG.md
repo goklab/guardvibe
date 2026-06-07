@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.13.0] - 2026-06-07
+
+### Added — Season 3 S3-3: PR-native, author-independent review (441 rules / 37 tools)
+- **`guardvibe ci github --pr`** generates a `.github/workflows/guardvibe-pr-review.yml` that, on every pull request, runs a **diff-aware** scan (only the issues the PR newly introduced) and posts them as **inline review comments** on the exact file + line — the moat made visible where AI-written code lands: whole-repo aware, independent of the author, in the loop.
+- Uses `actions/github-script` to create the PR review (no extra runtime dependency), with `pull-requests: write` and a graceful fallback to a summary comment if inline review can't be posted. Pinned + auto-upgraded like the existing scan workflow.
+- Completes Season 3 (S3-1 autonomous/prioritized intel, S3-2 proof-carrying fixes, S3-3 PR-native review). New exported `buildGithubPrReviewWorkflow`; 6 tests. No rule or tool changes (441 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.12.0] - 2026-06-07
 
 ### Added — Season 3 S3-2: proof-carrying fixes (441 rules / 37 tools)
