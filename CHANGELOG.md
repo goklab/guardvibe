@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.0] - 2026-06-07
+
+### Added — Season 3 S3-1: autonomous, prioritized threat intel (441 rules / 37 tools)
+- **`npm run intel --scaffold`** now drafts a review-ready `cve-versions.ts` rule object **and** a version-range test stub for each uncovered advisory — turning "here's a gap" into "here's a rule + test to review." Drafts are printed only; nothing is auto-committed (the standing rule: never auto-commit untested rules).
+- **CISA KEV prioritization:** the intel gap report cross-references the CISA Known-Exploited-Vulnerabilities catalog and surfaces actively-exploited CVEs first (🔥 marker), so what's being exploited in the wild — past your model's training cutoff — rises to the top. Degrades gracefully if the catalog is unreachable.
+- New tested module `src/lib/cve-scaffold.ts`: `versionRangeRegex(introduced, fixed)` generalizes the hand-rolled 0-FP semver→regex work (single version / patch-range / minor-range / from-zero), and `scaffoldCveRule` emits the rule + test. Exact/`=` pins by default (a caret/tilde that resolves to the fix is left for the reviewer). The intel report (and `--json`) now also carries each gap's package + affected/fixed range + `kev` flag.
+- No rule or tool changes (441 / 37) — this drafts rules; humans + the gate still decide.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.9.0] - 2026-06-07
 
 ### Changed — diff-aware is now the default across every gating surface (441 rules / 37 tools)

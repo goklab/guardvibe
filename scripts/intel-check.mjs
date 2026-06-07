@@ -29,8 +29,32 @@ const RULES_DIR = join(ROOT, "src", "data", "rules");
 
 const args = process.argv.slice(2);
 const jsonOut = args.includes("--json");
+const scaffoldOut = args.includes("--scaffold");
 const sinceDays = args.includes("--since") ? Number(args[args.indexOf("--since") + 1]) : null;
 const perPage = 100;
+
+/** Best-effort fetch of the CISA Known-Exploited-Vulnerabilities catalog (CVE ids). */
+async function fetchKevSet() {
+  try {
+    const res = await fetch("https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json", {
+      headers: { "User-Agent": "guardvibe-intel-check" },
+    });
+    if (!res.ok) return new Set();
+    const data = await res.json();
+    return new Set((data.vulnerabilities || []).map(v => (v.cveID || "").toUpperCase()).filter(Boolean));
+  } catch {
+    return new Set(); // KEV unavailable — degrade gracefully
+  }
+}
+
+/** Pull (introduced, fixed) for the primary affected package from an advisory. */
+function rangeOf(advisory) {
+  const v = (advisory.vulnerabilities || []).find(x => x.package?.name) || {};
+  const range = v.vulnerable_version_range || "";
+  const fixed = v.first_patched_version?.identifier || (range.match(/<\s*([\d.]+)/) || [])[1] || "";
+  const introduced = (range.match(/>=?\s*([\d.]+)/) || [])[1] || "0";
+  return { pkg: v.package?.name || null, introduced, fixed };
+}
 
 /** Build the coverage set from every rule source file. */
 function buildCoverage() {
@@ -77,6 +101,8 @@ const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
     process.exit(2);
   }
 
+  const kevSet = await fetchKevSet();
+
   const gaps = [];
   for (const a of advisories) {
     if (!withinSince(a.published_at)) continue;
@@ -91,16 +117,30 @@ const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
     const coveredByPkg = pkgs.some(p => cov.packages.has(p));
     if (coveredById || coveredByPkg) continue;
 
+    const { pkg, introduced, fixed } = rangeOf(a);
     gaps.push({
       ghsa, cve: cve || null, severity: sev,
+      kev: !!(cve && kevSet.has(cve)),
       packages: pkgs,
+      pkg, introduced, fixed,
       published: a.published_at?.slice(0, 10),
       summary: (a.summary || "").slice(0, 120),
       url: a.html_url,
     });
   }
 
-  gaps.sort((x, y) => (SEV_RANK[x.severity] - SEV_RANK[y.severity]) || (y.published || "").localeCompare(x.published || ""));
+  // KEV (actively exploited) first, then by severity, then by recency.
+  gaps.sort((x, y) =>
+    (Number(y.kev) - Number(x.kev)) ||
+    (SEV_RANK[x.severity] - SEV_RANK[y.severity]) ||
+    (y.published || "").localeCompare(x.published || ""));
+
+  // Optional: emit review-ready rule scaffolds (drafts — never auto-committed).
+  let scaffold = null;
+  if (scaffoldOut) {
+    try { ({ scaffoldCveRule: scaffold } = await import(new URL("../build/lib/cve-scaffold.js", import.meta.url))); }
+    catch { console.error("intel-check: run `npm run build` before --scaffold (needs build/lib/cve-scaffold.js)"); process.exit(2); }
+  }
 
   if (jsonOut) {
     console.log(JSON.stringify({
@@ -119,12 +159,28 @@ const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
     console.log("🟢 No uncovered high/critical npm advisories in the window. Coverage is current.");
     return;
   }
+  const kevCount = gaps.filter(g => g.kev).length;
+  if (kevCount > 0) console.log(`🔥 ${kevCount} of these are in the CISA KEV catalog (actively exploited) — fix first.\n`);
+
   for (const g of gaps) {
-    console.log(`[${g.severity.toUpperCase()}] ${g.ghsa}${g.cve ? " / " + g.cve : ""}  (${g.published})`);
+    const kevTag = g.kev ? "🔥 KEV " : "";
+    console.log(`${kevTag}[${g.severity.toUpperCase()}] ${g.ghsa}${g.cve ? " / " + g.cve : ""}  (${g.published})`);
     console.log(`   pkgs: ${g.packages.join(", ") || "?"}`);
     console.log(`   ${g.summary}`);
     console.log(`   ${g.url}`);
+    if (scaffold && g.pkg && g.fixed) {
+      const { rule, test } = scaffold({
+        ruleId: "VGXXXX", pkg: g.pkg, introduced: g.introduced, fixed: g.fixed,
+        cve: g.cve || undefined, ghsa: g.ghsa || undefined, severity: g.severity, summary: g.summary,
+      });
+      console.log("   --- draft rule (review + assign a VG id, then validate) ---");
+      console.log(rule.replace(/^/gm, "   "));
+      console.log("   --- draft test ---");
+      console.log(test.replace(/^/gm, "   "));
+    }
     console.log("");
   }
-  console.log("Next: triage each gap, write a rule (cve-versions.ts / supply-chain.ts) + test, then `npm run gate`.");
+  console.log(scaffoldOut
+    ? "Next: review each draft, assign a real VG id, run TDD + `npm run gate` before committing. Drafts are NOT auto-applied."
+    : "Next: triage each gap, write a rule (cve-versions.ts / supply-chain.ts) + test, then `npm run gate`. (`--scaffold` drafts rules for you.)");
 })();
