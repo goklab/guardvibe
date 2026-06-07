@@ -5,6 +5,18 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-06-07
+
+### Added — `secure_this`: close the loop from "warns" to "guarantees the fix landed" (438 rules / 37 tools)
+- **New tool `secure_this`** (MCP + CLI `guardvibe secure-this <file>`). It scans a file, applies only the auto-fixes that **verifiably land**, and re-verifies — converting GuardVibe from a tool that *reports* findings into one that *guarantees the fix landed*.
+- **Verify-and-rollback loop:** every candidate edit from `fix_code` is applied to a copy and re-scanned; the edit is kept only if it (1) strictly reduces the finding set and (2) introduces no new finding. Any edit that fails either check is rolled back. The loop repeats until no further verified fix is available.
+- **Definition-of-done gate:** the result carries `definitionOfDone.passed` — the agent must pass it before claiming a task complete. `status` is `clean` / `secured` / `partial` / `no_autofix`; `applied[]` lists verified fixes, `remaining[]` lists findings that need a manual fix (with guidance).
+- **Deterministic:** same code in → same code out (fixes applied in a fixed line/rule order; verified by the deterministic `analyzeFileSecurity`).
+- **CLI:** `secure-this <file>` is dry-run by default (shows what would land + remaining manual work); `--write` applies only the verified fixes to disk; `--format json` for agents. Exit code gates a pre-commit hook / CI step (1 while real findings remain).
+- Tool count 36 → 37. No rule changes (438).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.1.42] - 2026-06-07
 
 ### Fixed — MCP registry description length (no rule-count change, 438 / 36)

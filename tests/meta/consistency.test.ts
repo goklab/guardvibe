@@ -62,7 +62,7 @@ describe("metadata consistency", () => {
     }
   });
 
-  it("tool count string (36) is identical across all public surfaces", () => {
+  it("tool count string is identical across all public surfaces", () => {
     const surfaces = ["package.json", "server.json", "CLAUDE.md", "README.md"];
     const counts = new Set<string>();
     for (const f of surfaces) {

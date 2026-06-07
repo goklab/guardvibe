@@ -44,6 +44,7 @@ import { doctor } from "./tools/doctor.js";
 import { formatHostFindings, redactSecrets } from "./server/types.js";
 import { verifyFix } from "./tools/verify-fix.js";
 import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js";
+import { secureThis } from "./tools/secure-this.js";
 import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
 import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
 import { runFullAudit, formatAuditResult } from "./tools/full-audit.js";
@@ -383,6 +384,28 @@ server.tool(
     return {
       content: [{ type: "text", text: results }],
     };
+  }
+);
+
+// Tool 37: secure_this — close the loop (scan → apply verified fix → re-verify)
+server.tool(
+  "secure_this",
+  "Close the loop on vulnerabilities in code: scan, apply only the fixes that VERIFIABLY land (each candidate edit is re-scanned and rolled back if it fails to resolve the issue or introduces a new one), and return the verified code plus a definition-of-done gate. Prefer this over fix_code+verify_fix when you want a guarantee the fix landed — not just a suggestion. Returns { status: clean|secured|partial|no_autofix, fixedCode, applied[], remaining[], definitionOfDone:{passed,message} }. Write fixedCode to disk, then require definitionOfDone.passed before claiming the task complete; anything in remaining[] needs a manual fix. Example: secure_this({code: '...', language: 'typescript'})",
+  {
+    code: z.string().describe("The code to scan and secure"),
+    language: z
+      .enum(["javascript", "typescript", "python", "go", "dockerfile", "html", "sql", "shell", "yaml", "terraform", "firestore"])
+      .describe("Programming language of the code"),
+    framework: z.string().optional().describe("Framework context (e.g. express, nextjs, react)"),
+    filePath: z.string().optional().describe("File path for context-aware analysis (the file is NOT written; apply fixedCode yourself)"),
+  },
+  async ({ code, language, framework, filePath }) => {
+    const rules = getRules();
+    const result = secureThis(code, language, { framework, filePath, rules });
+    if (result.applied.length > 0) {
+      try { recordFix(process.cwd(), result.applied.length); } catch { /* stats best-effort */ }
+    }
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 );
 

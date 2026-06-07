@@ -35,6 +35,7 @@ function printUsage(): void {
     npx guardvibe audit [path]       Full security audit with PASS/FAIL verdict
     npx guardvibe explain <ruleId>   Get detailed remediation guidance for a rule
     npx guardvibe fix <file>         Get security fix suggestions for a file
+    npx guardvibe secure-this <file> Scan, apply verified fixes, re-verify (--write to apply)
     npx guardvibe check-cmd "<cmd>"  Check if a shell command is safe to execute
     npx guardvibe auth-coverage [path]  Auth coverage analysis (Next.js routes)
     npx guardvibe compliance [path]     Compliance report (--framework SOC2|GDPR|...)
@@ -147,6 +148,9 @@ async function main(): Promise<void> {
   } else if (command === "fix") {
     const { runFix } = await import("./cli/fix.js");
     await runFix(subArgs);
+  } else if (command === "secure-this" || command === "secure_this") {
+    const { runSecureThis } = await import("./cli/secure-this.js");
+    await runSecureThis(subArgs);
   } else if (command === "check-cmd") {
     const { runCheckCmd } = await import("./cli/check-cmd.js");
     await runCheckCmd(subArgs);

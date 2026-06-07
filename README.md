@@ -14,7 +14,7 @@
 - **🗺️ Sees the whole repo.** Cross-file taint + auth-coverage across every route — catches the unprotected endpoint your agent's narrow context missed.
 - **🔍 An independent second pair of eyes.** The thing that wrote the code can't review itself. GuardVibe is the outside checker on AI-written code — in the loop *while* your AI codes (real-time edit hook), not after.
 
-**The security MCP built for vibe coding.** 438 security rules, 36 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 438 security rules, 37 tools covering the entire AI-generated code journey — from first line to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -26,7 +26,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **438 security rules, 36 tools** purpose-built for the stacks AI agents generate
+- **438 security rules, 37 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -211,7 +211,7 @@ Maps security findings to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, and EU AI Act (E
 ### Supply Chain
 Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `--ignore-scripts` hardening (VG1070), typosquat detection, `node-ipc` protestware versions (VG1069), Miasma `@redhat-cloud-services` namespace compromise IOC (VG1074, RHSB-2026-006), Session messenger exfil endpoint IOC (VG1075, `filev2.getsession.org`), `@tanstack/*` Mini Shai-Hulud mass-malware versions (May 2026), `@wdio/browserstack-service` command injection via git branch names (CVE-2026-25244), lockfile poisoning patterns
 
-## Tools (36 MCP tools)
+## Tools (37 MCP tools)
 
 | Tool | What it does |
 |------|-------------|
@@ -227,6 +227,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 | `export_sarif` | SARIF v2.1.0 export for CI/CD integration |
 | `get_security_docs` | Security best practices and guides |
 | `fix_code` | **Auto-fix suggestions** with concrete patches for AI agents |
+| `secure_this` | **Close the loop** — scan, apply only the fixes that verifiably land (each re-scanned, rolled back on regression), return the verified code + a definition-of-done gate |
 | `audit_config` | Audit project configuration files for cross-file security misconfigurations |
 | `generate_policy` | Detect project stack and generate tailored security policies (CSP, CORS, RLS) |
 | `review_pr` | Review PR diff for security issues with severity gating |
@@ -292,6 +293,11 @@ npx guardvibe scan [path]            # Scan a directory for security issues
 npx guardvibe scan . --format json   # JSON output for automation
 npx guardvibe check <file>           # Scan a single file
 npx guardvibe diff [base]            # Scan only changed files since git ref
+
+# Close the loop — scan, apply verified fixes, re-verify
+npx guardvibe secure-this <file>          # Dry run: show the fixes that would land + remaining manual work
+npx guardvibe secure-this <file> --write  # Apply only the fixes that re-verify clean (rolled back on regression)
+npx guardvibe secure-this <file> --format json
 
 # Full security audit
 npx guardvibe audit [path]           # Full audit with PASS/FAIL verdict + hash
