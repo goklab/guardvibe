@@ -145,7 +145,7 @@ export const nextjsRules: SecurityRule[] = [
     description:
       "redirect() or NextResponse.redirect() uses user-controlled input (searchParams, query) which can redirect users to malicious sites.",
     pattern:
-      /(?:redirect|NextResponse\.redirect|res\.redirect|Response\.redirect)\s*\(\s*(?:searchParams|params|req\.query|request\.url|url|query|returnTo|callbackUrl|next|goto|returnUrl|redirectUrl|destination)\b/gi,
+      /(?:(?:redirect|NextResponse\.redirect|res\.redirect|Response\.redirect)\s*\(\s*(?:searchParams|params|req\.query|request\.url|url|query|returnTo|callbackUrl|next|goto|returnUrl|redirectUrl|destination)\b|(?:res|reply)\.setHeader\s*\(\s*['"][Ll]ocation['"]\s*,\s*(?:req\.|request\.|searchParams|params\b|url\b|query\b|returnTo|callbackUrl|returnUrl|redirectUrl|destination))/gi,
     languages: ["javascript", "typescript"],
     fix: "Validate redirect URLs against an allowlist of trusted domains.",
     fixCode:

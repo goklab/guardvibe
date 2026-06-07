@@ -202,4 +202,49 @@ export const webSecurityRules: SecurityRule[] = [
       '// Set nosniff header for uploaded file responses\nres.setHeader("X-Content-Type-Options", "nosniff");\nres.setHeader("Content-Disposition", "attachment"); // force download for unknown types\nres.sendFile(filePath);',
     compliance: ["SOC2:CC6.1"],
   },
+  {
+    id: "VG1080",
+    name: "DOM XSS via document.write()",
+    severity: "high",
+    owasp: "A03:2025 Injection",
+    description:
+      "document.write()/document.writeln() called with user-controlled or concatenated/interpolated content. document.write parses its argument as HTML, so attacker-influenced input (location, query params, cookies, window.name) leads to DOM-based cross-site scripting.",
+    pattern:
+      /document\.write(?:ln)?\s*\(\s*(?:[^)]*?(?:location|document\.(?:URL|cookie|referrer)|searchParams|req\.|request\.|params\.|query\.|window\.name|\binput\b)|`[^`]*\$\{|["'][^"']*["']\s*\+)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Never build HTML with document.write from untrusted input. Use safe DOM APIs (textContent, createElement) or sanitize with DOMPurify before inserting.",
+    fixCode:
+      "// BAD: document.write('<div>' + location.hash + '</div>')\n// GOOD:\nconst el = document.createElement('div');\nel.textContent = userValue; // auto-escaped\ncontainer.appendChild(el);",
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.7"],
+  },
+  {
+    id: "VG1081",
+    name: "Insecure Block Cipher Mode (ECB / deprecated createCipher)",
+    severity: "high",
+    owasp: "A02:2025 Cryptographic Failures",
+    description:
+      "AES/DES used in ECB mode (createCipheriv with an *-ecb algorithm), or the deprecated crypto.createCipher() which derives a key/IV insecurely. ECB encrypts identical plaintext blocks to identical ciphertext blocks, leaking structure; createCipher is password-derived and IV-less. Both are cryptographically broken for confidentiality.",
+    pattern:
+      /(?:createCipheriv\s*\(\s*["'][^"']*-ecb["']|createDecipheriv\s*\(\s*["'][^"']*-ecb["']|crypto\s*\.\s*createCipher\s*\(\s*["'])/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Use an authenticated mode: aes-256-gcm with a random 12-byte IV per message (crypto.randomBytes), or aes-256-cbc with a random IV and a separate MAC. Never use ECB; replace createCipher with createCipheriv.",
+    fixCode:
+      "// GOOD: AES-256-GCM with a random IV\nconst iv = crypto.randomBytes(12);\nconst cipher = crypto.createCipheriv('aes-256-gcm', key, iv);\nconst enc = Buffer.concat([cipher.update(data), cipher.final()]);\nconst tag = cipher.getAuthTag();",
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req3.5", "HIPAA:§164.312(a)(2)(iv)"],
+  },
+  {
+    id: "VG1082",
+    name: "Server-Side Template Injection (SSTI)",
+    severity: "critical",
+    owasp: "A03:2025 Injection",
+    description:
+      "A template engine compiles/renders a user-controlled template SOURCE (not just user data bound into a fixed template). Handlebars.compile, ejs.render/compile, pug, nunjucks.renderString, or lodash _.template on attacker-influenced input allows server-side template injection — often a path to remote code execution.",
+    pattern:
+      /(?:Handlebars\.compile|ejs\.(?:render|compile)|pug\.(?:compile|render)|nunjucks\.(?:renderString|compile)|_\.template|lodash\.template|dot\.template)\s*\(\s*(?:[^,)]*?(?:req\.|request\.|\bbody\b|\bparams\b|\bquery\b|userInput|\binput\b)|`[^`]*\$\{|[^,)]*\+)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Never compile a template from user input. Keep template sources static/server-owned and pass user values only as DATA to a precompiled template. If user-authored templates are required, use a sandboxed engine with no access to globals.",
+    fixCode:
+      "// BAD: ejs.render(req.body.template, data)\n// GOOD: fixed template, user value as data only\nconst tpl = ejs.compile(STATIC_TEMPLATE);\nres.send(tpl({ name: req.body.name }));",
+    compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1"],
+  },
 ];

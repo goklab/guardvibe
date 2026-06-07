@@ -1253,3 +1253,77 @@ describe("E2E-sim FP narrows (v3.1.33)", () => {
     assert(findings.some(f => f.rule.id === "VG424"));
   });
 });
+
+describe("Recall improvements (v3.1.34)", () => {
+  const has = (code: string, id: string, lang = "javascript") =>
+    analyzeCode(code, lang).some(f => f.rule.id === id);
+
+  // VG010 — embedded-quote concat (the canonical SQLi style) + Sequelize.literal
+  it("VG010 catches concat SQLi where the string embeds a quote to wrap the value", () => {
+    assert(has(`db.query("SELECT * FROM users WHERE name = '" + name + "'", cb);`, "VG010"));
+  });
+  it("VG010 catches Sequelize literal() raw fragment concat", () => {
+    assert(has(`User.findAll({ where: literal("role = '" + role + "'") });`, "VG010"));
+  });
+  it("VG010 does NOT flag a fully parameterized query", () => {
+    assert(!has(`db.query("SELECT * FROM users WHERE id = $1", [id]);`, "VG010"));
+  });
+
+  // VG014 — vm sinks
+  it("VG014 catches vm.runInNewContext on user input", () => {
+    assert(has(`vm.runInNewContext(req.body.code);`, "VG014"));
+  });
+
+  // VG070 — node-serialize unserialize
+  it("VG070 catches node-serialize unserialize()", () => {
+    assert(has(`serialize.unserialize(req.body.data);`, "VG070"));
+  });
+
+  // VG103 — user-controlled bracket assignment (prototype pollution / object injection)
+  it("VG103 catches obj[req.body.key] = value", () => {
+    assert(has(`const o = {}; o[req.body.key] = req.body.value;`, "VG103"));
+  });
+  it("VG103 catches lodash _.set with user path", () => {
+    assert(has(`_.set(target, req.body.path, value);`, "VG103"));
+  });
+
+  // VG102 — sendFile path traversal
+  it("VG102 catches res.sendFile with user input", () => {
+    assert(has(`res.sendFile(__dirname + "/" + req.query.file);`, "VG102"));
+  });
+
+  // VG409 — open redirect via Location header
+  it("VG409 catches res.setHeader('Location', userInput)", () => {
+    assert(has(`res.setHeader("Location", req.query.url); res.statusCode = 302;`, "VG409"));
+  });
+
+  // VG1080 — document.write XSS
+  it("VG1080 catches document.write with user input / concat", () => {
+    assert(has(`document.write("<div>" + location.hash + "</div>");`, "VG1080"));
+  });
+  it("VG1080 does NOT flag a static document.write", () => {
+    assert(!has(`document.write("<p>loading…</p>");`, "VG1080"));
+  });
+
+  // VG1081 — insecure block cipher mode (ECB / createCipher)
+  it("VG1081 catches aes-256-ecb", () => {
+    assert(has(`const c = crypto.createCipheriv("aes-256-ecb", key, null);`, "VG1081"));
+  });
+  it("VG1081 catches deprecated crypto.createCipher", () => {
+    assert(has(`const c = crypto.createCipher("aes-256-cbc", password);`, "VG1081"));
+  });
+  it("VG1081 does NOT flag aes-256-gcm (authenticated mode)", () => {
+    assert(!has(`const c = crypto.createCipheriv("aes-256-gcm", key, iv);`, "VG1081"));
+  });
+
+  // VG1082 — SSTI
+  it("VG1082 catches ejs.render of a user-controlled template", () => {
+    assert(has(`res.send(ejs.render(req.body.template, {}));`, "VG1082"));
+  });
+  it("VG1082 catches Handlebars.compile of user input", () => {
+    assert(has(`const t = Handlebars.compile(req.body.tpl);`, "VG1082"));
+  });
+  it("VG1082 does NOT flag rendering a static template with user data", () => {
+    assert(!has(`const t = ejs.compile(STATIC_TEMPLATE); res.send(t({ name: req.body.name }));`, "VG1082"));
+  });
+});

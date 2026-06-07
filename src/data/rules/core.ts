@@ -66,7 +66,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "String concatenation, template literals, or f-strings used in SQL queries — whether inline in the DB call or assembled in a variable/return first. This allows SQL injection attacks.",
     pattern:
-      /(?:query|execute|raw|sql|all|run|get|exec|prepare|QueryRow|QueryContext)\s*\(\s*(?:`[^`]*\$\{|['"][^'"]*['"]\s*\+\s*|f"[^"]*\{|f'[^']*\{|['"][^'"]*['"]\s*%\s*|['"][^'"]*['"]\s*\.format\s*\(|['"][^'"]*['"]\s*,\s*(?:req\.|request\.|params\.|body\.|args))|(?:=|return)\s*(?:`\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^`]*\b(?:FROM|INTO|SET|WHERE|VALUES)\b[^`]*\$\{|['"]\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n]*?\b(?:FROM|INTO|SET|WHERE|VALUES)\b[^\n]*?['"]\s*\+\s*\w)/gi,
+      /(?:query|execute|raw|sql|all|run|get|exec|prepare|literal|QueryRow|QueryContext)\s*\(\s*(?:`[^`]*\$\{|(?:"[^"]*"|'[^']*')\s*\+\s*|f"[^"]*\{|f'[^']*\{|['"][^'"]*['"]\s*%\s*|['"][^'"]*['"]\s*\.format\s*\(|['"][^'"]*['"]\s*,\s*(?:req\.|request\.|params\.|body\.|args))|(?:=|return)\s*(?:`\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^`]*\b(?:FROM|INTO|SET|WHERE|VALUES)\b[^`]*\$\{|['"]\s*(?:SELECT|INSERT|UPDATE|DELETE)\b[^\n]*?\b(?:FROM|INTO|SET|WHERE|VALUES)\b[^\n]*?['"]\s*\+\s*\w)/gi,
     languages: ["javascript", "typescript", "python", "go"],
     fix: "Use parameterized queries: db.query('SELECT * FROM users WHERE id = $1', [userId]). Python: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,)). Never concatenate user input into SQL strings.",
     fixCode: "// Use parameterized queries\ndb.query('SELECT * FROM users WHERE id = $1', [userId]);\n// Python: cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))",
@@ -134,7 +134,7 @@ export const coreRules: SecurityRule[] = [
     owasp: "A02:2025 Injection",
     description:
       "Dynamic code execution function detected. This can run arbitrary code and is a major security risk.",
-    pattern: /(?:\beval\s*\(|new\s+Function\s*\()/gi,
+    pattern: /(?:\beval\s*\(|new\s+Function\s*\(|\bvm\s*\.\s*(?:runInNewContext|runInContext|runInThisContext|compileFunction)\s*\(|new\s+vm\s*\.\s*Script\s*\()/gi,
     languages: ["javascript", "typescript", "python"],
     fix: "Avoid dynamic code execution. Use JSON.parse() for JSON data. Use a sandboxed environment if absolutely required.",
     fixCode: "// Use JSON.parse for data\nconst data = JSON.parse(input);\n// Alternatives: use a proper parser for your data format\n// const fn = new " + "Function('x', 'return x * 2'); // only if absolutely needed",
@@ -254,7 +254,7 @@ export const coreRules: SecurityRule[] = [
     owasp: "A08:2025 Data Integrity Failures",
     description:
       "Deserializing untrusted data can lead to remote code execution.",
-    pattern: /(?:JSON\.parse\s*\(\s*(?:req\.|request\.|body)|pickle\.loads?\s*\(|yaml\.(?:load|unsafe_load)\s*\()/gi,
+    pattern: /(?:JSON\.parse\s*\(\s*(?:req\.|request\.|body)|pickle\.loads?\s*\(|yaml\.(?:load|unsafe_load)\s*\(|\bunserialize\s*\(|\bfuncster\s*\.|\bcryo\s*\.\s*parse\s*\()/gi,
     languages: ["javascript", "typescript", "python"],
     fix: "Validate all deserialized data with a schema (zod, joi) before processing.",
     fixCode: "// Validate with schema after parsing\nimport { z } from 'zod';\nconst schema = z.object({ name: z.string() });\nconst data = schema.parse(JSON.parse(req.body));",
@@ -321,7 +321,7 @@ export const coreRules: SecurityRule[] = [
     owasp: "A01:2025 Broken Access Control",
     description: "User input used in file paths without sanitization.",
     pattern:
-      /(?:readFile|readFileSync|createReadStream|open|path\.join|path\.resolve)\s*\([^)]*(?:req\.|request\.|params\.|body\.|query\.)/gi,
+      /(?:readFile|readFileSync|createReadStream|open|sendFile|download|path\.join|path\.resolve)\s*\([^)]*(?:req\.|request\.|params\.|body\.|query\.)/gi,
     languages: ["javascript", "typescript", "python", "go"],
     fix: "Sanitize file paths: remove ../ sequences, verify the result is within the expected directory.",
     fixCode: "import path from 'path';\nconst safePath = path.resolve('/uploads', filename);\nif (!safePath.startsWith('/uploads/')) throw new Error('Invalid path');",
@@ -335,7 +335,7 @@ export const coreRules: SecurityRule[] = [
     description:
       "Deep merge or object assignment from user input can lead to prototype pollution.",
     pattern:
-      /(?:Object\.assign|\bmerge\b|deepMerge|\bextend\b)\s*\([^)]*(?:req\.|request\.|\bbody\b|\bparams\b)/gi,
+      /(?:(?:Object\.assign|\bmerge\b|deepMerge|\bextend\b|(?:_|lodash)\.set(?:With)?|objectPath\.set|dotProp\.set)\s*\([^)]*(?:req\.|request\.|\bbody\b|\bparams\b)|\[\s*(?:req|request)\.(?:body|params|query)\.[\w.]+\s*\]\s*=(?!=))/gi,
     languages: ["javascript", "typescript"],
     fix: "Use Object.create(null) for lookup objects. Validate that keys don't include __proto__, constructor, or prototype.",
     fixCode: "// Use Object.create(null) for lookups\nconst lookup = Object.create(null);\n// Validate keys\nconst forbidden = ['__proto__', 'constructor', 'prototype'];\nif (forbidden.includes(key)) throw new Error('Invalid key');",

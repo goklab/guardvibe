@@ -5,6 +5,22 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.34] - 2026-06-07
+
+### Added — recall (false-negative) improvements (433 → 436 rules, 36 tools)
+Surfaced by a recall battery of canonical vulnerable snippets; each gap was reproduced, fixed, and given positive + negative tests. A ReDoS regression guard for all rule patterns (`tests/meta/redos.test.ts`) was added and caught a polynomial backtrack in one of these very changes before release.
+- **VG010** now catches the most common concat-SQLi style where the SQL string embeds a quote to wrap the value (`"... name = '" + name + "'"`), and Sequelize `literal()` raw fragments.
+- **VG014** extended to `vm.runInNewContext`/`runInContext`/`runInThisContext`/`compileFunction` and `new vm.Script`.
+- **VG070** extended to `unserialize()` (node-serialize), funcster, cryo.
+- **VG103** extended to user-controlled bracket assignment (`obj[req.body.key] = …`) and lodash `_.set`/`objectPath.set`.
+- **VG102** extended to `res.sendFile`/`res.download` path traversal.
+- **VG409** extended to open redirect via `res.setHeader("Location", userInput)`.
+- **VG1080** (new) DOM XSS via `document.write()`/`writeln()` with user input.
+- **VG1081** (new) insecure block cipher mode — AES/DES ECB and the deprecated `crypto.createCipher`.
+- **VG1082** (new) server-side template injection — `Handlebars.compile`/`ejs.render`/`pug`/`nunjucks`/lodash `_.template` on user-controlled template source.
+
+Self-audit PASS / A / 0, gate green, determinism preserved across the corpus.
+
 ## [3.1.33] - 2026-06-07
 
 ### Fixed — false-positive precision (no rule-count change, stays 433 / 36)
