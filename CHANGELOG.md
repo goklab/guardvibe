@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-06-07
+
+### Fixed — auth-coverage no longer crashes on (and now understands) Clerk/Next.js middleware (441 rules / 37 tools)
+- **Crash fix:** the Next.js/Clerk catch-all `config.matcher` contains `]` inside character classes (e.g. `[^?]`), which truncated the old matcher parser and then made `matcherToRegex` throw "Unterminated character class" — so `auth_coverage` errored out on essentially every Clerk app. The matcher array is now parsed string-aware (brackets/commas/escapes inside a pattern are preserved) and matcher-to-regex never throws (it tries path-style and regex-style forms, skipping any it can't compile).
+- **Precision:** when the middleware uses Clerk's `createRouteMatcher([...])`, those patterns are used as the precise protected-route set (a sensitive route outside the list is correctly still reported unprotected) instead of the broad `config.matcher` run-scope.
+- **Fewer false negatives:** a recognizably non-auth middleware (next-intl / i18n / analytics) with a catch-all matcher no longer marks routes as protected. Default remains lenient for everything else, so custom auth middleware still counts.
+- New exported `parseProtectedRouteMatchers`; verified on the corpus (5 real middleware files, 0 crashes). No rule or tool changes (441 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.7.0] - 2026-06-07
 
 ### Added — 3 fresh CVE rules from daily intel (438 → 441 rules / 37 tools)

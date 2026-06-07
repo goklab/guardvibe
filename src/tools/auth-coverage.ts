@@ -107,39 +107,102 @@ export function enumerateRoutes(files: FileEntry[]): RouteInfo[] {
  * Parse Next.js middleware config.matcher from middleware file content.
  * Returns array of matcher patterns.
  */
-export function parseMiddlewareMatchers(content: string): string[] {
-  // Normalize literal escape sequences that AI assistants may pass
-  let normalized = content.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+function stripComments(content: string): string {
+  return content
+    .replace(/\\n/g, "\n").replace(/\\t/g, "\t")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+}
 
-  // Strip block + line comments before pulling the matcher array. Real-world
-  // middleware files carry JSDoc-style notes inline (dub's matcher block has
-  // four bullet points); split-on-comma was swallowing those bullets into the
-  // matcher list, breaking every downstream regex test.
-  normalized = normalized.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
-
-  const stringMatch = /matcher\s*:\s*"([^"]+)"/.exec(normalized);
-  if (stringMatch) return [stringMatch[1]];
-
-  const arrayMatch = /matcher\s*:\s*\[([^\]]+)\]/.exec(normalized);
-  if (arrayMatch) {
-    return arrayMatch[1]
-      .split(",")
-      .map(s => s.trim().replace(/^["']|["']$/g, ""))
-      .filter(Boolean);
+/** Inner text of the array starting at `[` at `openIdx`, scanning string-aware so
+ *  a `]` inside a string literal (e.g. the catch-all `[^?]`) doesn't end it early. */
+function bracketInner(s: string, openIdx: number): string | null {
+  let depth = 0;
+  for (let i = openIdx; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const q = ch; i++;
+      while (i < s.length && s[i] !== q) { if (s[i] === "\\") i++; i++; }
+    } else if (ch === "[") {
+      depth++;
+    } else if (ch === "]") {
+      depth--;
+      if (depth === 0) return s.slice(openIdx + 1, i);
+    }
   }
+  return null;
+}
+
+/** A matcher written in JS source escapes regex backslashes (`\\.`); collapse one
+ *  level so the extracted pattern is a usable regex (`\.`). */
+function unescapeMatcher(s: string): string {
+  return s.replace(/\\\\/g, "\\");
+}
+
+/** Every quoted string literal inside a region (handles `]`, `,`, escapes within). */
+function extractStringLiterals(region: string): string[] {
+  const out: string[] = [];
+  const re = /(["'`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(region)) !== null) out.push(unescapeMatcher(m[2]));
+  return out;
+}
+
+export function parseMiddlewareMatchers(content: string): string[] {
+  const normalized = stripComments(content);
+
+  // Array form: matcher: [ ... ] — bound the array string-aware so a catch-all
+  // pattern containing `]`/`,` (e.g. Clerk's `[^?]`) isn't truncated.
+  const arrM = /matcher\s*:\s*\[/.exec(normalized);
+  if (arrM) {
+    const openIdx = normalized.indexOf("[", arrM.index);
+    const inner = bracketInner(normalized, openIdx);
+    if (inner !== null) {
+      const lits = extractStringLiterals(inner);
+      if (lits.length) return lits;
+    }
+  }
+
+  // String form: matcher: "..."
+  const strM = /matcher\s*:\s*(["'`])((?:\\.|(?!\1).)*)\1/.exec(normalized);
+  if (strM) return [unescapeMatcher(strM[2])];
 
   return [];
 }
 
 /**
- * Convert a Next.js matcher pattern to a regex.
- * Handles :path* and :param patterns.
+ * Clerk-style protect lists: `createRouteMatcher([...])`. When present these are the
+ * precise routes the middleware enforces auth on — more accurate than config.matcher
+ * (which only says where the middleware *runs*), so a sensitive route outside the
+ * protect list is correctly still reported as unprotected.
  */
-function matcherToRegex(pattern: string): RegExp {
-  const regexStr = pattern
-    .replace(/\/:[\w]+\*/g, "(?:/.*)?")
-    .replace(/:[\w]+/g, "[^/]+");
-  return new RegExp("^" + regexStr + "$");
+export function parseProtectedRouteMatchers(content: string): string[] {
+  const normalized = stripComments(content);
+  const out: string[] = [];
+  const callRe = /createRouteMatcher\s*\(\s*\[/g;
+  let m: RegExpExecArray | null;
+  while ((m = callRe.exec(normalized)) !== null) {
+    const openIdx = normalized.indexOf("[", m.index);
+    const inner = bracketInner(normalized, openIdx);
+    if (inner !== null) out.push(...extractStringLiterals(inner));
+  }
+  return out;
+}
+
+/**
+ * Convert a Next.js matcher to a regex. Path-style matchers (`/x/:id`, `/y/:path*`)
+ * get token conversion; regex-style matchers (Clerk catch-all, `(.*)`, char classes)
+ * are used raw. Tries the likely form first, falls back to the other, and NEVER throws
+ * on a malformed pattern (returns null, which callers skip).
+ */
+function matcherToRegex(pattern: string): RegExp | null {
+  const pathConvert = (p: string) => p.replace(/\/:[\w]+\*/g, "(?:/.*)?").replace(/:[\w]+/g, "[^/]+");
+  const looksRegex = /[(|]|\.\*|\\[dwsDWS]|\[\^?/.test(pattern);
+  const candidates = looksRegex ? [pattern, pathConvert(pattern)] : [pathConvert(pattern), pattern];
+  for (const c of candidates) {
+    try { return new RegExp("^" + c + "$"); } catch { /* try next form */ }
+  }
+  return null;
 }
 
 /**
@@ -150,7 +213,7 @@ export function routeMatchesMatcher(urlPath: string, matchers: string[]): boolea
   if (matchers.length === 0) return true;
   for (const pattern of matchers) {
     const regex = matcherToRegex(pattern);
-    if (regex.test(urlPath)) return true;
+    if (regex && regex.test(urlPath)) return true;
   }
   return false;
 }
@@ -191,8 +254,20 @@ export interface AuthCoverageReport {
  */
 export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: string, layoutFiles?: FileEntry[], authExceptions?: Array<{ path: string; reason: string }>): AuthCoverageReport {
   const routes = enumerateRoutes(routeFiles);
-  const matchers = parseMiddlewareMatchers(middlewareContent);
   const hasMiddleware = middlewareContent.length > 0;
+  // Default-lenient: a middleware with a matcher counts as protection — EXCEPT when it
+  // is recognizably a non-auth middleware (i18n / analytics) with no auth signal, which
+  // must not mark routes protected (that would hide genuinely unprotected routes).
+  const hasAuthSignal =
+    hasAuthGuard(middlewareContent) ||
+    /\b(?:clerkMiddleware|authMiddleware|withAuth|createRouteMatcher|NextAuth|auth0|betterAuth|supabaseMiddleware|updateSession|createServerClient|getToken)\b/.test(middlewareContent) ||
+    /auth\s*\.\s*protect\s*\(/.test(middlewareContent);
+  const isNonAuthMiddleware = /\b(?:next-intl|createI18nMiddleware|next-international|paraglide|@vercel\/analytics|posthog)\b/.test(middlewareContent)
+    || /from\s+["']next-intl\/middleware["']/.test(middlewareContent);
+  const middlewareCountsAsAuth = hasMiddleware && (hasAuthSignal || !isNonAuthMiddleware);
+  // Prefer the precise Clerk protect list; fall back to where the (auth) middleware runs.
+  const protectMatchers = parseProtectedRouteMatchers(middlewareContent);
+  const coverageMatchers = protectMatchers.length ? protectMatchers : parseMiddlewareMatchers(middlewareContent);
 
   // Map file content by path for auth detection
   const contentByPath = new Map<string, string>();
@@ -206,9 +281,9 @@ export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: 
     route.hasAuthGuard = hasAuthGuard(content);
     if (route.hasAuthGuard) route.protectionSource = "auth-guard";
 
-    // Middleware coverage
-    if (hasMiddleware) {
-      route.middlewareCovered = routeMatchesMatcher(route.urlPath, matchers);
+    // Middleware coverage (skipped for recognizably non-auth middleware)
+    if (middlewareCountsAsAuth) {
+      route.middlewareCovered = routeMatchesMatcher(route.urlPath, coverageMatchers);
       if (route.middlewareCovered) {
         middlewareCoveredCount++;
         if (route.protectionSource === "none") route.protectionSource = "middleware";
