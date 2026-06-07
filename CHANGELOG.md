@@ -5,6 +5,11 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.42] - 2026-06-07
+
+### Fixed — MCP registry description length (no rule-count change, 438 / 36)
+- The MCP registry caps `server.json` `description` at 100 characters; the v3.1.41 moat one-liner exceeded it and the registry publish was rejected (npm publish succeeded). Shortened the `server.json` description to a 94-char moat line that keeps the `438 rules, 36 tools` substring. The full moat copy remains in the README, the npm `package.json` description, and the GitHub About.
+
 ## [3.1.41] - 2026-06-07
 
 ### Changed — positioning: lead with the durable moat (no rule-count change, 438 / 36)
