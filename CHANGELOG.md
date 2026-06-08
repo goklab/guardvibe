@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.1] - 2026-06-08
+
+### Fixed — release pipeline resilience (442 rules / 37 tools)
+- The v3.14.0 npm publish succeeded but the MCP-registry step hit a transient **504 Gateway Time-out** from registry.modelcontextprotocol.io, leaving the registry one version behind. This patch re-publishes to bring npm + the MCP registry back in sync.
+- **Hardened `publish.yml`:** the npm publish step is now idempotent (skips if the version already exists), so a transient MCP-registry outage can be retried via `gh run rerun --failed` without failing on a duplicate npm publish. No rule, tool, or behavior changes (442 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.14.0] - 2026-06-08
 
 ### Added — intel maintenance: Vite / launch-editor dev-server RCE (441 → 442 rules / 37 tools)

@@ -28,7 +28,17 @@ jobs:
       # Publish with provenance attestation (Sigstore)
       # Cryptographically links npm package to this repo + commit
       # Users can verify: npm audit signatures
-      - run: npm publish --provenance
+      # Idempotent: skip if this version is already on npm, so a transient
+      # MCP-registry failure below can be retried via `gh run rerun --failed`
+      # without tripping on a duplicate npm publish.
+      - name: Publish to npm (idempotent, with provenance)
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "guardvibe@$VERSION" version >/dev/null 2>&1; then
+            echo "guardvibe@$VERSION already on npm — skipping npm publish (registry-only retry)."
+          else
+            npm publish --provenance
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
