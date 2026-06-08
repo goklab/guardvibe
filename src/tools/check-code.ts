@@ -4,6 +4,7 @@ import { loadConfig } from "../utils/config.js";
 import { loadIgnoreFile, isIgnored } from "../utils/ignore.js";
 import { securityBanner } from "../utils/banner.js";
 import { looksMinified } from "../utils/constants.js";
+import { paramReachesSink } from "./ast-engine.js";
 
 export interface Finding {
   rule: SecurityRule;
@@ -706,6 +707,17 @@ export function analyzeCode(
         continue;
       }
     }
+
+    // VG406 (Unsanitized Dynamic Route Params): the regex bridges a params/searchParams
+    // access to ANY later DB sink in the file via an unbounded match, so it
+    // false-positives when the param never actually flows to that sink. Use AST
+    // dataflow (FAZ 3) to require a real param→sink flow — through assignments and
+    // query-builders, the case a name-only regex misses. Cheap guards gate the parse
+    // to files that actually contain a param + a sink (i.e. real VG406 candidates).
+    if (rule.id === "VG406" && filePath
+        && /\b(?:params|searchParams)\b/.test(code)
+        && /\b(?:query|execute|findUnique|findFirst|findMany|delete|update|create|upsert|aggregate|count|groupBy)\s*\(/.test(code)
+        && !paramReachesSink(code, filePath)) continue;
 
     // Skip SQL injection rules in schema/migration .sql files (DDL, not user input)
     if (rule.id === "VG543" && (isMigrationFile || isSqlSchemaFile)) continue;

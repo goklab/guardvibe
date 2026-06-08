@@ -584,7 +584,7 @@ GuardVibe takes supply chain security seriously:
 - **Branch protection** — force push disabled on main, admin enforcement enabled
 - **Tag protection** — version tags (`v*`) cannot be deleted or force-pushed
 - **Minimal CI permissions** — GitHub Actions workflows use `permissions: contents: read` only
-- **Zero runtime dependencies** — only MCP SDK and Zod (both widely audited)
+- **Minimal, fully-audited runtime dependencies** — only the MCP SDK, Zod, and the TypeScript compiler (used for AST-based dataflow analysis). All three are widely-audited, zero-sub-dependency packages — no native bindings, no obscure transitive deps
 
 To report a vulnerability, please email info@goklab.com or open a GitHub issue.
 

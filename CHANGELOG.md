@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.15.0] - 2026-06-08
+
+### Added — FAZ 3 part 1: AST dataflow engine + precise VG406 (442 rules / 37 tools)
+- **New AST/dataflow engine** (`src/tools/ast-engine.ts`), backed by the TypeScript compiler (loaded lazily, used only on the AST path). Brings real intra-file dataflow the line/regex engine structurally can't do.
+- **VG406 (Unsanitized Dynamic Route Params) is now dataflow-aware.** Its regex bridged a `params`/`searchParams` access to ANY later DB sink via an unbounded match, false-positiving when the param never flows to that sink. `paramReachesSink` does intra-procedural taint — seeding from params/searchParams and propagating through variable assignments and query-builder calls — so VG406 fires only on a real param → sink flow (multi-hop included, the case a name-only regex misses).
+- **Validated (clean stash diff): VG406 24 → 20; all 4 removed are confirmed false positives** where `params` is a function/constructor/callback argument named "params" (not a route param) — dub `get-events`/`create-bounty-submission`, plane `filter.store`, unkey `use-logs-query`. **0 true positives lost, 0 new findings.** 10 tests (engine + integration).
+- **Runtime dependency:** added `typescript` (^5.7.0) — pure-JS, zero sub-dependencies, no native bindings, deterministic everywhere. The README claim is updated from "zero runtime dependencies" to "minimal, fully-audited runtime dependencies (MCP SDK, Zod, TypeScript compiler)". The publish workflow's npm step is already idempotent.
+- No rule or tool changes (442 / 37). First of several FAZ 3 releases (next: extend the engine to IDOR/BOLA and VG950).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.14.2] - 2026-06-08
 
 ### Fixed — VG964 false positives on App Router route segments (442 rules / 37 tools)
