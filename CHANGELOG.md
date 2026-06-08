@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.16.0] - 2026-06-08
+
+### Added — FAZ 3 part 2: AST BOLA ownership-guard detection for VG950 (442 rules / 37 tools)
+- **VG950 (BOLA — find-by-id without ownership) is now AST-aware.** It had no ownership handling at all (VG951 already excludes where-clause ownership). `bolaOwnershipGuarded` suppresses VG950 when the AST proves the query is ownership-guarded — EITHER an ownership field in the **WHERE clause** with a non-route-param value, OR a same-function **post-fetch ownership comparison** of the fetched resource against the session (e.g. `if (eventType.userId !== ctx.user.id) throw`).
+- **Precise where the regex can't be:** it ignores a `userId` that only appears in `select` (a regex lookahead would suppress on that → false negative), it sees an ownership check that lives in a separate statement, and it refuses to count an ownership field whose value is itself a route param (still BOLA).
+- **Validated (clean stash diff): VG950 22 → 15; all 7 removed are genuinely ownership-guarded** — 3 via where-clause ownership (dub rewards/oauth-apps/tokens), 4 via post-fetch comparison (cal schedule/ooo handlers, each with a real `…userId !== user.id` check). **0 true BOLA hidden (0 false negatives), 0 false positives introduced.** 10 new tests.
+- No rule or tool changes (442 / 37). FAZ 3 part 2 (engine reused from part 1).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.15.0] - 2026-06-08
 
 ### Added — FAZ 3 part 1: AST dataflow engine + precise VG406 (442 rules / 37 tools)

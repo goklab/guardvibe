@@ -131,3 +131,78 @@ export function paramReachesSink(code: string, filePath?: string): boolean {
 
   return sinkArgs.some(args => refsTaint(args, tainted));
 }
+
+const FIND_METHODS = new Set(["findUnique", "findFirst", "findById", "findOne", "getOne"]);
+const OWNERSHIP_FIELDS = new Set([
+  "userId", "user_id", "ownerId", "owner_id", "authorId", "author_id", "createdById", "createdBy", "created_by",
+  "accountId", "account_id", "tenantId", "tenant_id", "orgId", "org_id", "organizationId",
+  "projectId", "project_id", "workspaceId", "workspace_id", "teamId", "team_id", "memberId", "member_id",
+  "programId", "customerId",
+]);
+// A comparison of a fetched resource's ownership field, on a line that also references a session/user.
+const OWNERSHIP_COMPARE = /\.\s*(?:userId|ownerId|authorId|createdById|teamId|workspaceId|orgId|organizationId|tenantId|memberId|accountId|projectId)\b\s*(?:===|!==|==|!=)/i;
+const SESSION_REF = /\b(?:session|ctx|auth|currentUser|viewer|member|account|workspace|team|org|self|me|user)\b/i;
+
+/**
+ * BOLA ownership-guard detection for VG950 (find-by-user-id). Returns true (the
+ * query is ownership-guarded → suppress the finding) when EITHER:
+ *  (1) the find call's WHERE clause (not select!) contains an ownership field
+ *      whose value is not itself a route param, OR
+ *  (2) the enclosing function performs a post-fetch ownership comparison of an
+ *      ownership field against a session/user value.
+ * Returns false on uncertainty (no parser, no matching call) so the rule keeps
+ * firing — for a BOLA rule we prefer a false positive over hiding a real one.
+ */
+export function bolaOwnershipGuarded(code: string, filePath: string | undefined, line: number): boolean {
+  const ts = getTs();
+  if (!ts) return false;
+  let sf: TSType.SourceFile;
+  try {
+    sf = ts.createSourceFile(filePath ?? "file.ts", code, ts.ScriptTarget.Latest, true, scriptKindFor(ts, filePath));
+  } catch {
+    return false;
+  }
+
+  let target: TSType.CallExpression | undefined;
+  const visit = (node: TSType.Node): void => {
+    if (!target && ts.isCallExpression(node)) {
+      const callee = node.expression;
+      const method = ts.isPropertyAccessExpression(callee) ? callee.name.text
+        : ts.isIdentifier(callee) ? callee.text : undefined;
+      if (method && FIND_METHODS.has(method)) {
+        const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+        if (Math.abs(startLine - line) <= 1) target = node;
+      }
+    }
+    if (!target) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  if (!target) return false;
+
+  // (1) ownership field in the WHERE clause with a non-param value.
+  const arg0 = target.arguments[0];
+  if (arg0 && ts.isObjectLiteralExpression(arg0)) {
+    const whereProp = arg0.properties.find(p =>
+      ts.isPropertyAssignment(p) && p.name && ts.isIdentifier(p.name) && p.name.text === "where");
+    if (whereProp && ts.isPropertyAssignment(whereProp) && ts.isObjectLiteralExpression(whereProp.initializer)) {
+      for (const prop of whereProp.initializer.properties) {
+        const nm = prop.name && ts.isIdentifier(prop.name) ? prop.name.text : undefined;
+        if (nm && OWNERSHIP_FIELDS.has(nm)) {
+          const valText = ts.isPropertyAssignment(prop) ? prop.initializer.getText(sf) : nm;
+          if (!/\b(?:params|searchParams)\b/.test(valText)) return true;
+        }
+      }
+    }
+  }
+
+  // (2) post-fetch ownership comparison against a session/user value, in the same function.
+  let fn: TSType.Node | undefined = target;
+  while (fn && !(ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn) || ts.isArrowFunction(fn) || ts.isMethodDeclaration(fn))) {
+    fn = fn.parent;
+  }
+  const body = fn ? fn.getText(sf) : code;
+  for (const ln of body.split("\n")) {
+    if (OWNERSHIP_COMPARE.test(ln) && SESSION_REF.test(ln)) return true;
+  }
+  return false;
+}

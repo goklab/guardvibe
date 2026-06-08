@@ -4,7 +4,7 @@ import { loadConfig } from "../utils/config.js";
 import { loadIgnoreFile, isIgnored } from "../utils/ignore.js";
 import { securityBanner } from "../utils/banner.js";
 import { looksMinified } from "../utils/constants.js";
-import { paramReachesSink } from "./ast-engine.js";
+import { paramReachesSink, bolaOwnershipGuarded } from "./ast-engine.js";
 
 export interface Finding {
   rule: SecurityRule;
@@ -915,6 +915,12 @@ export function analyzeCode(
       const lineNumber = beforeMatch.split("\n").length;
 
       if (isLineSuppressed(suppressions, lineNumber, rule.id)) continue;
+
+      // VG950 (BOLA find-by-id): suppress when AST proves the query is ownership-guarded —
+      // an ownership field in the WHERE clause (non-param value) or a post-fetch ownership
+      // comparison against the session. Precise where the regex can't be: it ignores a
+      // `userId` that only appears in `select`, and sees a separate comparison statement.
+      if (rule.id === "VG950" && filePath && bolaOwnershipGuarded(code, filePath, lineNumber)) continue;
 
       // VG202: skip when the FROM target matches a previous AS-alias in the same file.
       if (dockerStageAliases) {
