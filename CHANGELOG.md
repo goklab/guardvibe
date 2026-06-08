@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.2] - 2026-06-08
+
+### Fixed — VG964 false positives on App Router route segments (442 rules / 37 tools)
+- **VG964 (Server-Only Module Missing) no longer fires on App Router route-segment files** — `page` / `layout` / `route` / `template` / `loading` / `error` / etc. under `app/` (without `"use client"`). These are React Server Components that Next renders as route entrypoints; they are never imported into a client bundle, so they're server-only by default and don't need the `server-only` package. The rule still targets shared modules that could be imported client-side (and Pages Router files, which do ship to the client).
+- Found by a corpus FP audit. Validated via a clean old-vs-new diff: **VG964 14 → 5, all 9 removed are genuine App Router route segments** (e.g. payload preview routes, plane `layout.tsx`, unkey settings pages), **0 true positives lost**, 0 drift in any other rule. 4 tests. No rule or tool changes (442 / 37).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.14.1] - 2026-06-08
 
 ### Fixed — release pipeline resilience (442 rules / 37 tools)

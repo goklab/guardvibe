@@ -692,6 +692,21 @@ export function analyzeCode(
       if (hasUseClient || hasReactStateHooks) continue;
     }
 
+    // VG964 (Server-Only Module Missing): App Router route-segment files
+    // (page/layout/route/template/… without "use client") are server components —
+    // route entrypoints Next renders server-side that are NEVER imported into a
+    // client bundle, so they're server-only by default and don't need the
+    // `server-only` package. The rule targets SHARED modules that could be imported
+    // client-side; skip RSC route segments to avoid false positives. Only `app/`
+    // (App Router) qualifies — Pages Router page files DO ship to the client.
+    if (rule.id === "VG964" && filePath) {
+      const fp = filePath.replace(/\\/g, "/");
+      if (/(?:^|\/)app\//.test(fp) &&
+          /(?:^|\/)(?:page|layout|route|template|default|loading|error|not-found|global-error|head)\.(?:tsx?|jsx?)$/.test(fp)) {
+        continue;
+      }
+    }
+
     // Skip SQL injection rules in schema/migration .sql files (DDL, not user input)
     if (rule.id === "VG543" && (isMigrationFile || isSqlSchemaFile)) continue;
 
