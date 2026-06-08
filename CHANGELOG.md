@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.0] - 2026-06-08
+
+### Added — intel maintenance: Vite / launch-editor dev-server RCE (441 → 442 rules / 37 tools)
+- **VG1088** — vite < 5.4.9 (and the `launch-editor` < 2.9.0 it bundles) dev-server command injection on Windows (CVE-2024-52011 / GHSA-c27g-q93r-2cwf). Surfaced by `npm run intel` as the one remaining mainstream-stack gap; drafted via the S3-1 scaffold pipeline.
+- **0-FP semver:** exact/`=` pins only (a caret/tilde resolves to the fixed line). Validated on the corpus: **1 true positive** (dub pins `"vite": "5.2.9"`), **0 false positives**. 8 new version-range tests.
+- Counts updated everywhere (consistency guard enforces 442); CVE-rule count 70 → 71.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.13.0] - 2026-06-07
 
 ### Added — Season 3 S3-3: PR-native, author-independent review (441 rules / 37 tools)
