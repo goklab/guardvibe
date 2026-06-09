@@ -133,6 +133,10 @@ export function paramReachesSink(code: string, filePath?: string): boolean {
 }
 
 const FIND_METHODS = new Set(["findUnique", "findFirst", "findById", "findOne", "getOne"]);
+// Mutation sinks for VG951 (delete/update BOLA) — the last identifier of the callee.
+const MUTATION_METHODS = new Set([
+  "delete", "update", "destroy", "remove", "deleteMany", "updateMany", "deleteOne", "updateOne",
+]);
 const OWNERSHIP_FIELDS = new Set([
   "userId", "user_id", "ownerId", "owner_id", "authorId", "author_id", "createdById", "createdBy", "created_by",
   "accountId", "account_id", "tenantId", "tenant_id", "orgId", "org_id", "organizationId",
@@ -142,6 +146,45 @@ const OWNERSHIP_FIELDS = new Set([
 // A comparison of a fetched resource's ownership field, on a line that also references a session/user.
 const OWNERSHIP_COMPARE = /\.\s*(?:userId|ownerId|authorId|createdById|teamId|workspaceId|orgId|organizationId|tenantId|memberId|accountId|projectId)\b\s*(?:===|!==|==|!=)/i;
 const SESSION_REF = /\b(?:session|ctx|auth|currentUser|viewer|member|account|workspace|team|org|self|me|user)\b/i;
+
+/** The first CallExpression near `line` whose last-identifier method is in `methods`. */
+function callNearLine(
+  ts: typeof TSType, sf: TSType.SourceFile, line: number, methods: Set<string>,
+): TSType.CallExpression | undefined {
+  let target: TSType.CallExpression | undefined;
+  const visit = (node: TSType.Node): void => {
+    if (!target && ts.isCallExpression(node)) {
+      const callee = node.expression;
+      const method = ts.isPropertyAccessExpression(callee) ? callee.name.text
+        : ts.isIdentifier(callee) ? callee.text : undefined;
+      if (method && methods.has(method)) {
+        const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+        if (Math.abs(startLine - line) <= 1) target = node;
+      }
+    }
+    if (!target) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return target;
+}
+
+/**
+ * True when the function enclosing `node` performs a post-fetch ownership
+ * comparison — an ownership field (`fetched.userId`) compared against a
+ * session/user value on the same line (`!== ctx.user.id`). Same-function only
+ * (no inter-procedural tracing), matching the line/regex engine's precision.
+ */
+function hasPostFetchOwnershipGuard(ts: typeof TSType, sf: TSType.SourceFile, node: TSType.Node): boolean {
+  let fn: TSType.Node | undefined = node;
+  while (fn && !(ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn) || ts.isArrowFunction(fn) || ts.isMethodDeclaration(fn))) {
+    fn = fn.parent;
+  }
+  const body = fn ? fn.getText(sf) : sf.getText();
+  for (const ln of body.split("\n")) {
+    if (OWNERSHIP_COMPARE.test(ln) && SESSION_REF.test(ln)) return true;
+  }
+  return false;
+}
 
 /**
  * BOLA ownership-guard detection for VG950 (find-by-user-id). Returns true (the
@@ -163,20 +206,7 @@ export function bolaOwnershipGuarded(code: string, filePath: string | undefined,
     return false;
   }
 
-  let target: TSType.CallExpression | undefined;
-  const visit = (node: TSType.Node): void => {
-    if (!target && ts.isCallExpression(node)) {
-      const callee = node.expression;
-      const method = ts.isPropertyAccessExpression(callee) ? callee.name.text
-        : ts.isIdentifier(callee) ? callee.text : undefined;
-      if (method && FIND_METHODS.has(method)) {
-        const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-        if (Math.abs(startLine - line) <= 1) target = node;
-      }
-    }
-    if (!target) ts.forEachChild(node, visit);
-  };
-  visit(sf);
+  const target = callNearLine(ts, sf, line, FIND_METHODS);
   if (!target) return false;
 
   // (1) ownership field in the WHERE clause with a non-param value.
@@ -196,15 +226,31 @@ export function bolaOwnershipGuarded(code: string, filePath: string | undefined,
   }
 
   // (2) post-fetch ownership comparison against a session/user value, in the same function.
-  let fn: TSType.Node | undefined = target;
-  while (fn && !(ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn) || ts.isArrowFunction(fn) || ts.isMethodDeclaration(fn))) {
-    fn = fn.parent;
+  return hasPostFetchOwnershipGuard(ts, sf, target);
+}
+
+/**
+ * BOLA ownership-guard detection for VG951 (delete/update). The rule's regex
+ * already suppresses an ownership field inside the mutation's WHERE clause (via a
+ * negative lookahead), so the only blind spot is the find → compare → mutate
+ * pattern: the mutation's where-clause is a bare id, but the enclosing function
+ * fetched the resource and compared its ownership field against the session first.
+ * Returns true (→ suppress) only when that post-fetch comparison is present;
+ * false on uncertainty so a genuinely unguarded mutation keeps firing.
+ */
+export function bolaMutationGuarded(code: string, filePath: string | undefined, line: number): boolean {
+  const ts = getTs();
+  if (!ts) return false;
+  let sf: TSType.SourceFile;
+  try {
+    sf = ts.createSourceFile(filePath ?? "file.ts", code, ts.ScriptTarget.Latest, true, scriptKindFor(ts, filePath));
+  } catch {
+    return false;
   }
-  const body = fn ? fn.getText(sf) : code;
-  for (const ln of body.split("\n")) {
-    if (OWNERSHIP_COMPARE.test(ln) && SESSION_REF.test(ln)) return true;
-  }
-  return false;
+
+  const target = callNearLine(ts, sf, line, MUTATION_METHODS);
+  if (!target) return false;
+  return hasPostFetchOwnershipGuard(ts, sf, target);
 }
 
 const ITER_METHODS = new Set(["map", "forEach", "some", "every", "filter", "find", "findIndex", "reduce", "flatMap"]);

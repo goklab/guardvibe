@@ -4,7 +4,7 @@ import { loadConfig } from "../utils/config.js";
 import { loadIgnoreFile, isIgnored } from "../utils/ignore.js";
 import { securityBanner } from "../utils/banner.js";
 import { looksMinified } from "../utils/constants.js";
-import { paramReachesSink, bolaOwnershipGuarded, regexpArgIsConstant } from "./ast-engine.js";
+import { paramReachesSink, bolaOwnershipGuarded, bolaMutationGuarded, regexpArgIsConstant } from "./ast-engine.js";
 
 export interface Finding {
   rule: SecurityRule;
@@ -921,6 +921,12 @@ export function analyzeCode(
       // comparison against the session. Precise where the regex can't be: it ignores a
       // `userId` that only appears in `select`, and sees a separate comparison statement.
       if (rule.id === "VG950" && filePath && bolaOwnershipGuarded(code, filePath, lineNumber)) continue;
+
+      // VG951 (BOLA delete/update): the regex already suppresses an ownership field
+      // inside the mutation's WHERE clause, so its only blind spot is the
+      // find → compare → mutate pattern — a bare-id mutation preceded by a post-fetch
+      // ownership comparison against the session. Suppress only when AST proves it.
+      if (rule.id === "VG951" && filePath && bolaMutationGuarded(code, filePath, lineNumber)) continue;
 
       // VG126 (Dynamic RegExp from User Input): the regex matches `new RegExp(anyVar)`,
       // but the var is often a provable constant — a string literal or the callback

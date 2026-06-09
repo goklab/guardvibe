@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.18.0] - 2026-06-09
+
+### Added — FAZ 3 part c: AST BOLA mutation-guard detection for VG951 (442 rules / 37 tools)
+- **VG951 (BOLA — delete/update without ownership) is now AST-aware for the `find → compare → mutate` pattern.** The rule's regex already excludes an ownership field inside the mutation's WHERE clause; its only blind spot was a bare-id mutation preceded by a separate ownership check. `bolaMutationGuarded` (AST) suppresses VG951 when the enclosing function performs a **post-fetch ownership comparison** of the fetched resource against the session (e.g. `const s = await prisma.schedule.findUnique({ where: { id } }); if (s?.userId !== user.id) throw; await prisma.schedule.delete({ where: { id } })`). Anything without that comparison keeps firing.
+- Reuses the part-1/2 AST engine — factored a shared `callNearLine` anchor finder and `hasPostFetchOwnershipGuard` (the case-2 ownership-comparison check) out of `bolaOwnershipGuarded`, then anchored it on the mutation call instead of the find call.
+- **Validated (clean stash diff): VG951 11 → 9; both removed are genuinely ownership-guarded** — cal `delete.handler` (`findUnique select userId → if (scheduleToDelete?.userId !== user.id) throw UNAUTHORIZED → delete`) and cal `ScheduleService.update` (`findUnique → if (userSchedule?.userId !== user.id) require team edit-permission else throw → update`). **0 true positives lost, 0 false positives added, 0 other-rule drift.** 5 new mutation-guard tests (10 BOLA tests total).
+- No rule or tool changes (442 / 37). FAZ 3 part c.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.17.0] - 2026-06-09
 
 ### Added — FAZ 3 part 3: AST constant-origin detection for VG126 (442 rules / 37 tools)
