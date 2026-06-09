@@ -206,3 +206,90 @@ export function bolaOwnershipGuarded(code: string, filePath: string | undefined,
   }
   return false;
 }
+
+const ITER_METHODS = new Set(["map", "forEach", "some", "every", "filter", "find", "findIndex", "reduce", "flatMap"]);
+
+/** First `const NAME = <initializer>` for NAME anywhere in the file (file-scope-ish). */
+function findVarInit(ts: typeof TSType, sf: TSType.SourceFile, name: string): TSType.Expression | undefined {
+  let found: TSType.Expression | undefined;
+  const visit = (node: TSType.Node): void => {
+    if (!found && ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer) {
+      found = node.initializer;
+    }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+}
+
+/** A non-empty array literal whose elements are all string/template literals (a const pattern list). */
+function isConstStringArray(ts: typeof TSType, sf: TSType.SourceFile, node: TSType.Expression): boolean {
+  // SCREAMING_SNAKE_CASE identifier = constant by convention (often an imported list).
+  if (ts.isIdentifier(node) && /^[A-Z][A-Z0-9_]+$/.test(node.text)) return true;
+  let arr: TSType.Expression | undefined = node;
+  if (ts.isIdentifier(node)) arr = findVarInit(ts, sf, node.text);
+  if (arr && ts.isArrayLiteralExpression(arr)) {
+    return arr.elements.length > 0 &&
+      arr.elements.every(el => ts.isStringLiteral(el) || ts.isNoSubstitutionTemplateLiteral(el));
+  }
+  return false;
+}
+
+/**
+ * True when the argument to a `new RegExp(...)` at `line` is PROVABLY a constant
+ * (a string literal, a variable assigned from a string literal, or the callback
+ * parameter of an iteration over a const string-array — the "bot list" pattern),
+ * so VG126 ("Dynamic RegExp from user input") is a false positive there. Returns
+ * false on any uncertainty so the rule keeps firing — a regex built from anything
+ * not provably constant stays flagged.
+ */
+export function regexpArgIsConstant(code: string, filePath: string | undefined, line: number): boolean {
+  const ts = getTs();
+  if (!ts) return false;
+  let sf: TSType.SourceFile;
+  try {
+    sf = ts.createSourceFile(filePath ?? "file.ts", code, ts.ScriptTarget.Latest, true, scriptKindFor(ts, filePath));
+  } catch {
+    return false;
+  }
+
+  let target: TSType.NewExpression | undefined;
+  const visit = (node: TSType.Node): void => {
+    if (!target && ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "RegExp"
+        && node.arguments && node.arguments.length > 0) {
+      const startLine = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+      if (Math.abs(startLine - line) <= 1) target = node;
+    }
+    if (!target) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  if (!target || !target.arguments) return false;
+
+  const arg = target.arguments[0];
+  if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) return true;
+  // `new RegExp(x.source, x.flags)` — cloning an existing compiled RegExp, not user input.
+  if (ts.isPropertyAccessExpression(arg) && (arg.name.text === "source" || arg.name.text === "flags")) return true;
+  if (!ts.isIdentifier(arg)) return false;
+  const argName = arg.text;
+
+  // (a) const argName = "literal"
+  const init = findVarInit(ts, sf, argName);
+  if (init && (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init))) return true;
+
+  // (b) argName is the callback parameter of an iteration over a const string array.
+  let fn: TSType.Node | undefined = target.parent;
+  while (fn && !((ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))
+      && fn.parameters.some(p => ts.isIdentifier(p.name) && p.name.text === argName))) {
+    fn = fn.parent;
+  }
+  if (fn && (ts.isArrowFunction(fn) || ts.isFunctionExpression(fn))) {
+    const call = fn.parent;
+    if (call && ts.isCallExpression(call) && ts.isPropertyAccessExpression(call.expression)
+        && ITER_METHODS.has(call.expression.name.text)
+        && isConstStringArray(ts, sf, call.expression.expression)) {
+      return true;
+    }
+  }
+
+  return false;
+}

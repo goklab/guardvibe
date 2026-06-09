@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.17.0] - 2026-06-09
+
+### Added — FAZ 3 part 3: AST constant-origin detection for VG126 (442 rules / 37 tools)
+- **VG126 ("Dynamic RegExp from User Input") no longer fires when the argument is provably constant.** `regexpArgIsConstant` (AST) suppresses `new RegExp(x)` when `x` is: a string literal, a variable assigned from a string literal, the callback parameter of an iteration over a const string-array (incl. an imported SCREAMING_SNAKE_CASE list, by convention), or `someRegExp.source`/`.flags` (cloning a compiled RegExp). Minified bundles are skipped too. Anything not provably constant keeps firing.
+- **Validated (clean stash diff): VG126 29 → 21; all 8 removed are confirmed non-user-input** — dub `detect-bot` ×2 (`UA_BOTS`/`REFERRER_BOTS` bot-pattern lists), a minified vendor bundle, and payload `deepCopyObject` ×5 (`new RegExp(cur.source, cur.flags)` RegExp clones). **0 true positives lost, 0 false positives added.** 10 RegExp tests.
+- No rule or tool changes (442 / 37). FAZ 3 part 3 (reuses the part-1 AST engine).
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.16.0] - 2026-06-08
 
 ### Added — FAZ 3 part 2: AST BOLA ownership-guard detection for VG950 (442 rules / 37 tools)

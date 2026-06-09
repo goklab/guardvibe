@@ -4,7 +4,7 @@ import { loadConfig } from "../utils/config.js";
 import { loadIgnoreFile, isIgnored } from "../utils/ignore.js";
 import { securityBanner } from "../utils/banner.js";
 import { looksMinified } from "../utils/constants.js";
-import { paramReachesSink, bolaOwnershipGuarded } from "./ast-engine.js";
+import { paramReachesSink, bolaOwnershipGuarded, regexpArgIsConstant } from "./ast-engine.js";
 
 export interface Finding {
   rule: SecurityRule;
@@ -921,6 +921,12 @@ export function analyzeCode(
       // comparison against the session. Precise where the regex can't be: it ignores a
       // `userId` that only appears in `select`, and sees a separate comparison statement.
       if (rule.id === "VG950" && filePath && bolaOwnershipGuarded(code, filePath, lineNumber)) continue;
+
+      // VG126 (Dynamic RegExp from User Input): the regex matches `new RegExp(anyVar)`,
+      // but the var is often a provable constant — a string literal or the callback
+      // param iterating a const string array (the classic bot-UA / referrer-list pattern).
+      // Suppress only when AST proves the argument is constant; anything else keeps firing.
+      if (rule.id === "VG126" && (looksMinified(code) || (filePath && regexpArgIsConstant(code, filePath, lineNumber)))) continue;
 
       // VG202: skip when the FROM target matches a previous AS-alias in the same file.
       if (dockerStageAliases) {
