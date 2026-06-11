@@ -13,6 +13,7 @@
 - **🎯 Deterministic, not probabilistic.** Same code = same result, every run (content-hashed). Your AI guesses; GuardVibe doesn't.
 - **🗺️ Sees the whole repo.** Cross-file taint + auth-coverage across every route — catches the unprotected endpoint your agent's narrow context missed.
 - **🔍 An independent second pair of eyes.** The thing that wrote the code can't review itself. GuardVibe is the outside checker on AI-written code — in the loop *while* your AI codes (real-time edit hook), not after.
+- **⬅️ NEW: Starts before the first line of code.** Every scanner on earth — including your agent reviewing itself — acts *after* the code exists. [`secure_prompt`](#prompt-level-security-shift-left) acts *before*: it analyzes the coding prompt itself, detects the stack and attack surfaces it implies, and embeds severity-ranked GuardVibe requirements into the prompt your AI executes. The vulnerability is prevented, not caught. Deterministic, zero LLM calls — and if the prompt is already secure, it passes through untouched.
 
 **The security MCP built for vibe coding.** 442 security rules, 38 tools covering the entire AI-generated code journey — from the prompt itself to production deployment.
 
@@ -20,7 +21,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 ## Why a tool, when your AI is so good?
 
-"More rules" was never the moat — a strong model already knows most security rules by heart. What it *can't* do is be deterministic, know the CVE published after its training cutoff, hold your whole repo in context, or objectively review the code it just wrote. Those four gaps are structural; they don't close as models improve. GuardVibe is the layer that fills them — running *while* your AI codes, not in a separate audit later.
+"More rules" was never the moat — a strong model already knows most security rules by heart. What it *can't* do is be deterministic, know the CVE published after its training cutoff, hold your whole repo in context, or objectively review the code it just wrote. Those four gaps are structural; they don't close as models improve. GuardVibe is the layer that fills them — running *while* your AI codes, not in a separate audit later. And since v3.19, it runs *before* your AI codes too: `secure_prompt` rewrites the task itself so the security requirements are in the prompt, not in the post-mortem.
 
 ## Why GuardVibe
 
