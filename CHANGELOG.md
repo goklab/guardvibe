@@ -5,6 +5,18 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.19.0] - 2026-06-10
+
+### Added — secure_prompt: prompt-level security, shift left (442 rules / 37 → 38 tools)
+- **New MCP tool `secure_prompt`** — analyzes a raw coding prompt BEFORE any code is written and returns a structured enhancement directive (`guardvibe.secure_prompt.v1`) the host LLM uses to rewrite the prompt with GuardVibe security requirements embedded. Fully deterministic: no LLM calls, no network, no API keys — same prompt = same directive.
+- **Triage-first, "do no harm":** verdict `NO_MOD` (prompt already specific and security-aware, or touches no security surface → host proceeds with the ORIGINAL prompt unchanged), `LIGHT_MOD` (clear intent, missing security constraints → inject requirements only), `HEAVY_MOD` (vague AND security-relevant → requirements + up to 3 clarifying questions, never invented answers). Scoring heuristics (concrete nouns, security vocabulary, length/imperative specificity, sensitive surfaces) with thresholds in an exported `TRIAGE_CONFIG` constant.
+- **Stack + attack-surface detection** from keyword/alias maps (Next.js, Supabase, Clerk, Stripe, Prisma, Express, Hono, Drizzle, Firebase, MongoDB, tRPC, FastAPI, Django...; auth, payments, file upload, user input, database/SQL, secrets, external APIs, deserialization, redirects), including surfaces implied by detected technologies. Optional `context` input merges client-known stack info. Token matching is boundary-checked `indexOf` — no dynamic RegExp (keeps the self-audit and ReDoS meta-test clean).
+- **Rule matching over the existing 442-rule set** by name/description keywords for the detected stack + surfaces, severity-ranked (critical → info), near-duplicate guidance deduped, capped at the top 8; each requirement carries `[rule-id]`, title, severity, and the rule's fix phrased as an instruction. CVE version-pin rules excluded (they gate package pins, not prompts).
+- Directive output: verdict + one-line reason, intent summary stated as a HARD CONSTRAINT, numbered security requirements, ambiguities (HEAVY_MOD only), explicit rewrite directive ("Do NOT add features the user did not request. Do NOT change the user's intent."), and the original prompt echoed verbatim (fence-safe even when the prompt contains code blocks).
+- New module `src/tools/secure-prompt.ts`; 24 tests in `tests/tools/secure-prompt.test.ts` (NO_MOD short-circuit, LIGHT vs HEAVY classification, 7-framework stack detection, rule cap + severity ordering, empty/garbage input, determinism). README gains a "Prompt-Level Security (Shift Left)" section with a before/after example. Zero new runtime dependencies.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.18.0] - 2026-06-09
 
 ### Added — FAZ 3 part c: AST BOLA mutation-guard detection for VG951 (442 rules / 37 tools)

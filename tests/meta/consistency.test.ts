@@ -48,6 +48,12 @@ describe("metadata consistency", () => {
     assert.strictEqual(Number(m[1]), N, `CLAUDE.md says ${m[1]} rules, actual is ${N}`);
   });
 
+  it(`gemini-extension.json advertises ${N} rules`, () => {
+    const m = read("gemini-extension.json").match(/(\d+) rules,/);
+    assert(m, "gemini-extension.json description must contain '<N> rules,'");
+    assert.strictEqual(Number(m[1]), N, `gemini-extension.json says ${m[1]} rules, actual is ${N}`);
+  });
+
   it(`README advertises ${N} rules in every place it states the count`, () => {
     const readme = read("README.md");
     const contexts = [
@@ -63,7 +69,9 @@ describe("metadata consistency", () => {
   });
 
   it("tool count string is identical across all public surfaces", () => {
-    const surfaces = ["package.json", "server.json", "CLAUDE.md", "README.md"];
+    // src/index.ts is the runtime McpServer description hosts actually receive;
+    // gemini-extension.json is the Gemini CLI extensions-gallery manifest.
+    const surfaces = ["package.json", "server.json", "CLAUDE.md", "README.md", "gemini-extension.json", "src/index.ts"];
     const counts = new Set<string>();
     for (const f of surfaces) {
       const m = read(f).match(/(\d+) tools/);
@@ -83,5 +91,11 @@ describe("metadata consistency", () => {
     const pkgVersion = JSON.parse(read("package.json")).version as string;
     const server = JSON.parse(read("server.json"));
     assert.strictEqual(server.version, pkgVersion, `server.json version ${server.version} != package.json ${pkgVersion}`);
+  });
+
+  it("gemini-extension.json version matches package.json version", () => {
+    const pkgVersion = JSON.parse(read("package.json")).version as string;
+    const ext = JSON.parse(read("gemini-extension.json"));
+    assert.strictEqual(ext.version, pkgVersion, `gemini-extension.json version ${ext.version} != package.json ${pkgVersion}`);
   });
 });

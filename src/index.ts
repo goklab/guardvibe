@@ -45,6 +45,7 @@ import { formatHostFindings, redactSecrets } from "./server/types.js";
 import { verifyFix } from "./tools/verify-fix.js";
 import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js";
 import { secureThis } from "./tools/secure-this.js";
+import { securePrompt } from "./tools/secure-prompt.js";
 import { buildAgentReport } from "./tools/agent-output.js";
 import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
 import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
@@ -67,7 +68,7 @@ function mergeStatsIntoOutput(results: string, summary: string, format: string):
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: "Security MCP for vibe coding — single source of truth for AI assistants. 390 security rules and 36 tools. Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.",
+  description: `Security MCP for vibe coding — single source of truth for AI assistants. ${builtinRules.length} security rules and 38 tools. Call secure_prompt with the user's coding prompt BEFORE generating code to embed security requirements up front (shift left). Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.`,
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -1233,6 +1234,21 @@ server.tool(
     lines.push("", "---", `**${summary}**`);
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
+  }
+);
+
+// Tool 38: secure_prompt — shift-left security at the prompt level (enhance BEFORE code is written)
+server.tool(
+  "secure_prompt",
+  "Shift-left security at the prompt level: analyze a raw coding prompt BEFORE any code is written and return a structured enhancement directive that embeds GuardVibe security requirements (auth checks, input validation, webhook signature verification, SQL injection prevention, secrets handling) into the prompt you are about to execute. Deterministic — no LLM, no network: triage verdict NO_MOD (prompt already specific and security-aware → proceed with the ORIGINAL prompt unchanged), LIGHT_MOD (inject missing security constraints only), or HEAVY_MOD (also surface clarifying questions — never invent answers to them). Detects stack (Next.js, Supabase, Clerk, Stripe, Prisma, Express, Hono...) and attack surfaces (auth, payments, file upload, user input, SQL, secrets, redirects) from the prompt text, matches them against GuardVibe's rule set, and returns verdict + intent summary + numbered [rule-id] requirements + rewrite directive. Call this with the user's prompt before generating code; prevents vulnerabilities before code generation instead of scanning after. Example: secure_prompt({raw_prompt: 'add login to my app'})",
+  {
+    raw_prompt: z.string().describe("The user's original coding prompt, verbatim"),
+    context: z.string().optional().describe("Known stack/framework context if the client has it (e.g. 'Next.js app router, Supabase, Stripe')"),
+  },
+  async ({ raw_prompt, context }) => {
+    const rules = getRules();
+    const result = securePrompt(raw_prompt, { context, rules });
+    return { content: [{ type: "text", text: result.markdown }] };
   }
 );
 

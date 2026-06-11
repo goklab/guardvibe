@@ -14,7 +14,7 @@
 - **🗺️ Sees the whole repo.** Cross-file taint + auth-coverage across every route — catches the unprotected endpoint your agent's narrow context missed.
 - **🔍 An independent second pair of eyes.** The thing that wrote the code can't review itself. GuardVibe is the outside checker on AI-written code — in the loop *while* your AI codes (real-time edit hook), not after.
 
-**The security MCP built for vibe coding.** 442 security rules, 37 tools covering the entire AI-generated code journey — from first line to production deployment.
+**The security MCP built for vibe coding.** 442 security rules, 38 tools covering the entire AI-generated code journey — from the prompt itself to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -26,7 +26,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **442 security rules, 37 tools** purpose-built for the stacks AI agents generate
+- **442 security rules, 38 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -212,7 +212,37 @@ Maps security findings to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, and EU AI Act (E
 ### Supply Chain
 Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `--ignore-scripts` hardening (VG1070), typosquat detection, `node-ipc` protestware versions (VG1069), Miasma `@redhat-cloud-services` namespace compromise IOC (VG1074, RHSB-2026-006), Session messenger exfil endpoint IOC (VG1075, `filev2.getsession.org`), `@tanstack/*` Mini Shai-Hulud mass-malware versions (May 2026), `@wdio/browserstack-service` command injection via git branch names (CVE-2026-25244), lockfile poisoning patterns
 
-## Tools (37 MCP tools)
+## Prompt-Level Security (Shift Left)
+
+Most vulnerabilities in AI-generated code are born in the prompt: "add login to my app" says nothing about password hashing, session handling, or rate limiting — so the model picks defaults, and the defaults are where the CVEs live. `secure_prompt` moves the security gate to **before code generation**: it analyzes the raw prompt, detects the stack and attack surfaces it implies, matches them against GuardVibe's rule set, and returns a directive the host LLM uses to rewrite the prompt with security requirements embedded.
+
+This is not a prompt beautifier. It is deterministic (no LLM, no network), it never restructures intent, and its first job is **do no harm**: a prompt that is already specific and security-aware gets verdict `NO_MOD` and passes through untouched.
+
+- **`NO_MOD`** — prompt is already specific and security-aware → proceed with the original prompt unchanged
+- **`LIGHT_MOD`** — intent is clear but security constraints are missing → inject requirements only
+- **`HEAVY_MOD`** — prompt is vague *and* security-relevant → inject requirements + surface clarifying questions (never invent the answers)
+
+**Before** (what the user typed):
+
+```text
+add login to my app
+```
+
+**After** (what the host LLM executes, having applied the `secure_prompt` directive):
+
+```text
+Add login to my app, with these security requirements:
+- [VG001] Use environment variables or a secrets manager — never hardcode credentials.
+- [VG1008] Always verify the caller has admin privileges before allowing role elevation.
+- [VG105] Always specify allowed algorithms explicitly in jwt.verify().
+
+Before implementing, confirm: which framework/stack is this for, and which auth
+provider should be used (e.g. Clerk, Auth.js/NextAuth, Supabase Auth, custom JWT)?
+```
+
+Same user intent — but the model now generates auth code with the guardrails stated up front, instead of GuardVibe catching the missing pieces after the fact.
+
+## Tools (38 MCP tools)
 
 | Tool | What it does |
 |------|-------------|
@@ -253,6 +283,7 @@ Malicious postinstall scripts, unpinned GitHub Actions, CI `npm` provenance / `-
 | `full_audit` | **Single source of truth** — runs ALL checks in one call, returns PASS/FAIL/WARN verdict + score + coverage % + deterministic result hash |
 | `remediation_plan` | **Remediation plan** — generates section-by-section fix checklist after audit |
 | `verify_remediation` | **Remediation verification** — compares before/after audit, flags skipped sections |
+| `secure_prompt` | **Prompt-level security (shift left)** — analyze a coding prompt BEFORE code is written; deterministic triage (NO_MOD/LIGHT_MOD/HEAVY_MOD), stack + attack-surface detection, severity-ranked GuardVibe requirements embedded via a rewrite directive |
 
 All scanning tools support `format: "json"` for machine-readable output.
 
