@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.20.0] - 2026-06-14
+
+### Added — 3 fresh CVE version-pin rules from daily threat intel (442 → 445 rules / 38 tools)
+- **VG1089 — js-cookie `assign()` prototype hijack → cookie-attribute injection (CVE-2026-46625 / GHSA-qjx8-664m-686j, high).** js-cookie < 3.0.7 enumerates `Object.prototype` keys through the internal `assign()` helper, so a pollution gadget can inject `domain=`/`path=`/`secure=`/`samesite=`/`expires=` attributes into written cookies. Fixed in 3.0.7. 0-FP semver: only exact/`=` pins in the 3.0.x line are flagged (a caret/tilde there resolves to the fixed 3.0.7); 0.x–2.x majors are flagged with any range.
+- **VG1090 — PostCSS XSS via unescaped `</style>` in stringify output (CVE-2026-41305 / GHSA-qx2v-qp2m-jg93, medium).** postcss < 8.5.10 does not escape `</style>` when serializing a CSS AST; an app that re-emits user CSS into an inline `<style>` block can be broken out of for stored/reflected XSS. Fixed in 8.5.10. 0-FP semver: caret on the 8.x line resolves to the fix, so only exact/`=` pins (plus tilde within 8.0–8.4) on 8.x are flagged; 1.x–7.x majors flagged with any range.
+- **VG1091 — Axios HTTP-adapter proxy prototype-pollution gadget (CVE-2026-44494 / GHSA-35jp-ww65-95wh, high).** axios < 1.16.0 reads `config.proxy` in the Node HTTP adapter without an own-property check; a `Object.prototype.proxy` gadget routes every request through an attacker-controlled proxy (MITM / credential theft). Fixed in 1.16.0. **Distinct from VG1042 (pre-1.15.2 cluster):** a project that pinned 1.15.2 on VG1042's advice is still exposed, so this rule flags exactly the residual 1.15.2–1.15.x window (caret resolves to the fixed 1.16.0 → not flagged), with no double-firing against VG1042.
+- 26 new pattern tests in `tests/rules/cve-versions.test.ts` (detect affected pins, ignore patched + caret-resolves-to-fixed + adjacent-rule overlap). CVE version-pin rule count 71 → 74. All three sourced from the daily GHSA/OSV/CISA-KEV intel brief and verified against the upstream advisories; everything else in that brief (Clerk ×3, Drizzle, Next/RSC cluster, React RCE, Anthropic SDK memory tool, Vercel AI SDK filetype, MCP path traversal, Miasma) was already covered. Zero new runtime dependencies.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.19.0] - 2026-06-10
 
 ### Added — secure_prompt: prompt-level security, shift left (442 rules / 37 → 38 tools)
