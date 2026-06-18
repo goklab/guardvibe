@@ -14,6 +14,7 @@ import { getSecurityDocs } from "./tools/get-security-docs.js";
 import { checkDependencies } from "./tools/check-deps.js";
 import { scanDirectory } from "./tools/scan-directory.js";
 import { scanDependencies } from "./tools/scan-dependencies.js";
+import { scanHallucinatedPackages } from "./tools/scan-hallucinated.js";
 import { scanSecrets } from "./tools/scan-secrets.js";
 import { scanStaged } from "./tools/scan-staged.js";
 import { complianceReport } from "./tools/compliance-report.js";
@@ -68,7 +69,7 @@ function mergeStatsIntoOutput(results: string, summary: string, format: string):
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: `Security MCP for vibe coding — single source of truth for AI assistants. ${builtinRules.length} security rules and 38 tools. Call secure_prompt with the user's coding prompt BEFORE generating code to embed security requirements up front (shift left). Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.`,
+  description: `Security MCP for vibe coding — single source of truth for AI assistants. ${builtinRules.length} security rules and 39 tools. Call secure_prompt with the user's coding prompt BEFORE generating code to embed security requirements up front (shift left). Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.`,
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -253,6 +254,31 @@ server.tool(
       recordScan(root, { toolName: "scan_dependencies", filesScanned: 1, findings: [] });
     }
     return { content: [{ type: "text", text: results }] };
+  }
+);
+
+// Detect AI-hallucinated / slopsquatted packages (phantom imports + typosquats + registry truth)
+server.tool(
+  "scan_hallucinated_packages",
+  "Detect AI-hallucinated and slopsquatted packages in a repo — the supply-chain seam commodity SCA misses. OFFLINE (deterministic): flags phantom imports (a package imported in source but absent from every package.json — a classic LLM hallucination tell) and typosquats of popular packages. ONLINE (opt-in, default on; gracefully degrades offline): adds npm-registry truth — packages that return 404 (definitive hallucination) and brand-new low-download packages (slopsquat-registration pattern). Run on AI-generated code at PR time, before `npm install`. Pass online:false for a fully deterministic, air-gapped scan.",
+  {
+    path: z.string().default(".").describe("Repository root to scan (default current directory)"),
+    online: z.boolean().default(true).describe("Query the npm registry for existence/age/downloads. false = deterministic offline-only (phantom imports + typosquats)."),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (guardvibe.slopscan.v1 for agents)"),
+  },
+  async ({ path, online, format }) => {
+    try {
+      const results = await scanHallucinatedPackages(path, format, { online });
+      const { resolve: resolvePath } = await import("path");
+      const root = resolvePath(path);
+      try {
+        const parsed = format === "json" ? JSON.parse(results) : null;
+        recordScan(root, { toolName: "scan_hallucinated_packages", filesScanned: 1, findings: (parsed?.findings ?? []).map((f: any) => ({ severity: f.severity, ruleId: f.ruleId })) });
+      } catch { recordScan(root, { toolName: "scan_hallucinated_packages", filesScanned: 1, findings: [] }); }
+      return { content: [{ type: "text", text: results }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `# GuardVibe Slopsquat Report\n\nError scanning ${path}: ${(e as Error).message}\n\nThis may be a network issue reaching the npm registry. Retry with online:false for a deterministic offline scan.` }] };
+    }
   }
 );
 

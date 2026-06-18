@@ -43,6 +43,15 @@ export interface GuardVibeConfig {
   scoring?: {
     densityModel?: "linear" | "exponential";
   };
+  /** Slopsquat / hallucinated-package detector (`slopscan`) settings.
+   *  - online: query the npm registry for existence/age/downloads (default true for the
+   *    standalone tool; full_audit always runs offline-only regardless).
+   *  - allow: package names to treat as intentional (e.g. private/unpublished or
+   *    path-aliased imports) so they are never flagged as phantom imports. */
+  slopscan?: {
+    online?: boolean;
+    allow?: string[];
+  };
 }
 
 const DEFAULT_CONFIG: GuardVibeConfig = {
@@ -121,6 +130,10 @@ export function loadConfig(dir?: string): GuardVibeConfig {
       authExceptions: Array.isArray(parsed.authExceptions) ? parsed.authExceptions : undefined,
       scoring: parsed.scoring && typeof parsed.scoring === "object" ? {
         densityModel: parsed.scoring.densityModel === "exponential" ? "exponential" : "linear",
+      } : undefined,
+      slopscan: parsed.slopscan && typeof parsed.slopscan === "object" ? {
+        online: typeof parsed.slopscan.online === "boolean" ? parsed.slopscan.online : undefined,
+        allow: Array.isArray(parsed.slopscan.allow) ? parsed.slopscan.allow : undefined,
       } : undefined,
     };
   } catch (err) {

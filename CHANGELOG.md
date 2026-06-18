@@ -5,6 +5,18 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.22.0] - 2026-06-18
+
+### Added — `slopscan`: AI-hallucinated / slopsquat package detector (38 → 39 tools)
+- **New MCP tool `scan_hallucinated_packages` + CLI `slopscan [path]`** — detects the supply-chain seam commodity SCA misses: package names AI assistants invent (~20% of AI-generated code references non-existent packages) and the slopsquats attackers register for them. Commodity SCA scans known/published packages against vuln DBs; this catches names that don't exist yet, were never installed, or were published yesterday — at code-gen/PR time (shift-left).
+- **Offline tier (deterministic, no network, air-gapped):** `phantom_import` (imported in source but absent from every package.json — a classic LLM tell) + typosquat/deceptive-prefix of popular packages. Import extraction is statement-anchored and strips comments + template-literal bodies, so example imports embedded in docs/codegen strings are never miscounted (verified 0 false positives on GuardVibe's own example-heavy source).
+- **Online tier (opt-in, default on, graceful degrade):** npm-registry truth — `nonexistent` (404 = definitive hallucination), brand-new + low-download (easy-day-js/Mastra slopsquat pattern), deprecated/unmaintained/low-adoption. A total registry outage degrades to the deterministic offline result instead of misreporting every package as nonexistent.
+- **`full_audit` integration:** the offline tier runs as a new `hallucinated-packages` section; the online tier never runs inside the audit, so the deterministic result hash is preserved.
+- **Config:** `.guardviberc` `slopscan: { online?, allow? }` to allowlist intentional unpublished/workspace imports.
+- **Reuse, no new dependency:** built on existing `detectTyposquat`, `packageRoot`, `assessPackageRisk`, and a new discriminated `fetchRegistryStatus` (distinguishes 404 from network failure). 13 new tests (offline phantom/typosquat/determinism, statement-anchored extraction, online-mock 404 + graceful degradation, CLI). Counts bumped 38 → 39 tools across all surfaces.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.21.0] - 2026-06-18
 
 ### Added — 3 rules from daily threat intel: Hono CORS reflection + @hono/node-server bypass (445 → 448 rules / 38 tools)

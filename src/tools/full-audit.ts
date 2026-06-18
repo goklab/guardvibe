@@ -17,6 +17,7 @@ import { scanDependencies } from "./scan-dependencies.js";
 import { auditConfig } from "./audit-config.js";
 import { analyzeCrossFileTaint } from "./cross-file-taint.js";
 import { analyzeAuthCoverage } from "./auth-coverage.js";
+import { detectHallucinatedOffline } from "./scan-hallucinated.js";
 import { getRules } from "../utils/rule-registry.js";
 import { loadConfig } from "../utils/config.js";
 import { isExcludedFilename } from "../utils/constants.js";
@@ -477,6 +478,37 @@ export async function runFullAudit(
     }
   } catch { /* auth coverage is optional */ }
 
+  // --- Section 7: Hallucinated / slopsquatted packages (OFFLINE only — keeps result hash deterministic) ---
+  try {
+    const halluc = detectHallucinatedOffline(projectRoot);
+    if (halluc.length > 0) {
+      let hCritical = 0, hHigh = 0, hMedium = 0;
+      const hFindings: SectionFinding[] = halluc.map(f => {
+        if (f.severity === "critical") hCritical++;
+        else if (f.severity === "high") hHigh++;
+        else hMedium++;
+        return {
+          ruleId: f.ruleId,
+          severity: f.severity,
+          file: "package.json",
+          line: 0,
+          name: `${f.name}: ${f.signals.join(", ")}${f.similarTo ? ` (did you mean ${f.similarTo}?)` : ""}`,
+          description: `Possible AI-hallucinated / slopsquatted package. Signals: ${f.signals.join(", ")}.`,
+          fix: f.fix,
+        };
+      });
+      sections.push({
+        name: "hallucinated-packages", status: "ok",
+        findings: hFindings.length, critical: hCritical, high: hHigh, medium: hMedium,
+        details: `${hFindings.length} suspicious package(s) (offline: phantom imports + typosquats)`,
+        sectionFindings: hFindings,
+      });
+      for (const f of hFindings) {
+        allFindings.push({ ruleId: f.ruleId, severity: f.severity, file: f.file, line: f.line });
+      }
+    }
+  } catch { /* hallucination scan is optional */ }
+
   // --- Compute totals ---
   const totalCritical = sections.reduce((s, sec) => s + sec.critical, 0);
   const totalHigh = sections.reduce((s, sec) => s + sec.high, 0);
@@ -596,6 +628,15 @@ function buildInlineRemediationPlan(result: AuditResult): InlineRemediationStep[
         "Look at sectionFindings above — each shows unprotected route path and file",
         "Add auth guard, or add to .guardviberc authExceptions: {\"path\": \"/route\", \"reason\": \"Public\"}",
         "Verify: `npx guardvibe auth-coverage --format json` — unprotected must be 0",
+      ],
+    },
+    "hallucinated-packages": {
+      priority: 7,
+      tool: "scan_hallucinated_packages",
+      actions: [
+        "Look at sectionFindings above — each names a phantom-imported or typosquatted package",
+        "For phantom imports: add the real dependency, or remove the import if the AI invented it. For typosquats: switch to the official package name",
+        "Confirm existence/provenance: `npx guardvibe slopscan . --format json` (online), or add intentional names to .guardviberc slopscan.allow",
       ],
     },
   };

@@ -105,7 +105,16 @@ export function assessPackageRisk(name: string, data: RegistryData): PackageHeal
   };
 }
 
-async function fetchRegistryData(name: string): Promise<RegistryData> {
+/**
+ * Discriminated registry fetch. Distinguishes "package truly does not exist (404)"
+ * from "could not reach/parse the registry (network/5xx)" — critical so a network
+ * outage is NOT misreported as every package being nonexistent.
+ *   { ok: true, data }  → resolved (data.exists is true for 200, false for 404)
+ *   { ok: false }       → transport/5xx error — existence is unknown
+ */
+export type RegistryFetch = { ok: true; data: RegistryData } | { ok: false };
+
+export async function fetchRegistryStatus(name: string): Promise<RegistryFetch> {
   try {
     const [metaRes, downloadsRes] = await Promise.all([
       fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(5000) }),
@@ -113,11 +122,11 @@ async function fetchRegistryData(name: string): Promise<RegistryData> {
     ]);
 
     if (metaRes.status === 404) {
-      return { exists: false, downloads: 0, lastPublish: "", maintainers: 0, deprecated: false };
+      return { ok: true, data: { exists: false, downloads: 0, lastPublish: "", maintainers: 0, deprecated: false } };
     }
 
     if (!metaRes.ok) {
-      throw new Error(`npm registry error: ${metaRes.status}`);
+      return { ok: false }; // 5xx / rate-limit — cannot determine existence
     }
 
     const meta = await metaRes.json() as any;
@@ -132,10 +141,15 @@ async function fetchRegistryData(name: string): Promise<RegistryData> {
       downloads = dlData.downloads ?? 0;
     }
 
-    return { exists: true, downloads, lastPublish, maintainers, deprecated };
+    return { ok: true, data: { exists: true, downloads, lastPublish, maintainers, deprecated } };
   } catch {
-    return { exists: false, downloads: 0, lastPublish: "", maintainers: 0, deprecated: false };
+    return { ok: false }; // network error — cannot determine existence
   }
+}
+
+export async function fetchRegistryData(name: string): Promise<RegistryData> {
+  const r = await fetchRegistryStatus(name);
+  return r.ok ? r.data : { exists: false, downloads: 0, lastPublish: "", maintainers: 0, deprecated: false };
 }
 
 export async function checkPackageHealth(
