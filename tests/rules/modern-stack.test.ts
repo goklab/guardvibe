@@ -236,6 +236,45 @@ describe("Modern Stack Security Rules", () => {
     });
   });
 
+  describe("VG1094 - CORS origin reflection with credentials", () => {
+    it("detects origin:true with credentials:true", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ origin: true, credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("detects reflecting arrow function with credentials (origin first)", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ origin: (o) => o, credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("detects reflecting arrow function with credentials (credentials first)", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ credentials: true, origin: (origin) => origin }));`,
+        "VG1094"
+      ));
+    });
+    it("allows allowlist arrow function returning a guarded value", () => {
+      assert(!hasRule(
+        `app.use("/api/*", cors({ origin: (o) => ALLOWED.has(o) ? o : null, credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("allows reflected origin WITHOUT credentials", () => {
+      assert(!hasRule(
+        `app.use("/api/*", cors({ origin: true }));`,
+        "VG1094"
+      ));
+    });
+    it("allows explicit origin allowlist with credentials", () => {
+      assert(!hasRule(
+        `app.use("/api/*", cors({ origin: ["https://myapp.com"], credentials: true }));`,
+        "VG1094"
+      ));
+    });
+  });
+
   // =====================================================
   // GraphQL
   // =====================================================

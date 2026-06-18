@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.21.0] - 2026-06-18
+
+### Added — 3 rules from daily threat intel: Hono CORS reflection + @hono/node-server bypass (445 → 448 rules / 38 tools)
+- **VG1092 — Hono CORS origin reflection with credentials + June 2026 cluster (CVE-2026-54290 / GHSA-88fw-hqm2-52qc, high).** hono < 4.12.25 reflects any request Origin back with `Access-Control-Allow-Credentials: true` when `credentials:true` is set without an explicit allowlist (account-takeover-grade CORS); the release also re-fixes cache cross-user leak (CVE-2026-44457), JWT NumericDate (CVE-2026-44459), and bodyLimit bypass (CVE-2026-44456). **Distinct from VG1043 (pre-4.12.18 cluster):** flags exactly the residual 4.12.18–4.12.24 window, no double-firing. 0-FP semver: caret/tilde within 4.12 resolve to the fixed 4.12.25 → only exact/`=` pins flagged.
+- **VG1093 — @hono/node-server serveStatic middleware bypass via repeated slashes (GHSA-92pp-h63x-v22m, high).** @hono/node-server < 1.19.13 lets a request like `//admin/secret.txt` skip route-based middleware (auth guards) and serve protected static files. Fixed in 1.19.13. 0-FP semver: caret on 1.x and tilde within 1.19 resolve to the fix → only exact/`=` pins (plus tilde within 1.0–1.18 and any range on 0.x) flagged.
+- **VG1094 — CORS origin reflection with credentials (behavioral, CVE-2026-54290, high).** Code-level companion to VG1092: flags `cors({ credentials:true })` combined with a reflected origin (`origin: true` or an arrow function that returns its origin argument unchanged), the exact misconfiguration that made CVE-2026-54290 exploitable on any CORS middleware (Hono, Express). Targets the reflected-origin forms VG973 (wildcard literal) cannot see; allowlist-guarded functions are not flagged.
+- 31 new tests. CVE version-pin rule count 74 → 76. Sourced from the daily GHSA/OSV/CISA-KEV intel brief and verified against the upstream advisories; everything else in that brief — axios CVE-2025-62718/42264/25639 (already covered by VG1042/VG1091), Next.js RSC cache poisoning CVE-2026-44576/44577/44582 (already covered by VG1047 `< 15.5.18 / 16.2.6`), Drizzle CVE-2026-39356, Clerk bypass cluster, Vercel AI SDK filetype, Anthropic SDK memory tool, postcss XSS — was already covered. Zero new runtime dependencies.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.20.0] - 2026-06-14
 
 ### Added — 3 fresh CVE version-pin rules from daily threat intel (442 → 445 rules / 38 tools)
