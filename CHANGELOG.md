@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.23.0] - 2026-06-19
+
+### Added — MCP/agent unauth endpoint rule + full CORS-credentials coverage from daily intel (448 → 449 rules)
+- **VG1095 — MCP / agent tool-call endpoint without authentication (high).** Flags an HTTP route (`app|router|server|fastify`.`post|all|put|use`) that exposes an MCP `tools/call`, `/mcp`, or agent `run`/`invoke`/`execute` endpoint with no auth token within ~200 chars of the registration. Targets the June-2026 advisory wave: praisonai (unauthenticated HTTP tools/call + AgentOS agent listing/calling), network-ai (empty default secret authorizing every request, CVE-2026-48814/46701), AgenticMail (unauthenticated inbound mail driving a privileged agent session). Skips routes guarded by auth middleware or an in-handler session/token check.
+- **VG1094 extended to full CVE-2026-54290 behavioral coverage.** Now also flags `cors({ origin: '*', credentials: true })` and `cors({ credentials: true })` with no origin key (middleware default reflects), in addition to the existing `origin:true` / reflecting-arrow-function cases. VG973 (wildcard without credentials) narrowed with a negative lookahead so the two are mutually exclusive — no double-firing. Explicit allowlists with credentials are still not flagged.
+- **Already covered (verified against this brief, no action):** axios CVE-2026-44489/44490/44496 (all fixed in 1.16.0 → VG1042∪VG1091 `<1.16.0`), next RSC cluster CVE-2026-44576/44582/44577 (fixed 16.2.5/16.2.6 → VG1047), Hono CVE-2026-54290 version-pin (VG1092), Clerk/Drizzle/js-cookie/postcss/Anthropic-SDK/Vercel-AI-SDK. The brief's execSync command-injection suggestion is already covered by the MCP-handler rule (VG857) + the general command-injection rule.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.22.0] - 2026-06-18
 
 ### Added — `slopscan`: AI-hallucinated / slopsquat package detector (38 → 39 tools)

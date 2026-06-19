@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.goklab/guardvibe",
-  "description": "Deterministic security layer your AI can't be. 448 rules, 39 tools, CLI + doctor + host audit.",
+  "description": "Deterministic security layer your AI can't be. 449 rules, 39 tools, CLI + doctor + host audit.",
   "repository": {
     "url": "https://github.com/goklab/guardvibe",
     "source": "github"
   },
-  "version": "3.22.0",
+  "version": "3.23.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "guardvibe",
-      "version": "3.22.0",
+      "version": "3.23.0",
       "transport": {
         "type": "stdio"
       }

@@ -255,8 +255,8 @@ export const modernStackRules: SecurityRule[] = [
     severity: "high",
     owasp: "A05:2025 Security Misconfiguration",
     description:
-      "Hono app uses cors() with wildcard origin, allowing any website to make requests to your API.",
-    pattern: /cors\s*\(\s*\{[\s\S]{0,200}?origin\s*:\s*['"]\*['"]/g,
+      "Hono app uses cors() with wildcard origin, allowing any website to make requests to your API. (When combined with credentials:true this is the account-takeover-grade CVE-2026-54290 case — flagged separately by VG1094.)",
+    pattern: /cors\s*\(\s*\{(?![\s\S]{0,400}?credentials\s*:\s*true)[\s\S]{0,200}?origin\s*:\s*['"]\*['"]/g,
     languages: ["javascript", "typescript"],
     fix: "Set specific allowed origins in Hono CORS configuration.",
     fixCode:
@@ -269,11 +269,11 @@ export const modernStackRules: SecurityRule[] = [
     severity: "high",
     owasp: "A05:2025 Security Misconfiguration",
     description:
-      "cors() is configured with credentials:true AND an origin that reflects the caller — either origin:true or an arrow function that returns its origin argument unchanged (origin: (o) => o). This combination echoes any request's Origin back together with Access-Control-Allow-Credentials:true, so any website can make authenticated cross-origin requests on the victim's behalf (account-takeover-grade CSRF). This is the exact misconfiguration that made Hono CVE-2026-54290 exploitable, and it is dangerous on any CORS middleware (Hono, Express). The wildcard literal origin:'*' form is covered separately by VG973; this rule targets the reflected-origin forms that VG973 cannot see.",
+      "cors() is configured with credentials:true together with a reflected or wildcard origin — origin:'*', origin:true, an arrow function that returns its origin argument unchanged (origin: (o) => o), OR no origin key at all (the middleware default reflects/wildcards). Any of these echoes an arbitrary request Origin back with Access-Control-Allow-Credentials:true, so any website can make authenticated cross-origin requests on the victim's behalf (account-takeover-grade CSRF). This is exactly the misconfiguration that made Hono CVE-2026-54290 exploitable, and it is dangerous on any CORS middleware (Hono, Express). An explicit origin allowlist (origin: ['https://app.example.com']) with credentials:true is NOT flagged. VG973 covers the wildcard-without-credentials case.",
     pattern:
-      /cors\s*\(\s*\{(?=[\s\S]{0,400}?credentials\s*:\s*true)[\s\S]{0,400}?origin\s*:\s*(?:true\b|\(\s*(\w+)\s*\)\s*=>\s*\1\b)/g,
+      /cors\s*\(\s*\{(?=[\s\S]{0,400}?credentials\s*:\s*true)(?:[\s\S]{0,400}?origin\s*:\s*(?:['"]\*['"]|true\b|\(\s*(\w+)\s*\)\s*=>\s*\1\b)|(?![\s\S]{0,400}?\borigin\s*:)[\s\S]{0,200}?credentials\s*:\s*true)/g,
     languages: ["javascript", "typescript"],
-    fix: "Never combine credentials:true with a reflected origin. Pass an explicit allowlist of trusted origins, or validate the incoming origin against an allowlist before returning it.",
+    fix: "Never combine credentials:true with a reflected/wildcard origin or an omitted origin. Pass an explicit allowlist of trusted origins, or validate the incoming origin against an allowlist before returning it.",
     fixCode:
       'import { cors } from "hono/cors";\n\nconst ALLOWED = new Set(["https://myapp.com", "https://app.myapp.com"]);\napp.use("/api/*", cors({\n  origin: (origin) => (ALLOWED.has(origin) ? origin : null),\n  credentials: true,\n}));',
     compliance: ["SOC2:CC6.1", "SOC2:CC6.6", "PCI-DSS:Req6.2"],
