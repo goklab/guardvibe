@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.24.0] - 2026-06-23
+
+### Added — 1 rule from daily intel: Clerk 4.x auth() IDOR version-pin (449 → 450 rules)
+- **VG1096 — @clerk/nextjs 4.x auth()/getAuth() IDOR (CVE-2024-22206 / GHSA-q6w5-jg5q-47vg, critical).** @clerk/nextjs 4.7.0–4.29.2 misattributes a request to the wrong session in auth() (App Router) / getAuth() (Pages Router) — an IDOR / privilege escalation. Fixed in 4.29.3. Fills the legacy 4.x version-space that the 1.x/2.x middleware-bypass pin (VG925) and 6.x/7.x has() bypass pin (VG1045) do not cover. 0-FP semver: caret on 4.x and tilde within 4.29 resolve to the fix → only exact/= pins (and tilde within 4.7–4.28) flagged; 4.0–4.6 not affected. CVE version-pin rule count 76 → 77. 9 tests.
+- **Verified already-covered (no action) from the 2026-06-23 brief:** the install-time dropper signature (Miasma/Mastra/node-gyp) — supply-chain.ts already ships "Install Script Downloads and Executes Remote Code", "Malicious postinstall Script", "Obfuscated Payload in Install Script", plus VG1074 (Miasma IOC) and the CI `--ignore-scripts` rule; axios user-controlled-URL SSRF — covered more precisely by the host-position-aware taint SSRF sink + VG120; Clerk CVE-2026-42349 (has() bypass = VG1045) and CVE-2026-41248 (middleware bypass = VG925); Next.js RSC cluster (VG1047); React/Next RSC RCE (CVE-2025-55182). The brief's GV-CLERK-MIDDLEWARE-BYPASS behavioral suggestion was not added — bare clerkMiddleware() is the allow-by-default safe pattern, so the regex is FP-prone, and the CVE is already version-pinned.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.23.0] - 2026-06-19
 
 ### Added — MCP/agent unauth endpoint rule + full CORS-credentials coverage from daily intel (448 → 449 rules)

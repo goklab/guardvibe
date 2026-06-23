@@ -2,7 +2,7 @@
 
 ## GuardVibe Security Scanner
 
-449 rules, 39 tools. Deterministic: same code = same hash = same results.
+450 rules, 39 tools. Deterministic: same code = same hash = same results.
 
 ### When user asks for security scan/fix:
 

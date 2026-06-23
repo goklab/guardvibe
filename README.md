@@ -15,7 +15,7 @@
 - **🔍 An independent second pair of eyes.** The thing that wrote the code can't review itself. GuardVibe is the outside checker on AI-written code — in the loop *while* your AI codes (real-time edit hook), not after.
 - **⬅️ NEW: Starts before the first line of code.** Every scanner on earth — including your agent reviewing itself — acts *after* the code exists. [`secure_prompt`](#prompt-level-security-shift-left) acts *before*: it analyzes the coding prompt itself, detects the stack and attack surfaces it implies, and embeds severity-ranked GuardVibe requirements into the prompt your AI executes. The vulnerability is prevented, not caught. Deterministic, zero LLM calls — and if the prompt is already secure, it passes through untouched.
 
-**The security MCP built for vibe coding.** 449 security rules, 39 tools covering the entire AI-generated code journey — from the prompt itself to production deployment.
+**The security MCP built for vibe coding.** 450 security rules, 39 tools covering the entire AI-generated code journey — from the prompt itself to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -27,7 +27,7 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **449 security rules, 39 tools** purpose-built for the stacks AI agents generate
+- **450 security rules, 39 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
@@ -65,7 +65,7 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 | CVE version detection | 71 packages, refreshed daily | Extensive | Extensive |
 | Compliance mapping (SOC2, PCI-DSS, HIPAA) | Built-in | Paid tier | None |
 | SARIF CI/CD export | Yes | Yes | Limited |
-| Rule count | 449 (focused, 68 AI-native) | 5000+ (broad) | N/A |
+| Rule count | 450 (focused, 68 AI-native) | 5000+ (broad) | N/A |
 
 **When to use GuardVibe:** You're building with AI agents and want security scanning integrated into your coding workflow — no dashboard, no account, no CI setup.
 
@@ -302,7 +302,7 @@ The offline tier is also a `full_audit` section (online never runs inside the au
 { "slopscan": { "online": true, "allow": ["@myorg/internal-pkg"] } }
 ```
 
-## Security Rules (449 rules across 25 modules)
+## Security Rules (450 rules across 25 modules)
 
 | Category | Rules | Coverage |
 |----------|-------|----------|
