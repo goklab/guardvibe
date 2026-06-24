@@ -15,4 +15,9 @@ export async function runExplain(args: string[]): Promise<void> {
   const format = (flags.format === "json" ? "json" : "markdown") as "markdown" | "json";
   const result = explainRemediation(ruleId, undefined, format);
   console.log(result);
+  // Unknown rule id is an error, not a successful lookup — exit 1 so scripts can tell.
+  const notFound = format === "json"
+    ? (() => { try { return Boolean(JSON.parse(result).error); } catch { return false; } })()
+    : /^Rule .* not found\.?$/.test(result.trim());
+  if (notFound) process.exit(1);
 }

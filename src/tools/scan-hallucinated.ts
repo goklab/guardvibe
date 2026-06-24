@@ -135,6 +135,72 @@ function isPathAlias(spec: string): boolean {
   return spec.startsWith("@/") || spec.startsWith("~");
 }
 
+/** Strip // and block comments + trailing commas so a JSONC tsconfig can be JSON.parsed. */
+function parseJsonc(text: string): any {
+  const noBlock = text.replace(/\/\*[\s\S]*?\*\//g, "");
+  const noLine = noBlock.replace(/(^|[^:"'])\/\/[^\n]*/g, "$1");
+  const noTrailingCommas = noLine.replace(/,(\s*[}\]])/g, "$1");
+  return JSON.parse(noTrailingCommas);
+}
+
+/**
+ * Names that resolve to LOCAL first-party modules via tsconfig/jsconfig `baseUrl` or
+ * `paths` — e.g. `import x from "models/user"` under `baseUrl: "."`. These are source
+ * directories, NOT npm packages, so they must never be flagged phantom/typosquat
+ * (juice-shop's `models`/`data`/`lib` are the canonical false-positive case).
+ * Deterministic: reads the config + lists the baseUrl dir under root only; no network.
+ */
+export function baseUrlLocalNames(root: string): Set<string> {
+  const names = new Set<string>();
+  const skip = new Set(SKIP_DIR);
+
+  // List a directory's child dirs + bare source-file names as resolvable local roots.
+  const addLocalFrom = (baseDir: string): void => {
+    let entries: string[];
+    try { entries = readdirSync(baseDir); } catch { return; }
+    for (const e of entries) {
+      if (skip.has(e)) continue;
+      let st; try { st = statSync(join(baseDir, e)); } catch { continue; }
+      if (st.isDirectory()) names.add(e);
+      else {
+        const ext = extname(e).toLowerCase();
+        if (CODE_EXT.has(ext)) names.add(e.slice(0, -ext.length));
+      }
+    }
+  };
+
+  // Walk the tree; every dir containing a tsconfig/jsconfig is a project root whose
+  // source dirs are addressable as project/baseUrl-relative bare imports (e.g. Angular's
+  // `import ... from 'src/app/...'`, or `models/user` under `baseUrl: "."`). This handles
+  // monorepos (a nested frontend/ with its own config). Deterministic + offline.
+  const walk = (dir: string): void => {
+    let entries: string[];
+    try { entries = readdirSync(dir); } catch { return; }
+    const hasConfig = entries.includes("tsconfig.json") || entries.includes("jsconfig.json");
+    if (hasConfig) {
+      for (const cfgFile of ["tsconfig.json", "jsconfig.json"]) {
+        if (!entries.includes(cfgFile)) continue;
+        let cfg: any;
+        try { cfg = parseJsonc(readFileSync(join(dir, cfgFile), "utf-8")); } catch { cfg = null; }
+        const co = cfg?.compilerOptions ?? {};
+        for (const key of Object.keys(co.paths ?? {})) {
+          const seg = key.replace(/\/\*?$/, "").split("/")[0];
+          if (seg) names.add(seg);
+        }
+        addLocalFrom(typeof co.baseUrl === "string" ? resolve(dir, co.baseUrl) : dir);
+      }
+    }
+    for (const e of entries) {
+      if (skip.has(e)) continue;
+      const p = join(dir, e);
+      let st; try { st = statSync(p); } catch { continue; }
+      if (st.isDirectory()) walk(p);
+    }
+  };
+  walk(root);
+  return names;
+}
+
 /** Real npm package roots imported via import/require STATEMENTS in a file's source. */
 export function extractStatementImports(code: string): Set<string> {
   const stripped = stripCommentsAndTemplates(code);
@@ -156,6 +222,8 @@ export function collectStatementImports(root: string, opts: { exclude?: string[]
   const found = new Set<string>();
   const skip = new Set([...SKIP_DIR, ...(opts.exclude ?? [])]);
   const maxFiles = opts.maxFiles ?? 20_000;
+  // Local first-party module names (tsconfig baseUrl/paths) — never treated as packages.
+  const localModules = baseUrlLocalNames(root);
   let count = 0;
   const walk = (dir: string): void => {
     if (count >= maxFiles) return;
@@ -172,7 +240,7 @@ export function collectStatementImports(root: string, opts: { exclude?: string[]
         count++;
         let code: string;
         try { code = readFileSync(p, "utf-8"); } catch { continue; }
-        for (const pkg of extractStatementImports(code)) found.add(pkg);
+        for (const pkg of extractStatementImports(code)) if (!localModules.has(pkg)) found.add(pkg);
       }
     }
   };
@@ -250,6 +318,23 @@ function sortFindings(findings: HallucinationFinding[]): HallucinationFinding[] 
   return [...findings].sort((a, b) => (SEV_RANK[a.severity] - SEV_RANK[b.severity]) || a.name.localeCompare(b.name));
 }
 
+/** Bare (scope-stripped) package name, for length-based precision gating. */
+function bareName(name: string): string {
+  return name.startsWith("@") ? name.split("/").pop() ?? name : name;
+}
+
+/**
+ * High-precision gate for the deterministic typosquat tier. Structural squats
+ * (deceptive prefix/suffix/separator) are kept at any length; a bare Levenshtein match
+ * is kept only when the name is long enough (≥5) that the collision is unlikely to be
+ * coincidental — short names like `jws`/`cdk` sit within edit-distance of `jest`/`sdk`
+ * by chance, which is the residual false-positive source after the declared-name gate.
+ */
+function isPreciseTyposquat(name: string, typo: { method?: string }): boolean {
+  if (typo.method === "levenshtein") return bareName(name).length >= 5;
+  return true;
+}
+
 /**
  * OFFLINE / deterministic core. Pure — no network, no filesystem. Unit-testable with
  * injected sets. Flags phantom imports (imported ∉ declared) and typosquats.
@@ -269,17 +354,24 @@ export function detectOffline(
   for (const name of imported) {
     if (allow.has(name) || self.has(name)) continue;
 
+    // The deterministic tier is gated on UNDECLARED (phantom) names only. A declared
+    // dependency is an intentional install — its existence/legitimacy is the ONLINE
+    // tier's job (404 / brand-new). Flagging a declared package as a typosquat offline,
+    // purely on edit-distance, is the dominant false-positive source: real, popular
+    // packages like `cors`/`chai`/`sinon`/`pug` sit within Levenshtein distance of
+    // unrelated popular names. (0-FP discipline > catching a declared typo offline.)
+    const isPhantom = !declared.has(name);
+    if (!isPhantom) continue;
+
     const typo = detectTyposquat(name);
-    if (typo) {
-      const signal: HallucinationSignal = typo.confidence >= 0.9 && /^(?:plain-|real-|original-|safe-|secure-|true-|actual-|verified-|legit-|official-|clean-|pure-|native-|simple-|fast-|super-|ultra-|better-|enhanced-|improved-|modern-|updated-|new-|my-|the-|a-|node-|js-|ts-)/.test(name.toLowerCase())
-        ? "deceptive_prefix" : "typosquat";
+    if (typo && isPreciseTyposquat(name, typo)) {
+      const signal: HallucinationSignal =
+        typo.method === "prefix" || typo.method === "suffix" ? "deceptive_prefix" : "typosquat";
       mergeFinding(map, name, signal, "critical", "offline", typo.similarTo);
     }
 
     // phantom: imported in source, but not declared anywhere (and not a self/workspace pkg)
-    if (imported.has(name) && !declared.has(name)) {
-      mergeFinding(map, name, "phantom_import", "high", "offline");
-    }
+    mergeFinding(map, name, "phantom_import", "high", "offline");
   }
 
   return sortFindings([...map.values()]);

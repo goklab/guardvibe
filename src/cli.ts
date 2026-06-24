@@ -15,8 +15,15 @@ const SCAN_SCRIPT_DETECTED = process.argv[1]?.endsWith("guardvibe-scan") ||
   process.argv[1]?.endsWith("guardvibe-scan.js");
 
 if (SCAN_SCRIPT_DETECTED) {
-  const { runScan } = await import("./cli/scan.js");
-  await runScan();
+  const scanArgs = process.argv.slice(2);
+  if (scanArgs.includes("--version") || scanArgs.includes("-V")) {
+    console.log(pkg.version);
+  } else if (scanArgs.includes("--help") || scanArgs.includes("-h")) {
+    printUsage();
+  } else {
+    const { runScan } = await import("./cli/scan.js");
+    await runScan();
+  }
 } else {
   await main();
 }

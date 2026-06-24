@@ -17,14 +17,18 @@ function safeWriteOutput(outputFile: string, result: string): void {
   console.log(`  [OK] Results written to ${outputFile}`);
 }
 
-export async function runScan(): Promise<void> {
-  const args = process.argv.slice(2);
-  const { flags } = parseArgs(args);
-  const format = validateFormat(flags);
+/**
+ * Pre-commit / staged-files scan. Used by the `guardvibe-scan` bin AND by
+ * `guardvibe scan --staged` (the generated pre-commit hook calls the latter). This is a
+ * GATE: it defaults to `--fail-on critical` so a non-zero exit actually blocks the commit
+ * — previously `scan --staged` fell through to a whole-directory scan that exited 0,
+ * so the hook never blocked anything.
+ */
+export async function runStagedScan(flags: Record<string, string | true>): Promise<void> {
+  const format = validateFormat(flags, ["markdown", "json", "sarif"]);
   const outputFile = getOutputPath(flags);
 
   let result: string;
-
   if (format === "sarif") {
     const { exportSarif } = await import("../tools/export-sarif.js");
     result = exportSarif(process.cwd());
@@ -39,16 +43,22 @@ export async function runScan(): Promise<void> {
     console.log(result);
   }
 
-  if (format !== "sarif" && flags["fail-on"]) {
+  // Default to gating on critical — this path is a commit/CI gate, not a report.
+  if (format !== "sarif") {
     const failOn = getStringFlag(flags, "fail-on") ?? "critical";
     if (shouldFail(result, failOn)) process.exit(1);
   }
 }
 
+export async function runScan(): Promise<void> {
+  const { flags } = parseArgs(process.argv.slice(2));
+  await runStagedScan(flags);
+}
+
 export async function runDirectoryScan(targetPath: string, flags: Record<string, string | true>): Promise<void> {
   const { scanDirectory } = await import("../tools/scan-directory.js");
 
-  const format = validateFormat(flags);
+  const format = validateFormat(flags, ["markdown", "json", "sarif"]);
   const outputFile = getOutputPath(flags);
   const baselinePath = getStringFlag(flags, "baseline");
   const saveBaseline = flags["save-baseline"] === true || typeof flags["save-baseline"] === "string";
@@ -77,21 +87,32 @@ export async function runDirectoryScan(targetPath: string, flags: Record<string,
     safeWriteOutput(baselineFile, result);
   }
 
+  // `scan <dir>` is a report; it gates only when --fail-on is explicitly requested
+  // (the pre-commit gate is `scan --staged`, which gates by default).
   if (format !== "sarif" && flags["fail-on"]) {
     const failOn = getStringFlag(flags, "fail-on") ?? "critical";
     if (shouldFail(result, failOn)) process.exit(1);
   }
 }
 
-export async function runDiffScan(base: string, flags: Record<string, string | true>): Promise<void> {
+export async function runDiffScan(requestedBase: string | undefined, flags: Record<string, string | true>): Promise<void> {
   const { execFileSync } = await import("child_process");
   const { analyzeFileSecurity } = await import("../tools/file-security.js");
   const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("../utils/constants.js");
-  const { getAddedLinesForDiff, filterToAddedLines } = await import("../tools/diff-aware.js");
+  const { getAddedLinesForDiff, filterToAddedLines, resolveGitBase } = await import("../tools/diff-aware.js");
 
-  const format = validateFormat(flags);
+  const format = validateFormat(flags, ["markdown", "json"]);
   const outputFile = getOutputPath(flags);
   const root = resolve(".");
+
+  // Resolve a usable base: honor an explicit ref (error if it's a typo), otherwise
+  // auto-detect (origin/HEAD → main → master → HEAD~1 → HEAD) instead of assuming `main`.
+  const resolved = resolveGitBase(root, requestedBase, { strict: requestedBase !== undefined });
+  if (!resolved.ok) {
+    console.error(`  [ERR] ${resolved.error}`);
+    process.exit(1);
+  }
+  const base = resolved.base!;
   // Diff-aware by default: report only issues on newly-added lines. --all-lines
   // restores the old whole-changed-file behavior (surfaces pre-existing debt too).
   const allLines = flags["all-lines"] === true;
@@ -101,7 +122,7 @@ export async function runDiffScan(base: string, flags: Record<string, string | t
     const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", base], { cwd: root, encoding: "utf-8" });
     changedFiles = output.trim().split("\n").filter(Boolean);
   } catch {
-    console.error("  [ERR] Failed to get git diff. Ensure you're in a git repository.");
+    console.error(`  [ERR] git diff against "${base}" failed.`);
     process.exit(1);
   }
 
@@ -220,10 +241,15 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
     process.exit(1);
   }
 
-  const format = validateFormat(flags);
+  const format = validateFormat(flags, ["markdown", "json", "sarif", "buddy", "agent"]);
   const findings = analyzeFileSecurity(content, language, undefined, resolved, undefined);
   let result: string;
-  if (format === "agent") {
+  if (format === "sarif") {
+    // SARIF for a single file (CI upload of one path) — was previously a silent
+    // markdown fallback, which corrupted `--output results.sarif`.
+    const { exportSarif } = await import("../tools/export-sarif.js");
+    result = exportSarif(resolved);
+  } else if (format === "agent") {
     // Agent-native contract: finding + exact-edit + confidence + verify step.
     const { buildAgentReport } = await import("../tools/agent-output.js");
     result = JSON.stringify(buildAgentReport(findings, content, language, resolved));
@@ -246,6 +272,12 @@ export async function runFileCheck(filePath: string, flags: Record<string, strin
 
 export async function handleScanCommand(args: string[]): Promise<void> {
   const { flags, positional } = parseArgs(args);
+  // `scan --staged` is the pre-commit gate (the installed hook calls it). It must run
+  // the staged-files scan, not silently fall through to a whole-directory scan.
+  if (flags["staged"]) {
+    await runStagedScan(flags);
+    return;
+  }
   const targetPath = positional[0] ?? ".";
   if (targetPath !== "." && existsSync(targetPath) && !statSync(targetPath).isDirectory()) {
     console.log(`  [INFO] "${targetPath}" is a file. Running: guardvibe check ${targetPath}\n`);
@@ -257,8 +289,7 @@ export async function handleScanCommand(args: string[]): Promise<void> {
 
 export async function handleDiffCommand(args: string[]): Promise<void> {
   const { flags, positional } = parseArgs(args);
-  const base = positional[0] ?? "main";
-  await runDiffScan(base, flags);
+  await runDiffScan(positional[0], flags);
 }
 
 export async function handleCheckCommand(args: string[]): Promise<void> {

@@ -68,6 +68,41 @@ describe("metadata consistency", () => {
     }
   });
 
+  it(`README rules-by-category table sums to ${N}`, () => {
+    // The per-category breakdown silently drifted to 344 while the header claimed 450
+    // (QA 2026-06-24). Sum the count column and require it to equal the real total.
+    const readme = read("README.md");
+    const section = readme.slice(readme.indexOf("## Security Rules ("), readme.indexOf("## CLI Commands"));
+    let sum = 0, rows = 0;
+    for (const line of section.split("\n")) {
+      // table data rows look like: | Label | 47 | Coverage… |  (label/count may be **bold**)
+      const m = line.match(/^\|[^|]+\|\s*\*{0,2}(\d+)\*{0,2}\s*\|/);
+      if (m) { sum += Number(m[1]); rows++; }
+    }
+    assert(rows >= 20, `expected the category table, found ${rows} rows`);
+    assert.strictEqual(sum, N, `README category table sums to ${sum}, actual rule count is ${N}`);
+  });
+
+  it("CVE-rule count is identical across package.json and every README mention", () => {
+    // The CVE-rule subcount is hand-curated (no clean derived source), so guard it as a
+    // cross-surface identity — README drifted to 71 while package.json said 77 (QA 2026-06-24).
+    const pkg = read("package.json").match(/(\d+) CVE rules/);
+    assert(pkg, "package.json description must state '<N> CVE rules'");
+    const expected = pkg[1];
+    const readme = read("README.md");
+    const readmeCounts = [
+      /(\d+) CVE rules/,
+      /detects (\d+) known vulnerable/,
+      /\| (\d+) packages, refreshed daily \|/,
+      /CVE Version Intelligence \((\d+) CVEs, refreshed daily\)/,
+    ];
+    for (const re of readmeCounts) {
+      const m = readme.match(re);
+      assert(m, `README must contain CVE count matching ${re}`);
+      assert.strictEqual(m[1], expected, `README CVE count ${m[1]} (via ${re}) != package.json ${expected}`);
+    }
+  });
+
   it("tool count string is identical across all public surfaces", () => {
     // src/index.ts is the runtime McpServer description hosts actually receive;
     // gemini-extension.json is the Gemini CLI extensions-gallery manifest.

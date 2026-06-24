@@ -10,10 +10,17 @@ export function getStringFlag(flags: Record<string, string | true>, key: string)
   return val;
 }
 
-export function validateFormat(flags: Record<string, string | true>): string {
+export function validateFormat(flags: Record<string, string | true>, supported?: string[]): string {
   const format = getStringFlag(flags, "format") ?? "markdown";
   if (!VALID_FORMATS.has(format)) {
-    console.error(`  [ERR] Invalid format "${format}". Use: markdown, json, sarif, or buddy`);
+    console.error(`  [ERR] Invalid format "${format}". Use: markdown, json, sarif, buddy, or agent`);
+    process.exit(1);
+  }
+  // Command-aware: a format may be globally valid but unsupported by THIS command.
+  // Error explicitly rather than silently degrading to markdown (which produced
+  // wrong output, e.g. `check --format sarif` writing markdown to a .sarif file).
+  if (supported && !supported.includes(format)) {
+    console.error(`  [ERR] Format "${format}" is not supported by this command. Supported: ${supported.join(", ")}.`);
     process.exit(1);
   }
   return format;

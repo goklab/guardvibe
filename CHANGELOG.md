@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.25.0] - 2026-06-24
+
+### Fixed — QA hardening pass (no rule/tool count change: 450 rules / 39 tools)
+- **Pre-commit gate now actually blocks.** `scan --staged` (the command the installed pre-commit hook runs) was falling through to a whole-directory scan that always exited 0, so the hook never blocked an insecure commit. It now runs a staged scan and defaults to `--fail-on critical`. The slopsquat/typosquat detector no longer false-flags declared, popular packages (e.g. `cors`, `chai`, `sinon`) or first-party source dirs as hallucinated, and `--format` now errors on an unsupported (command, format) combo instead of silently emitting markdown (so `check --format sarif` produces real SARIF).
+- **Robustness & accuracy:** `diff` / changed-files scans auto-detect the base branch (origin/HEAD → main → master → HEAD~1 → HEAD) instead of assuming `main`, with a clear "not a git repository" vs "ref not found" distinction; `check_dependencies` gained `format: json`; `secure_this` returns clean rule IDs; the edit hook no longer depends on `jq`; `guardvibe-scan --help`/`--version` and a non-zero exit on an unknown `explain <rule>` now work.
+- **Docs:** corrected the CVE-rule count, the per-category rule table (now sums to the real total), and the dependency description; added consistency guards so those counts cannot silently drift again. +20 regression tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.24.0] - 2026-06-23
 
 ### Added — 1 rule from daily intel: Clerk 4.x auth() IDOR version-pin (449 → 450 rules)

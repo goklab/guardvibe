@@ -111,7 +111,11 @@ function addToGitignore(entries: string[]): void {
   const missing = entries.filter(e => !content.split("\n").some(line => line.trim() === e));
   if (missing.length === 0) return;
 
-  const block = `\n# GuardVibe (auto-added by guardvibe init)\n${missing.join("\n")}\n`;
+  // Only write the header comment once — `init all` runs this per platform, so a
+  // repeated header would otherwise stack up (3×) in the same .gitignore.
+  const header = "# GuardVibe (auto-added by guardvibe init)";
+  const hasHeader = content.split("\n").some(line => line.trim() === header);
+  const block = hasHeader ? `\n${missing.join("\n")}\n` : `\n${header}\n${missing.join("\n")}\n`;
   writeFileSync(gitignorePath, content.trimEnd() + block, "utf-8");
   console.log(`  [OK] Added ${missing.join(", ")} to .gitignore`);
 }
@@ -123,7 +127,10 @@ function setupClaudeGuide(): void {
   const claudeSettingsPath = join(claudeSettingsDir, "settings.json");
   const existingSettings = readJsonFile(claudeSettingsPath) || {};
   if (!(existingSettings as any).hooks) (existingSettings as any).hooks = {};
-  const hookCommand = `jq -r '.tool_input.file_path' | xargs npx -y guardvibe@${pkg.version} check --format buddy 2>/dev/null || true`;
+  // Extract the edited file path with node (always present — no `jq` dependency, which
+  // when absent made the hook a silent no-op) and pass it as an argv (no shell injection
+  // via filename). Errors are swallowed so a post-edit scan never blocks editing.
+  const hookCommand = `node -e "const fs=require('fs');let s='';try{s=fs.readFileSync(0,'utf8')}catch(e){}try{const p=(JSON.parse(s).tool_input||{}).file_path;if(p)require('child_process').execFileSync('npx',['-y','guardvibe@${pkg.version}','check',p,'--format','buddy'],{stdio:'inherit'})}catch(e){}" 2>/dev/null || true`;
   if (!(existingSettings as any).hooks.PostToolUse) {
     (existingSettings as any).hooks.PostToolUse = [
       {
@@ -137,7 +144,7 @@ function setupClaudeGuide(): void {
     // and in lock-step with the pinned MCP server.
     for (const entry of (existingSettings as any).hooks.PostToolUse) {
       for (const h of entry?.hooks ?? []) {
-        if (typeof h.command === "string" && /npx\s+-y\s+guardvibe@[^\s]+\s+check/.test(h.command)) {
+        if (typeof h.command === "string" && /guardvibe@[^\s'"]+/.test(h.command) && /\bcheck\b/.test(h.command)) {
           h.command = hookCommand;
         }
       }

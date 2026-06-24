@@ -1542,9 +1542,12 @@ function isDuplicatePair(a: Finding, b: Finding): boolean {
   const aIsAuth = authPatterns.some(p => a.rule.name.includes(p));
   const bIsAuth = authPatterns.some(p => b.rule.name.includes(p));
   if (aIsAuth && bIsAuth) return true;
-  // Both are CORS wildcard rules — VG040+VG403+VG973 duplicate case
-  const aIsCors = a.rule.name.includes("CORS") && a.rule.name.includes("ildcard");
-  const bIsCors = b.rule.name.includes("CORS") && b.rule.name.includes("ildcard");
+  // Both are CORS misconfiguration rules on the SAME line — same CORS construct, so the
+  // generic VG040 ("CORS wildcard") is redundant next to a more specific one like VG1094
+  // ("CORS Origin Reflection With Credentials", CVE-2026-54290) or VG973 (Hono). Keep the
+  // most specific (isMoreSpecific); a line with only one CORS finding is untouched (0-FN).
+  const aIsCors = a.rule.name.includes("CORS");
+  const bIsCors = b.rule.name.includes("CORS");
   if (aIsCors && bIsCors) return true;
   // Both are admin role check rules — VG426+VG957 duplicate case
   const adminPatterns = ["Admin", "Role Check", "Role Verification"];
