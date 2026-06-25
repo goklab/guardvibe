@@ -5,6 +5,13 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.28.0] - 2026-06-25
+
+### Added — 1 rule from daily intel: i18next missing-key prototype pollution (450 → 451 rules)
+- **VG1097 — i18next missing-key prototype pollution (CVE-2026-48713 / CVE-2026-48714, critical).** Two i18next missing-key handlers write attacker-supplied key segments onto `Object.prototype`: `i18next-fs-backend` before 2.6.6 (GHSA-2933-q333-qg83) persists `__proto__.polluted`-style keys, and `i18next-http-middleware` before 3.9.7 (GHSA-f49m-vf83-692w) blocks literal `__proto__` but not dotted variants that downstream backends split on `keySeparator`. Both published 2026-06-25. Distinct from the existing `i18next-http-backend` path-traversal rule (different package). 0-FP semver: a caret on the current major (^2 / ^3) and a tilde within the fixed minor resolve to the patched release, so only exact/= pins and ranges that stay in the vulnerable line are flagged. CVE version-pin rule count 77 → 78. 16 tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.27.0] - 2026-06-25
 
 ### Improved — AST engine: multi-hop SQL-injection taint (no rule/tool count change: 450 rules / 39 tools)
