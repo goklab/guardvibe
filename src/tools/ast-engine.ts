@@ -147,6 +147,96 @@ const OWNERSHIP_FIELDS = new Set([
 const OWNERSHIP_COMPARE = /\.\s*(?:userId|ownerId|authorId|createdById|teamId|workspaceId|orgId|organizationId|tenantId|memberId|accountId|projectId)\b\s*(?:===|!==|==|!=)/i;
 const SESSION_REF = /\b(?:session|ctx|auth|currentUser|viewer|member|account|workspace|team|org|self|me|user)\b/i;
 
+// A value text that is directly request/route-controlled is attacker-chosen, so an
+// ownership field scoped to it (`UserId: req.body.UserId`, `workspaceId: params.x`)
+// is NOT a real guard — the request can name any owner. Only session/auth-derived
+// values count. (Mirrors the existing top-level `params|searchParams` exclusion,
+// extended to req/request so juice-shop's `req.body.UserId` scoping keeps firing.)
+const REQUEST_CONTROLLED = /\b(?:req|request|params|searchParams)\b/;
+
+/**
+ * Recursively scan a `where` object literal for an ownership field (at any nesting
+ * depth, e.g. `members: { some: { userId: ... } }`) whose value is session-derived
+ * (not request-controlled). The line/regex engine and the prior top-level-only scan
+ * miss ownership nested inside relation filters.
+ */
+function whereHasNestedOwnership(ts: typeof TSType, sf: TSType.SourceFile, obj: TSType.ObjectLiteralExpression): boolean {
+  for (const prop of obj.properties) {
+    const nm = prop.name && ts.isIdentifier(prop.name) ? prop.name.text : undefined;
+    if (ts.isPropertyAssignment(prop)) {
+      if (nm && OWNERSHIP_FIELDS.has(nm)) {
+        const valText = prop.initializer.getText(sf);
+        if (!REQUEST_CONTROLLED.test(valText)) return true;
+      }
+      if (ts.isObjectLiteralExpression(prop.initializer) && whereHasNestedOwnership(ts, sf, prop.initializer)) return true;
+    } else if (ts.isShorthandPropertyAssignment(prop) && nm && OWNERSHIP_FIELDS.has(nm)) {
+      // `where: { userId }` — the bound variable carries the ownership scope.
+      return true;
+    }
+  }
+  return false;
+}
+
+// An authz/ownership-check helper: an action verb + an authz noun (isAdminForUser,
+// assertOwnership, checkAccess, requirePermission, ensureMemberRole…) or a bare
+// authorize/authorise. Names like formatId/getUserById deliberately do NOT match.
+const AUTHZ_HELPER = /^(?:authoris|authoriz)e|^(?:is|assert|ensure|require|check|verify|can|has|validate|guard|protect|enforce)[A-Za-z]*(?:owner|admin|member|access|permission|auth|allowed|belongs|role)/i;
+
+/** The text of the `where.id` value (or the call's first-arg id) the call is keyed by. */
+function findKeyedIdText(ts: typeof TSType, sf: TSType.SourceFile, call: TSType.CallExpression): string | undefined {
+  const arg0 = call.arguments[0];
+  if (arg0 && ts.isObjectLiteralExpression(arg0)) {
+    const whereProp = arg0.properties.find(p =>
+      ts.isPropertyAssignment(p) && p.name && ts.isIdentifier(p.name) && p.name.text === "where");
+    const whereObj = whereProp && ts.isPropertyAssignment(whereProp) && ts.isObjectLiteralExpression(whereProp.initializer)
+      ? whereProp.initializer : arg0;
+    const idProp = whereObj.properties.find(p =>
+      ts.isPropertyAssignment(p) && p.name && ts.isIdentifier(p.name) && p.name.text === "id");
+    if (idProp && ts.isPropertyAssignment(idProp)) return idProp.initializer.getText(sf);
+  }
+  return undefined;
+}
+
+/**
+ * Inter-procedural ownership guard: the enclosing function calls an authz-named
+ * helper BEFORE the find/mutation, passing both a session value and the same id the
+ * query is keyed by (`isAdminForUser(ctx.user.id, input.forUserId)` → throw, then
+ * `findUnique({ where: { id: input.forUserId } })`). This is the case VG950/VG951's
+ * same-function analysis structurally can't see. Conservative on every axis (authz
+ * name + session ref + exact id-sharing + textually-before) so an unrelated guard
+ * can't hide a real BOLA.
+ */
+function hasInterProceduralOwnershipGuard(ts: typeof TSType, sf: TSType.SourceFile, target: TSType.CallExpression): boolean {
+  const idText = findKeyedIdText(ts, sf, target);
+  // Require a specific id expression (a member access or a sufficiently long name);
+  // a bare `id` is too generic to match a helper argument soundly.
+  if (!idText || (!idText.includes(".") && idText.length < 5)) return false;
+
+  let fn: TSType.Node | undefined = target;
+  while (fn && !(ts.isFunctionDeclaration(fn) || ts.isFunctionExpression(fn) || ts.isArrowFunction(fn) || ts.isMethodDeclaration(fn))) {
+    fn = fn.parent;
+  }
+  if (!fn) return false;
+  const targetStart = target.getStart(sf);
+
+  let guarded = false;
+  const visit = (node: TSType.Node): void => {
+    if (guarded) return;
+    if (ts.isCallExpression(node) && node !== target && node.getStart(sf) < targetStart) {
+      const callee = node.expression;
+      const method = ts.isPropertyAccessExpression(callee) ? callee.name.text
+        : ts.isIdentifier(callee) ? callee.text : undefined;
+      if (method && AUTHZ_HELPER.test(method)) {
+        const argsText = node.arguments.map(a => a.getText(sf)).join(", ");
+        if (SESSION_REF.test(argsText) && argsText.includes(idText)) guarded = true;
+      }
+    }
+    if (!guarded) ts.forEachChild(node, visit);
+  };
+  visit(fn);
+  return guarded;
+}
+
 /** The first CallExpression near `line` whose last-identifier method is in `methods`. */
 function callNearLine(
   ts: typeof TSType, sf: TSType.SourceFile, line: number, methods: Set<string>,
@@ -209,24 +299,24 @@ export function bolaOwnershipGuarded(code: string, filePath: string | undefined,
   const target = callNearLine(ts, sf, line, FIND_METHODS);
   if (!target) return false;
 
-  // (1) ownership field in the WHERE clause with a non-param value.
+  // (1) ownership field in the WHERE clause with a non-param value — now scanned
+  // recursively so ownership nested inside a relation filter (`members.some.userId`)
+  // counts too, with a session-derived (not request-controlled) value.
   const arg0 = target.arguments[0];
   if (arg0 && ts.isObjectLiteralExpression(arg0)) {
     const whereProp = arg0.properties.find(p =>
       ts.isPropertyAssignment(p) && p.name && ts.isIdentifier(p.name) && p.name.text === "where");
-    if (whereProp && ts.isPropertyAssignment(whereProp) && ts.isObjectLiteralExpression(whereProp.initializer)) {
-      for (const prop of whereProp.initializer.properties) {
-        const nm = prop.name && ts.isIdentifier(prop.name) ? prop.name.text : undefined;
-        if (nm && OWNERSHIP_FIELDS.has(nm)) {
-          const valText = ts.isPropertyAssignment(prop) ? prop.initializer.getText(sf) : nm;
-          if (!/\b(?:params|searchParams)\b/.test(valText)) return true;
-        }
-      }
+    if (whereProp && ts.isPropertyAssignment(whereProp) && ts.isObjectLiteralExpression(whereProp.initializer)
+        && whereHasNestedOwnership(ts, sf, whereProp.initializer)) {
+      return true;
     }
   }
 
   // (2) post-fetch ownership comparison against a session/user value, in the same function.
-  return hasPostFetchOwnershipGuard(ts, sf, target);
+  if (hasPostFetchOwnershipGuard(ts, sf, target)) return true;
+
+  // (3) inter-procedural: an authz helper checks session + this id before the find.
+  return hasInterProceduralOwnershipGuard(ts, sf, target);
 }
 
 /**
@@ -250,7 +340,10 @@ export function bolaMutationGuarded(code: string, filePath: string | undefined, 
 
   const target = callNearLine(ts, sf, line, MUTATION_METHODS);
   if (!target) return false;
-  return hasPostFetchOwnershipGuard(ts, sf, target);
+  // Same-function post-fetch comparison, OR an inter-procedural authz helper that
+  // checked session + this id before the mutation (the helper-guard blind spot).
+  if (hasPostFetchOwnershipGuard(ts, sf, target)) return true;
+  return hasInterProceduralOwnershipGuard(ts, sf, target);
 }
 
 const ITER_METHODS = new Set(["map", "forEach", "some", "every", "filter", "find", "findIndex", "reduce", "flatMap"]);

@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.26.0] - 2026-06-25
+
+### Improved — AST engine: inter-procedural & nested ownership for BOLA/IDOR (no rule/tool count change: 450 rules / 39 tools)
+- **VG950 (find-by-id BOLA) precision via the AST engine.** The ownership guard now also recognizes two real-world authorization shapes the same-function analysis structurally could not see: (1) an ownership field nested inside a relation filter (`members: { some: { userId } }`, `teams.some.team.members.some.userId`), and (2) an **inter-procedural** check — an authorization helper the function calls *before* the query, passing both a session value and the same id (`isAdminForUser(ctx.user.id, targetId)` → throw, then `findUnique({ where: { id: targetId } })`). The same inter-procedural guard now also applies to VG951 (delete/update BOLA).
+- **Soundness preserved:** only a session/auth-derived ownership value counts — a request-controlled value (`req.body.UserId`) is attacker-chosen and keeps firing. Deterministic (bundled TypeScript parser, no resolution of the scanned project's copy).
+- Corpus delta: 3 confirmed false positives removed, zero true positives lost, zero drift on other rules. 8 new tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.25.0] - 2026-06-24
 
 ### Fixed — QA hardening pass (no rule/tool count change: 450 rules / 39 tools)
