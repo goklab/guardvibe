@@ -6,6 +6,7 @@
 
 import { isRuleDefinitionFile } from "./check-code.js";
 import { looksMinified } from "../utils/constants.js";
+import { bareVarSqlSinks } from "./ast-engine.js";
 
 export interface TaintFinding {
   source: { type: string; line: number; variable: string };
@@ -323,6 +324,42 @@ export function analyzeTaint(code: string, language: string, filePath?: string):
         severity: "high",
         description: "User input flows into the URL of a server-side request, enabling SSRF (internal services, cloud metadata at 169.254.169.254).",
         fix: "Validate the URL against an allowlist of trusted hosts and block private/internal IP ranges before making the request.",
+      });
+    }
+  }
+
+  // Multi-hop SQL injection: a user-tainted SQL string built into a VARIABLE and then
+  // passed BARE to a SQL sink (`const q = "SELECT ... " + req.body.x; db.query(q)`).
+  // The inline sink regexes only match the dangerous string in the sink call itself, so
+  // they miss the variable-indirection case. The AST locates sinks whose first argument
+  // is a bare identifier; we report only when that identifier is a tainted variable
+  // whose definition is provably a SQL string (contains SQL keywords) — high precision,
+  // and a parameterized query (`db.query(q, [userVal])`) stays silent because the SQL
+  // string `q` has no tainted source and the user value rides the bind array.
+  const SQL_KEYWORDS = /\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|UNION|DROP|INTO|JOIN)\b/i;
+  const hasSqlSinkCandidate = /\.\s*(?:query|execute|raw|\$queryRawUnsafe|\$executeRawUnsafe)\s*\(\s*[A-Za-z_$]/.test(code);
+  if (hasSqlSinkCandidate && SQL_KEYWORDS.test(code)) {
+    for (const site of bareVarSqlSinks(code, filePath)) {
+      const tv = taintedVars.find(v => v.name === site.varName);
+      if (!tv) continue;
+      // The variable must provably hold a SQL string built from user input — its
+      // defining assignment line carries SQL keywords (so a non-SQL `.query(opts)` or a
+      // bind-parameter value never qualifies).
+      const def = lines[tv.line - 1] ?? "";
+      if (!SQL_KEYWORDS.test(def)) continue;
+      if (SANITIZERS.some(s => s.test(def))) continue;
+      if (findings.some(f => f.sink.line === site.line && f.sink.type === "sql-injection")) continue;
+
+      findings.push({
+        source: { type: tv.sourceType ?? "propagated", line: tv.line, variable: tv.name },
+        sink: { type: "sql-injection", line: site.line, code: (lines[site.line - 1] ?? "").trim().substring(0, 100) },
+        chain: [
+          `[SOURCE] ${tv.sourceType ?? "propagated"} -> ${tv.name} (line ${tv.line})`,
+          `[SINK] sql-injection (line ${site.line})`,
+        ],
+        severity: "critical",
+        description: "A user-tainted SQL string is built into a variable and passed to a query sink, enabling SQL injection.",
+        fix: "Use parameterized queries with placeholder values (bind parameters); never concatenate user input into the SQL string.",
       });
     }
   }

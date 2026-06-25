@@ -346,6 +346,46 @@ export function bolaMutationGuarded(code: string, filePath: string | undefined, 
   return hasInterProceduralOwnershipGuard(ts, sf, target);
 }
 
+// SQL sink methods whose FIRST argument is the query string. The inline taint regex
+// only fires when that string is written literally in the sink call (backtick / `+`),
+// so it misses the case where the SQL string was built into a VARIABLE and the bare
+// variable is passed in (`db.sequelize.query(query)`). `.raw`/`$…Unsafe` are always
+// raw SQL; `query`/`execute` are overloaded, so taint.ts gates them on the variable
+// actually being a user-tainted SQL string.
+const SQL_RAW_SINK_METHODS = new Set(["query", "execute", "raw", "$queryRawUnsafe", "$executeRawUnsafe"]);
+
+/**
+ * Find SQL-sink calls whose first argument is a BARE identifier (the multi-hop shape
+ * the inline regex can't see). Returns the 1-based sink line and the variable name so
+ * the taint engine can confirm the variable is a user-tainted SQL string before
+ * reporting. Empty (no suppression of other paths) when TypeScript is unavailable or
+ * the parse fails. The first argument must be a plain identifier — an inline
+ * string/template/concat is already covered by the regex sinks and is skipped here.
+ */
+export function bareVarSqlSinks(code: string, filePath?: string): Array<{ line: number; varName: string }> {
+  const ts = getTs();
+  if (!ts) return [];
+  let sf: TSType.SourceFile;
+  try {
+    sf = ts.createSourceFile(filePath ?? "file.ts", code, ts.ScriptTarget.Latest, true, scriptKindFor(ts, filePath));
+  } catch {
+    return [];
+  }
+
+  const sinks: Array<{ line: number; varName: string }> = [];
+  const visit = (node: TSType.Node): void => {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+        && SQL_RAW_SINK_METHODS.has(node.expression.name.text)
+        && node.arguments.length > 0 && ts.isIdentifier(node.arguments[0])) {
+      const line = sf.getLineAndCharacterOfPosition(node.arguments[0].getStart(sf)).line + 1;
+      sinks.push({ line, varName: (node.arguments[0] as TSType.Identifier).text });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return sinks;
+}
+
 const ITER_METHODS = new Set(["map", "forEach", "some", "every", "filter", "find", "findIndex", "reduce", "flatMap"]);
 
 /** First `const NAME = <initializer>` for NAME anywhere in the file (file-scope-ish). */

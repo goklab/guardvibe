@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.27.0] - 2026-06-25
+
+### Improved — AST engine: multi-hop SQL-injection taint (no rule/tool count change: 450 rules / 39 tools)
+- **Multi-hop bare-variable SQL sinks.** Dataflow analysis now catches the case where a user-tainted SQL string is built into a *variable* and that bare variable is passed to a query sink (`const q = "SELECT ... " + req.body.x; db.sequelize.query(q)`). The inline taint patterns only match the dangerous string when it appears literally in the sink call, so they missed the variable-indirection (multi-hop) shape; the AST locates sinks whose first argument is a bare identifier and confirms it is a tainted SQL string before reporting.
+- **High precision / zero-FP guarding:** reports only when the variable is user-tainted *and* its definition is provably a SQL string (carries SQL keywords) — a parameterized query (`db.query(q, [userVal])`) stays silent (the SQL string has no tainted source; the user value rides the bind array), as does a non-SQL `.query(opts)` or a sanitizer-wrapped service-layer build. Deterministic (bundled TypeScript parser).
+- Corpus delta: 1 real SQL-injection caught that the inline patterns missed, zero false positives, zero drift on other rules. 7 new tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.26.0] - 2026-06-25
 
 ### Improved — AST engine: inter-procedural & nested ownership for BOLA/IDOR (no rule/tool count change: 450 rules / 39 tools)
