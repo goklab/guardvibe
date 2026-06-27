@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.29.0] - 2026-06-27
+
+### Added — 2 rules from daily intel: deepstream prototype pollution + pnpm path-traversal cluster (451 → 453 rules)
+- **VG1098 — deepstream Server Prototype Pollution (CVE-2026-49252 / GHSA-9v98-6g37-x9g6, critical, CVSS 9.9).** `@deepstream/server` before 10.0.5 lets an authenticated client with write permissions merge `__proto__`-style keys onto `Object.prototype` via a crafted record/RPC payload — privilege escalation / DoS across the realtime server. Published 2026-06-26. 0-FP semver: 10.0.5 is a patch within 10.0, so caret/tilde on 10.0.x resolve to the fix; only exact/= pins in 10.0.0–10.0.4 (and any range on 0.x–9.x) are flagged. 9 tests.
+- **VG1099 — pnpm Lockfile/Manifest Path-Traversal & RCE Cluster (CVE-2026-55698 / -55487 / -50016 and others, June 2026, high).** A crafted `pnpm-lock.yaml` / manifest can escape the project root and overwrite arbitrary files on the install host (transitive alias path traversal, manifest identity spoof running attacker lifecycle scripts, env-lockfile resolution short-circuit, malicious patch-file write) — supply-chain RCE on dev/CI machines. Fixed in 10.34.2 (10.x) / 11.5.3 (11.x). Flags the Corepack `packageManager` pin (always exact): any `pnpm@` below 10.34.2, or in 11.0.0–11.5.2; recommends 10.34.4 / 11.8.0. 12 tests.
+
+CVE version-pin rule count 78 → 80. Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.28.0] - 2026-06-25
 
 ### Added — 1 rule from daily intel: i18next missing-key prototype pollution (450 → 451 rules)
