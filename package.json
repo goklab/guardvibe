@@ -118,7 +118,7 @@
   "devDependencies": {
     "@types/node": "^25.5.2",
     "c8": "^11.0.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.6.0",
     "tsx": "^4.22.4",
     "typescript-eslint": "^8.58.0"
   },
