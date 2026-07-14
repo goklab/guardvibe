@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.30.0] - 2026-07-14
+
+### Added — 3 rules from daily intel: jscrambler + Injective supply-chain IOCs, n8n-mcp cross-tenant (453 → 456 rules)
+- **VG1100 — jscrambler Compromised Releases (July 2026 supply chain attack, critical).** Versions 8.14.0/8.16.0/8.17.0/8.18.0/8.20.0 published 2026-07-11 via a stolen npm credential run a Rust infostealer — 8.14–8.17 from an undocumented `preinstall` hook, 8.18+ as a self-executing function in `dist/index.js` (import-time). Targets cloud/CI credentials, browser sessions, crypto wallets, Bitwarden vaults, and AI coding-tool configs. Plugins (webpack/gulp/Metro/grunt) were NOT hit. Safe: 8.22.0+ or the pre-compromise 8.13.0. 10 tests.
+- **VG1101 — @injectivelabs/sdk-ts Wallet-Key Backdoor (July 2026, critical).** Version 1.20.21 (published 2026-07-08 from a compromised GitHub account) hooks `PrivateKey.fromMnemonic()`/`fromHex()` and exfiltrates BIP-39 seed phrases and private keys base64-encoded in the `X-Request-Id` header of fake-telemetry requests. Clean release: 1.20.23. 4 tests.
+- **VG1102 — n8n-mcp Multi-Tenant Cross-Tenant Access (CVE-2026-54052 / GHSA-j6r7-6fhx-77wx, critical).** Through 2.56.0, multi-tenant HTTP deployments fail to isolate workflow version backups — one tenant can read/delete another tenant's snapshots, leaking credential references and authorization headers from full node definitions. Fixed in 2.56.1. 0-FP semver: caret on 2.x / tilde within 2.56 resolve to the fix; only exact/= pins (and older lines) are flagged. 9 tests.
+
+### Changed
+- **VG1044 (@anthropic-ai/sdk Memory Tool)** description now records the assigned CVE ids — CVE-2026-41686 (insecure file permissions, fix 0.91.1) and CVE-2026-34451 (path escape, fix 0.81.0) — so CVE-number lookups resolve; version-space already fully covered, no pattern change.
+- **VG1043 (Hono pre-4.12.18 cluster)** description now also documents CVE-2026-56763 (parseBody `dot:true` `__proto__` prototype pollution, fix 4.12.7) and CVE-2026-56762 (setCookie missing cookie-name validation, fix 4.12.12) — both version windows were already fully flagged by this rule; no pattern change.
+
+CVE version-pin rule count 80 → 83.
+
 ## [3.29.0] - 2026-06-27
 
 ### Added — 2 rules from daily intel: deepstream prototype pollution + pnpm path-traversal cluster (451 → 453 rules)
