@@ -5,6 +5,20 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.31.0] - 2026-07-23
+
+### Added — 6 rules from daily intel: Auth.js critical pair, Next.js/PostCSS July residual windows, AsyncAPI supply-chain IOC, Clerk 5.x gap (456 → 462 rules)
+- **VG1103 — Auth.js v5 beta fail-open + homoglyph (GHSA-8fpg-xm3f-6cx3 / GHSA-7rqj-j65f-68wh, critical, CVSS 9.1).** next-auth 5.0.0-beta.0–beta.31: config errors populate the auth object with a truthy error payload, so `if (req.auth)` grants access to every request (fails open); plus the homoglyph '@' email bypass. Both fixed in beta.32. Exact/= beta pins flagged (caret/tilde prerelease ranges resolve to the fix). 8 tests.
+- **VG1104 — Auth.js homoglyph '@' email normalization bypass (GHSA-7rqj-j65f-68wh, critical, CVSS 9.1).** @auth/core 0.1.0–0.41.2 (fix 0.41.3) + next-auth 4.10.3–4.24.14 (fix 4.24.15) validate email before NFKC normalization — a homoglyph that normalizes to '@' routes magic links to an attacker mailbox (account takeover, no victim interaction). v5 beta window lives in VG1103 (no double-fire). 12 tests.
+- **VG1105 — Next.js July-2026 SSRF cluster residual window (CVE-2026-64649/-64645/-64642/-64641, high).** Server Actions SSRF via untrusted Host header + rewrites()/redirects() hostname SSRF/open-redirect, fixed 15.5.21/16.2.11. Flags exactly the residual exact-pin windows VG1047's advice landed in: 15.5.18–15.5.20 and 16.2.6–16.2.10. 9 tests.
+- **VG1106 — PostCSS sourceMappingURL arbitrary file read residual window (CVE-2026-45623 / GHSA-6g55-p6wh-862q, high).** Unvalidated sourceMappingURL paths (incl. ../ traversal) let attacker-controlled CSS read any Node-readable file; fixed 8.5.12. Flags the residual exact pins 8.5.10–8.5.11 above VG1090's window. 6 tests.
+- **VG1107 — @asyncapi/* compromised releases (July 2026 supply chain, critical).** Five malicious versions across four packages published 2026-07-14 via a CI 'pwn request' bot-credential compromise: @asyncapi/specs 6.11.2-alpha.1 + 6.11.2, generator 3.3.1, generator-components 0.7.1, generator-helpers 1.1.1. Import-time payload → IPFS-staged botnet + credential-stealing RAT. IOC-style, ranges flagged too. 10 tests.
+- **VG1108 — @clerk/nextjs 5.x middleware route-protection bypass (CVE-2026-41248 / GHSA-vqx2-fgx2-5wq9, critical, CVSS 9.1).** Fills the 5.0.0–5.7.5 version-space no existing Clerk rule covers (1.x/2.x = VG925, 4.x = VG1096, 6.x/7.x ⊂ VG1045); 5.x backport fix 5.7.6. 0-FP semver: caret-5.x/tilde-5.7 resolve to the fix. 9 tests.
+
+Skipped from the brief's Section-6 proposals (all covered or FP-prone, verified): GV-AUTHJS-FAILOPEN-001 behavioral truthy-check regex (`if (session)` is the standard, safe pattern on patched versions — version pin covers the CVE); GV-NEXT-SERVERACTION-SSRF-002 (taint-analysis SSRF sink + VG120 cover the behavioral case); GV-AISDK-UPLOAD-MIME-003 (File Upload Without Type Validation rule + the AI SDK version pin cover it). WordPress SQLi/RCE KEV chain and Langflow CVE-2026-0770 KEV are non-JS/out of stack.
+
+CVE version-pin rule count 83 → 89.
+
 ## [3.30.0] - 2026-07-14
 
 ### Added — 3 rules from daily intel: jscrambler + Injective supply-chain IOCs, n8n-mcp cross-tenant (453 → 456 rules)
