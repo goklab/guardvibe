@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.32.0] - 2026-08-09
+
+### Added — 3 rules from daily intel: crypto-js entropy, jsii-diff command injection, keyv/cacheable ChainDrop worm (462 → 465 rules)
+- **VG1109 — crypto-js WordArray.random() insufficient entropy (CVE-2026-71851 / GHSA-rg76-677x-56q9, critical, CVSS 9.0).** crypto-js < 4.0.0 seeds its RNG from Math.random() via a custom MWC PRNG, collapsing 128/256-bit "entropy" to ~2^39/2^47 — already drained $5.7M+ across two 2026 wallet-drain waves. Distinct from VG911's general unmaintained-package warning. 6 tests.
+- **VG1110 — jsii-diff OS command injection via npm: package argument (CVE-2026-15895 / GHSA-wcx4-wpfv-mc5c, high).** jsii-diff < 1.131.0 passes its npm: package argument into a shell command unsanitized (CWE-78) — CI-runner RCE via crafted package specifiers. 6 tests.
+- **VG1111 — keyv/cacheable ChainDrop supply-chain worm (Mini Shai-Hulud, August 2026, critical).** 2026-08-04 maintainer GitHub account compromise published validly-signed, backdoored releases of keyv, cacheable (+ @cacheable/memory|node-cache|utils|net), cache-manager, cacheable-request, and the ESLint deps flat-cache/file-entry-cache — preinstall hook steals CI npm/GitHub tokens and self-propagates. IOC-style, 400+ packages affected total; this rule covers the primary maintainer-compromised set. 9 tests.
+
+CVE version-pin rule count 89 → 90.
+
 ## [3.31.0] - 2026-07-23
 
 ### Added — 6 rules from daily intel: Auth.js critical pair, Next.js/PostCSS July residual windows, AsyncAPI supply-chain IOC, Clerk 5.x gap (456 → 462 rules)
