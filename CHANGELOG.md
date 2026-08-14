@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.33.0] - 2026-08-14
+
+### Added — 3 rules from daily intel: React2Shell react-server-dom-* gap, trigger.dev prototype pollution, Axios Basic-auth injection (465 → 468 rules)
+- **VG1112 — react-server-dom-* / React2Shell RCE residual window (CVE-2025-55182 / CVE-2025-66478 / GHSA-9qr9-h5gf-34mp, critical, CVSS 10.0).** react-server-dom-webpack/parcel/turbopack at exactly 19.0.0/19.1.0/19.1.1/19.2.0 carry the unauthenticated Flight-protocol deserialization RCE; VG920 only matched the `react` package capped at 19.1.0. Next.js's own advisory for the same bug is already fully subsumed by VG1047+VG1105's next coverage — no next-package changes needed. Closes the react-server-dom-* package gap plus react's 19.1.1/19.2.0 residual. 9 tests.
+- **VG1113 — @trigger.dev/core prototype pollution → cross-tenant DoS (CVE-2026-73654 / GHSA-p28v-f755-9qrg, high).** Unsanitized run-metadata keys pollute Object.prototype, crashing the whole process (Prisma validation + Prometheus client both throw) for every tenant, not just the attacker's. 3.3.8–4.5.5, fixed 4.5.6. 6 tests.
+- **VG1114 — axios prototype-pollution Basic-auth header injection residual window (GHSA-xj6q-8x83-jv6g, high).** An external prototype-pollution primitive plus an axios call with a partial auth object lets an attacker control the outbound Authorization: Basic header. Distinct from VG1091 (proxy gadget, 1.15.2–1.15.x); this rule covers the residual 1.16.0–1.17.x, fixed 1.18.0. 5 tests.
+
+Investigated but not added (already covered by existing rules, confirmed by re-reading their version ranges): Drizzle ORM identifier SQLi (GHSA-gpj5-g38j-94v9, already VG931/VG1053), Clerk org/billing/reverification bypass (GHSA-w24r-5266-9c3c, already VG1045), Clerk JS middleware bypass (GHSA-vqx2-fgx2-5wq9, already VG925/VG1108), @anthropic-ai/sdk memory-tool sandbox escape (GHSA-5474-4w2j-mq4c, already the superset VG1044), Vercel AI SDK file-type whitelist bypass (GHSA-rwvc-j5jr-mgvh, already VG1054), Hono serve-static %5C path traversal (GHSA-wwfh-h76j-fc44, already fully spanned by VG1043 + VG1092's combined <4.12.25 range), RSC DoS cluster (CVE-2026-23864/-23870, already VG1048/VG1004/VG1047).
+
+CVE version-pin rule count 90 → 93.
+
 ## [3.32.0] - 2026-08-09
 
 ### Added — 3 rules from daily intel: crypto-js entropy, jsii-diff command injection, keyv/cacheable ChainDrop worm (462 → 465 rules)
