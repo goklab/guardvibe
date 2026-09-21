@@ -5,6 +5,11 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.34.1] - 2026-09-21
+
+### Fixed
+- Resolved 7 dev-dependency advisories (`npm audit fix`) that were blocking the npm publish CI gate — 0 vulnerabilities now.
+
 ## [3.34.0] - 2026-09-21
 
 ### Added — 4 rules from daily intel: Next.js AVIF/Windows RCE, Clerk clerk-react 5.x gap, @zereight/mcp-gitlab triple-CVE, PostCSS residual (468 → 472 rules)
