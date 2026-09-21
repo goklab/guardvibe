@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.34.0] - 2026-09-21
+
+### Added — 4 rules from daily intel: Next.js AVIF/Windows RCE, Clerk clerk-react 5.x gap, @zereight/mcp-gitlab triple-CVE, PostCSS residual (468 → 472 rules)
+- **VG1115 — Next.js AVIF/libheif RCE + Windows-hosted RCE residual window (GHSA-2xp9-vwfh-vxw4 / CVE-2026-75604, critical, CVSS 9.5).** Unauthenticated RCE via a crafted AVIF file reaching libheif through sharp's Image Optimization path, plus a same-round Windows-hosting-specific RCE. Closes the residual window VG1047+VG1105 left open (15.5.21-15.5.23, 16.2.11-16.3.2) below the 15.5.24/16.3.3 fix. 14 tests.
+- **VG1116 — @clerk/clerk-react 5.x org/billing/reverification bypass (CVE-2026-42349 / GHSA-w24r-5266-9c3c, high).** VG1045 already matches the clerk-react package name but has no 5.x version branch — a project pinned to clerk-react's actual affected line (5.9.0-5.61.5) was invisible to it. 9 tests.
+- **VG1117 — @zereight/mcp-gitlab unauthenticated file read / SSRF / DNS rebinding (CVE-2026-61560/-61559/-61568, critical).** Three critical advisories in a 14-day window on one MCP server; DNS-rebinding-to-localhost-MCP-transport was a structural class GuardVibe had no rule for. 9 tests.
+- **VG1118 — PostCSS sourceMappingURL residual window (GHSA-fxqj-rqcc-2cmp / GHSA-r28c-9q8g-f849, high).** VG1106 stopped at the 8.5.12 fix for GHSA-6g55-p6wh-862q, but that fix was incomplete (guard only ran when `from` was set) and a second independent previous-map traversal was never covered — postcss 8.5.12 through 8.5.22 was fully unflagged. 6 tests.
+
+### Fixed — semver false-positive risk in 5 rules shipped in v3.32.0/v3.33.0 (VG1110, VG1112, VG1113, VG1114)
+Caret (and in one case tilde) was included in version-prefix alternations for residual windows where the fix lands in the *same* major or minor as the flagged range — meaning `^`/`~` on a real project would resolve past the fix and the rule would still fire on an already-patched pin. Corrected to exact-only (or tilde+exact where the fix genuinely lives in a later minor/major, which caret/tilde can't reach) across VG1110's 1.x branch, all of VG1112, VG1113's 4.5.x branch, and VG1114 — following the same 0-FP convention already used by VG1092/VG1096/VG1105/VG1106/VG1108. 8 existing test cases corrected, 12 new caret/tilde-boundary tests added.
+
+CVE version-pin rule count 93 → 97.
+
 ## [3.33.0] - 2026-08-14
 
 ### Added — 3 rules from daily intel: React2Shell react-server-dom-* gap, trigger.dev prototype pollution, Axios Basic-auth injection (465 → 468 rules)
