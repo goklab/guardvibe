@@ -51,7 +51,10 @@ async function fetchKevSet() {
 function rangeOf(advisory) {
   const v = (advisory.vulnerabilities || []).find(x => x.package?.name) || {};
   const range = v.vulnerable_version_range || "";
-  const fixed = v.first_patched_version?.identifier || (range.match(/<\s*([\d.]+)/) || [])[1] || "";
+  // The Advisory API has returned first_patched_version both as an object
+  // ({ identifier }) and as a plain string; accept either.
+  const fp = v.first_patched_version;
+  const fixed = (typeof fp === "string" ? fp : fp?.identifier) || (range.match(/<\s*([\d.]+)/) || [])[1] || "";
   const introduced = (range.match(/>=?\s*([\d.]+)/) || [])[1] || "0";
   return { pkg: v.package?.name || null, introduced, fixed };
 }
@@ -91,6 +94,57 @@ function withinSince(published) {
 
 const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
 
+/**
+ * Exact-pin versions worth probing for one vulnerable range: the lower bound
+ * and the last affected version, when they can be derived without guessing.
+ * "< 8.0.3" -> 8.0.2, "<= 0.5.4" -> 0.5.4, "= 10.1.0" -> 10.1.0,
+ * ">= 1.6.0, < 2.0.3" -> 1.6.0 and 2.0.2. "< 2.0.0" has no derivable last
+ * version and yields nothing for that side.
+ */
+function probeVersions(range) {
+  const out = new Set();
+  for (const part of (range || "").split(",").map(x => x.trim()).filter(Boolean)) {
+    const m = part.match(/^(>=|<=|<|>|=)?\s*(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?$/);
+    if (!m) continue;
+    const [, op = "=", maj, min, pat, pre] = m;
+    const v = `${maj}.${min}.${pat}${pre || ""}`;
+    if (op === ">=" || op === "<=" || op === "=") out.add(v);
+    else if (op === "<" && !pre && Number(pat) > 0) out.add(`${maj}.${min}.${Number(pat) - 1}`);
+  }
+  return [...out];
+}
+
+/** Rules that inspect package manifests; only these can cover a version pin. */
+async function loadManifestRules() {
+  try {
+    const mod = await import(new URL("../build/data/rules/index.js", import.meta.url));
+    return (mod.builtinRules || []).filter(r => (r.languages || []).includes("json") && r.pattern instanceof RegExp);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * For an advisory on a package GuardVibe already has rules for, check whether
+ * those rules actually match the affected versions. Returns the exact pins no
+ * rule matches (a residual window), or null when nothing could be probed.
+ */
+function uncoveredPins(advisory, rules) {
+  const missing = [];
+  let probed = 0;
+  for (const v of advisory.vulnerabilities || []) {
+    const name = v.package?.name;
+    if (!name) continue;
+    for (const ver of probeVersions(v.vulnerable_version_range)) {
+      probed++;
+      const pin = `"${name}": "${ver}"`;
+      const hit = rules.some(r => { r.pattern.lastIndex = 0; return r.pattern.test(pin); });
+      if (!hit) missing.push(`${name}@${ver}`);
+    }
+  }
+  return probed === 0 ? null : missing;
+}
+
 (async () => {
   const cov = buildCoverage();
   let advisories;
@@ -103,6 +157,12 @@ const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
 
   const kevSet = await fetchKevSet();
 
+  // Package-name coverage alone hides every new advisory on a package that
+  // already has *any* rule (next, axios, @clerk/*...). With a build available,
+  // probe the real rule patterns instead; without one, keep the old behaviour.
+  const manifestRules = await loadManifestRules();
+  if (!manifestRules) console.error("intel-check: no build/ — falling back to package-name coverage (run `npm run build` to detect residual windows)");
+
   const gaps = [];
   for (const a of advisories) {
     if (!withinSince(a.published_at)) continue;
@@ -114,14 +174,24 @@ const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
     const ghsa = (a.ghsa_id || "").toLowerCase();
 
     const coveredById = (cve && cov.cves.has(cve)) || (ghsa && cov.ghsas.has(ghsa));
-    const coveredByPkg = pkgs.some(p => cov.packages.has(p));
-    if (coveredById || coveredByPkg) continue;
+    if (coveredById) continue;
+
+    const knownPackage = pkgs.some(p => cov.packages.has(p));
+    let residual = null;
+    if (knownPackage) {
+      if (!manifestRules) continue; // legacy behaviour
+      const missing = uncoveredPins(a, manifestRules);
+      if (missing && missing.length === 0) continue; // every affected pin already matched
+      residual = missing ?? "unverified"; // null probe = range we couldn't derive; a human checks
+    }
 
     const { pkg, introduced, fixed } = rangeOf(a);
     gaps.push({
       ghsa, cve: cve || null, severity: sev,
       kev: !!(cve && kevSet.has(cve)),
       packages: pkgs,
+      knownPackage,
+      residual,
       pkg, introduced, fixed,
       published: a.published_at?.slice(0, 10),
       summary: (a.summary || "").slice(0, 120),
@@ -166,6 +236,11 @@ const SEV_RANK = { critical: 0, high: 1, moderate: 2, low: 3 };
     const kevTag = g.kev ? "🔥 KEV " : "";
     console.log(`${kevTag}[${g.severity.toUpperCase()}] ${g.ghsa}${g.cve ? " / " + g.cve : ""}  (${g.published})`);
     console.log(`   pkgs: ${g.packages.join(", ") || "?"}`);
+    if (g.knownPackage) {
+      console.log(Array.isArray(g.residual)
+        ? `   ⚠ package already has rules, but none match: ${g.residual.join(", ")} (residual window)`
+        : "   ⚠ package already has rules; affected range could not be probed — check coverage by hand");
+    }
     console.log(`   ${g.summary}`);
     console.log(`   ${g.url}`);
     if (scaffold && g.pkg && g.fixed) {

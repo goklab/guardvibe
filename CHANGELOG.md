@@ -5,6 +5,20 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.35.0] - 2026-09-24
+
+### Added — 5 rules from daily intel: SunEditor XSS, sharp libheif RCE residual, notebooklm-mcp path traversal, 9router auth-bypass cluster, deepstream permission-bypass residual (472 → 477 rules)
+- **VG1119 — SunEditor sanitizer bypass, stored XSS via namespaced elements (CVE-2026-59167 / GHSA-6rf4-v2fh-m6p4, critical, CVSS 10.0).** Event-handler attributes survive sanitization on custom/namespaced tags (`<a:b onclick=…>`), so stored editor HTML executes script for every viewer. `<= 2.47.10`, fixed 2.47.11; the 3.x line is unaffected. 11 tests.
+- **VG1120 — sharp bundled libheif RCE residual window (GHSA-rgj7-g3m4-5g8c, upstream GHSA-g89c-p67h-r497 / GHSA-2jg2-4ch7-h545, high).** libheif advisories rated Critical upstream can lead to RCE on glibc Linux when decoding crafted AVIF/HEIF — relevant to any service resizing user uploads, including Next.js Image Optimization. VG916 stops at 0.33.2 (an unrelated older CVE); this closes 0.33.3–0.35.3 below the 0.35.4 fix with no double-fire. 0.x-aware semver: caret locks the minor below 1.0, so `^0.34.x` is flagged and `^0.35.x` is not. 10 tests.
+- **VG1121 — @roomi-fields/notebooklm-mcp `vault_batch` path traversal (CVE-2026-61647 / GHSA-jjhp-8crj-mppq, high).** A caller-supplied `vault_dir` reaches `path.resolve()` + `fs.mkdir()` with no containment check; the advisory treats a prompt-injected LLM driving the MCP tool as the attacker. `>= 1.6.0, < 2.0.3`. 10 tests.
+- **VG1122 — 9router LLM-router auth-bypass cluster (CVE-2026-56681 / -56675 / -56676 / -56679, high).** Spoofable `X-9r-Real-Ip` locality header and reverse-proxy locality collapse both exempt remote callers from the API key (exposing the owner's provider credentials), plus a DNS-rebinding SSRF in image prefetch and a mass assignment that can set `requireLogin: false`. One rule for `<= 0.5.4`; 0.5.8 fixes all four and no 0.5.5–0.5.7 releases exist. 10 tests.
+- **VG1123 — deepstream `PATCH_MULTI` Valve permission bypass residual window (CVE-2026-63116 / GHSA-89vx-jh4q-vg3w, high, CVSS 8.8).** The action is missing from `RULES_MAP`, the lookup returns null, and null is treated as allow — any authenticated user can overwrite any record. Affects exactly 10.1.0, fixed 10.1.1; VG1098 never matched 10.1.0. 7 tests.
+
+### Fixed — intel gap check hid new advisories on packages that already had any rule
+`scripts/intel-check.mjs` treated a package as covered as soon as its name appeared in any rule, so a new advisory on `next`, `sharp` or `@deepstream/server` never surfaced as a gap — this is how VG1120 and VG1123's windows went unflagged. With a build present it now probes the actual rule patterns against the advisory's affected versions and reports unmatched pins as residual windows (falls back to the old behaviour without a build). It also reads `first_patched_version` whether the Advisory API returns it as an object or a plain string. Development tooling only; not part of the published package.
+
+CVE version-pin rule count 97 → 102.
+
 ## [3.34.1] - 2026-09-21
 
 ### Fixed
