@@ -24,7 +24,7 @@ const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"
  * Convert a file path to a URL path by stripping app dir prefix,
  * route groups, and file name.
  */
-function filePathToUrlPath(filePath: string): string {
+export function filePathToUrlPath(filePath: string): string {
   // Strip everything up to and including the Next.js app directory.
   // Covers: app/..., src/app/..., apps/<workspace>/app/..., apps/<workspace>/src/app/...,
   // packages/<name>/app/... — common monorepo (Turborepo/pnpm) layouts where the
@@ -33,8 +33,9 @@ function filePathToUrlPath(filePath: string): string {
   // Fallback for simple non-monorepo paths.
   p = p.replace(/^src\/app\//, "").replace(/^app\//, "");
 
-  // Remove file name (route.ts, page.tsx, layout.tsx)
-  p = p.replace(/\/(route|page|layout)\.(ts|tsx|js|jsx)$/, "");
+  // Remove file name (route.ts, page.tsx, layout.tsx). The app root's own
+  // page.tsx has no leading slash left once app/ is stripped, hence (?:^|\/).
+  p = p.replace(/(?:^|\/)(route|page|layout)\.(ts|tsx|js|jsx)$/, "");
 
   // Remove route groups: (groupName)
   p = p.replace(/\([^)]+\)\/?/g, "");
@@ -99,6 +100,33 @@ export function enumerateRoutes(files: FileEntry[]): RouteInfo[] {
   }
 
   return routes;
+}
+
+// --- Middleware / Proxy Discovery ---
+
+/**
+ * The project's Next.js middleware entry: middleware.(ts|js), or proxy.(ts|js)
+ * since Next.js 16 renamed it. The file only counts where Next.js loads it —
+ * beside the app/ directory it serves (root, src/, or a monorepo workspace) —
+ * because "proxy.ts" is also a common name for unrelated HTTP-proxy helpers.
+ * Falls back to the historical loose match on any *middleware.(ts|js).
+ */
+export function findMiddlewareFile<T extends { path: string }>(files: T[]): T | undefined {
+  const norm = (p: string) => p.replace(/\\/g, "/");
+  const paths = files.map(f => norm(f.path));
+  const servesAppDir = (dir: string) => {
+    const prefix = dir ? `${dir}/app/` : "app/";
+    return paths.some(p => p.startsWith(prefix));
+  };
+  const entry = files.find(f => {
+    const p = norm(f.path);
+    const m = /^(.*?)\/?(?:middleware|proxy)\.(?:ts|js)$/.exec(p);
+    if (!m) return false;
+    const name = p.slice(p.lastIndexOf("/") + 1);
+    if (!/^(?:middleware|proxy)\.(?:ts|js)$/.test(name)) return false;
+    return servesAppDir(m[1]);
+  });
+  return entry ?? files.find(f => /middleware\.(ts|js)$/.test(norm(f.path)));
 }
 
 // --- Middleware Matcher Parsing ---
@@ -224,7 +252,18 @@ export function routeMatchesMatcher(urlPath: string, matchers: string[]): boolea
  * Detect if code contains an auth guard pattern (naming-agnostic).
  * Reuses the same heuristics as check-code.ts.
  */
-function hasAuthGuard(code: string): boolean {
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Matches calls to project-specific guards listed in .guardviberc `authFunctions`. */
+export function customAuthGuardPattern(authFunctions?: string[]): RegExp | null {
+  const names = (authFunctions ?? []).map(n => n.trim()).filter(n => /^[A-Za-z_$][\w$]*$/.test(n));
+  return names.length ? new RegExp(`\\b(?:${names.map(escapeRegExp).join("|")})\\s*\\(`) : null;
+}
+
+function hasAuthGuard(code: string, custom?: RegExp | null): boolean {
+  if (custom && custom.test(code)) return true;
   // Auth library calls
   if (/(?:getServerSession|getSession|getToken|auth|currentUser|getAuth)\s*\(/.test(code)) return true;
   // Clerk, NextAuth, Supabase auth patterns
@@ -252,7 +291,8 @@ export interface AuthCoverageReport {
 /**
  * Analyze auth coverage across all route files.
  */
-export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: string, layoutFiles?: FileEntry[], authExceptions?: Array<{ path: string; reason: string }>): AuthCoverageReport {
+export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: string, layoutFiles?: FileEntry[], authExceptions?: Array<{ path: string; reason: string }>, authFunctions?: string[]): AuthCoverageReport {
+  const customGuard = customAuthGuardPattern(authFunctions);
   const routes = enumerateRoutes(routeFiles);
   const hasMiddleware = middlewareContent.length > 0;
   // Default-lenient: a middleware with a matcher counts as protection — EXCEPT when it
@@ -278,7 +318,7 @@ export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: 
   for (const route of routes) {
     // Auth guard detection on the route's source code
     const content = contentByPath.get(route.filePath) ?? "";
-    route.hasAuthGuard = hasAuthGuard(content);
+    route.hasAuthGuard = hasAuthGuard(content, customGuard);
     if (route.hasAuthGuard) route.protectionSource = "auth-guard";
 
     // Middleware coverage (skipped for recognizably non-auth middleware)
@@ -296,7 +336,7 @@ export function analyzeAuthCoverage(routeFiles: FileEntry[], middlewareContent: 
     const layoutAuth = new Map<string, boolean>();
     for (const layout of layoutFiles) {
       const dir = layout.path.replace(/\/layout\.(ts|tsx|js|jsx)$/, "");
-      layoutAuth.set(dir, hasAuthGuard(layout.content));
+      layoutAuth.set(dir, hasAuthGuard(layout.content, customGuard));
     }
 
     for (const route of routes) {

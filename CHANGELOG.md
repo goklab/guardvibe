@@ -5,6 +5,18 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.35.1] - 2026-09-24
+
+### Fixed — false positives on a real Next.js 16 + Clerk app
+Found by auditing a production Next.js 16 / Clerk / Supabase site with GuardVibe itself: 16 of its findings were scanner errors, not vulnerabilities.
+
+- **Next.js 16 `proxy.ts` is now recognized as the middleware entry.** Next.js 16 renamed `middleware.ts` to `proxy.ts`; auth-coverage (full audit, `auth-coverage` CLI and MCP tool) only looked for `middleware.ts`, so every route protected by a Clerk `createRouteMatcher` in `proxy.ts` was reported as unprotected. A `proxy.ts` only counts where Next.js loads it — beside the `app/` directory it serves — so an unrelated `src/lib/proxy.ts` is never mistaken for it.
+- **AC011 now uses real Next.js matcher semantics.** Its own normalization turned Clerk's recommended `"/(api|trpc)(.*)"` into `"/(.*)"`, which matched nothing, so every API route looked uncovered. It now shares auth-coverage's matcher parser.
+- **`.guardviberc` `authFunctions` are honored by auth-coverage and AC011**, not only by `check`. A layout calling `requireAdmin()` or a handler calling `authorized(req)` is recognized once the name is configured.
+- **The app root page is reported as `/`**, not `/page.tsx`, so an `authExceptions` entry for `"/"` covers the homepage.
+- **VG1045 (Clerk GHSA-w24r-5266-9c3c) is now matched per package line.** One version alternation was applied to all 16 `@clerk/*` packages, so it both over-matched (e.g. `@clerk/react` 6.5–6.39, `@clerk/express` 2.2+) and missed affected versions (`@clerk/shared` 3.3–3.47.4, `@clerk/clerk-js` 5.x, `@clerk/backend` 2.33.2). The pattern is now generated from the advisory's per-package ranges and verified exhaustively against the semver semantics; `@clerk/clerk-react` stays with VG1116. 203 tests (the rule had none).
+- **0-FP semver in VG916 (sharp), VG1038 (fast-uri), VG1043 (hono) and VG1117 (@zereight/mcp-gitlab).** Caret was matched on lines whose fix shares the major (e.g. `"fast-uri": "^3.0.1"` and `"hono": "^4.11.4"` in dependency ranges inside lockfiles, which resolve to fixed versions), tilde on the fix's own minor, and `>=` open ranges, which always resolve to the latest release. 17 regression tests.
+
 ## [3.35.0] - 2026-09-24
 
 ### Added — 5 rules from daily intel: SunEditor XSS, sharp libheif RCE residual, notebooklm-mcp path traversal, 9router auth-bypass cluster, deepstream permission-bypass residual (472 → 477 rules)

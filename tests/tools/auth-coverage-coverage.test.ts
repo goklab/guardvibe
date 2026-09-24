@@ -34,24 +34,24 @@ describe("auth-coverage (extra coverage)", () => {
       assert(routes[0].urlPath.startsWith("/"), "must have a leading slash");
     });
 
-    it("root-level route file under bare app/ has no leading slash before the filename strip", () => {
-      // Bare "app/route.ts": the first strip regex needs a "/" before app/, so
-      // only the fallback "^app/" applies, leaving "route.ts". The filename
-      // strip requires a leading "/route", which is absent here, so the path
-      // resolves to "/route.ts". Assert the real (observed) behavior.
+    it("root-level route file under bare app/ resolves to /", () => {
+      // Bare "app/route.ts": stripping "app/" leaves "route.ts" with no leading
+      // slash. The filename strip accepts start-of-string too, so this is the
+      // root route "/" (it previously leaked through as "/route.ts").
       const routes = enumerateRoutes([
         { path: "app/route.ts", content: "export function GET() {}" },
       ]);
-      assert.equal(routes[0].urlPath, "/route.ts");
+      assert.equal(routes[0].urlPath, "/");
     });
 
-    it("workspace-prefixed bare index page keeps the filename (no preceding slash to strip)", () => {
-      // After stripping "apps/web/app/" the remainder is bare "page.tsx"; the
-      // filename strip needs a leading "/page", which is absent, so it stays.
+    it("workspace-prefixed bare index page resolves to /", () => {
+      // After stripping "apps/web/app/" the remainder is bare "page.tsx"; that is
+      // the workspace's home page "/" (it previously leaked through as "/page.tsx",
+      // so an authExceptions entry for "/" could never match the homepage).
       const routes = enumerateRoutes([
         { path: "apps/web/app/page.tsx", content: "export default function Home() {}" },
       ]);
-      assert.equal(routes[0].urlPath, "/page.tsx");
+      assert.equal(routes[0].urlPath, "/");
     });
 
     it("route group at the root collapses to / (group leaves a leading slash for the filename strip)", () => {

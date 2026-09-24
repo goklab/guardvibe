@@ -6,7 +6,7 @@
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { parseArgs, validateFormat, getOutputPath } from "./args.js";
-import { analyzeAuthCoverage, formatAuthCoverage } from "../tools/auth-coverage.js";
+import { analyzeAuthCoverage, findMiddlewareFile, formatAuthCoverage } from "../tools/auth-coverage.js";
 import type { FileEntry } from "../tools/auth-coverage.js";
 import { loadConfig } from "../utils/config.js";
 
@@ -45,10 +45,10 @@ export async function runAuthCoverage(args: string[]): Promise<void> {
 
   const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
   const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
-  const middlewareFile = jsFiles.find(f => /middleware\.(ts|js)$/.test(f.path));
+  const middlewareFile = findMiddlewareFile(jsFiles);
 
   const config = loadConfig(targetPath);
-  const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, config.authExceptions);
+  const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, config.authExceptions, config.authFunctions);
   const formatArg = format === "json" ? "json" as const : "markdown" as const;
   const result = formatAuthCoverage(report, formatArg);
 

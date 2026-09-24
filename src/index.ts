@@ -48,7 +48,7 @@ import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js"
 import { secureThis } from "./tools/secure-this.js";
 import { securePrompt } from "./tools/secure-prompt.js";
 import { buildAgentReport } from "./tools/agent-output.js";
-import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
+import { analyzeAuthCoverage, findMiddlewareFile, formatAuthCoverage } from "./tools/auth-coverage.js";
 import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
 import { runFullAudit, formatAuditResult } from "./tools/full-audit.js";
 import { generateRemediationPlan, formatRemediationPlan } from "./tools/remediation-plan.js";
@@ -1088,10 +1088,10 @@ server.tool(
 
       const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
       const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
-      const middlewareFile = jsFiles.find(f => /middleware\.(ts|js)$/.test(f.path));
+      const middlewareFile = findMiddlewareFile(jsFiles);
 
       const cfg = loadConfig(path);
-      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, cfg.authExceptions);
+      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, cfg.authExceptions, cfg.authFunctions);
       const output = formatAuthCoverage(report, format);
       return { content: [{ type: "text", text: output }] };
     }

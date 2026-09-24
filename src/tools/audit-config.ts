@@ -1,5 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, resolve, basename } from "path";
+import { customAuthGuardPattern, filePathToUrlPath, parseMiddlewareMatchers, routeMatchesMatcher } from "./auth-coverage.js";
+import { loadConfig } from "../utils/config.js";
 
 export interface ConfigIssue {
   id: string;
@@ -171,23 +173,30 @@ function runChecks(files: ProjectFiles, root: string): ConfigIssue[] {
       const matcherMatch = /matcher\s*[=:]\s*(\[[\s\S]*?\])/g.exec(mwContent);
       if (matcherMatch) {
         const matcherPaths = [...matcherMatch[1].matchAll(/["']([^"']+)["']/g)].map(m => m[1]);
+        // Real Next.js matcher semantics (regex groups like "/(api|trpc)(.*)" and
+        // the catch-all "/((?!_next|...).*)"), shared with auth-coverage.
+        const parsedMatchers = parseMiddlewareMatchers(mwContent);
         const apiRoutes = files.routeHandlers
           .map(r => r.path.replace(resolve(root), "").replace(/\\/g, "/"))
           .filter(p => p.includes("/api/"));
 
         // Check which routes are NOT covered by middleware matcher
-        // But exclude routes that have in-handler auth (requireAdmin, requireAuth, etc.)
+        // But exclude routes that have in-handler auth (requireAdmin, requireAuth, etc.,
+        // plus any project guard named in .guardviberc authFunctions)
         const authGuardPattern = /requireAdmin|requireAuth|checkAuth|withAuth|getServerSession|auth\(\)|clerkClient|currentUser/;
+        const customGuard = customAuthGuardPattern(loadConfig(root).authFunctions);
         const unprotectedApiRoutes = apiRoutes.filter(route => {
           // Check if middleware matcher covers this route
-          const coveredByMatcher = matcherPaths.some(pattern => {
-            const normalized = pattern.replace(/:path\*/, "").replace(/\(.*?\)/, "");
-            return route.startsWith(normalized) || route.includes(normalized);
-          });
+          const coveredByMatcher = parsedMatchers.length > 0
+            ? routeMatchesMatcher(filePathToUrlPath(route), parsedMatchers)
+            : matcherPaths.some(pattern => {
+                const normalized = pattern.replace(/:path\*/, "").replace(/\(.*?\)/, "");
+                return route.startsWith(normalized) || route.includes(normalized);
+              });
           if (coveredByMatcher) return false;
           // Check if the route handler has in-handler auth guard
           const handler = files.routeHandlers.find(r => r.path.replace(resolve(root), "").replace(/\\/g, "/") === route);
-          if (handler && authGuardPattern.test(handler.content)) return false;
+          if (handler && (authGuardPattern.test(handler.content) || customGuard?.test(handler.content))) return false;
           return true;
         });
 
