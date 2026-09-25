@@ -5,6 +5,24 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.38.0] - 2026-09-25
+
+### Removed — 3 rules with no advisory behind them (482 → 479 rules)
+- **VG903** "React Vulnerable to XSS in Older Versions" cited no CVE and flagged react 15.0.0–18.3.0; the npm `react` package has no advisory after 0.14.
+- **VG912** "Prisma Client DoS (CVE-2024-32970)" — that CVE is a Ruby `phlex` advisory; `@prisma/client` has no published advisory.
+- **VG913** "Prisma Raw Query SQL Injection (CVE-2024-49382)" — that CVE is an Acronis archive-server issue.
+The Prisma raw-query code-pattern rules are unaffected.
+
+### Fixed — version ranges aligned with the GitHub Advisory Database
+Every CVE version-pin rule was compared against the advisories it cites, on every published npm release. Rules that flagged releases outside those ranges, or missed releases inside them, were regenerated from the advisory ranges (semver 0-FP, no new overlap with other rules):
+- **Narrowed (false positives removed):** VG900 next 13.0–13.3 (range starts 13.4.0), VG901 next 13.0–13.5.0 and 13.5.7+, VG902 next 10.x–11.x and fixed 12.3.5+/13.5.9+, VG905 axios 1.6.0–1.6.8 and 0.28+ (fixed), VG907 lodash 0.x–3.x, VG909 tar 0.x–2.x, 4.4.16+ and 6.1.7–6.1.8, VG921 @anthropic-ai/sdk 0.10–0.78, VG925 @clerk/nextjs (ranges belonged to @clerk/nuxt; nextjs is covered by VG1045), VG929 flowise before 3.0.5, VG1038 fast-uri 2.4.1+, VG1042 axios 0.31+, VG1052 @opentelemetry/auto-instrumentations-node 0.75+, VG1055 unaffected @clerk/backend/express/hono/fastify lines, VG1062 protobufjs-cli 1.2.1+ / 2.0.2+, VG1076 vitest 3.2.6+ (3.x backport), VG920 react 19.0.1+ (fixed in 19.0.1), VG926 react/react-dom 16.x (the Next.js list had been applied to react) — now react, react-dom and react-server-dom-* 19.0.0–19.0.4, 19.1.0–19.1.5, 19.2.0–19.2.4.
+- **Widened (missed releases added):** VG904 express 0.x–2.x, VG908 node-fetch 0.x, VG925 @clerk/astro 0.0.1–1.5.6, VG1045 @clerk/shared 2.20.17–2.22.0, VG1062 protobufjs 8.0.1, VG1090 postcss 0.x.
+- **Re-attributed:** VG906 now cites CVE-2022-23539 / 23540 / 23541 (the previously cited CVE-2022-23529 was withdrawn; severity high), VG916 now cites sharp's own libwebp / libvips advisories (GHSA-54xq-cgqr-rpm3 / GHSA-f88m-g3jw-g9cj) instead of an `ip` package CVE. Ranges unchanged.
+
+Across the affected packages, 382 published releases are no longer flagged and every release inside a cited advisory range is. 20 existing tests were corrected to the advisory ranges; 20 tests added.
+
+CVE version-pin rule count 107 → 104.
+
 ## [3.37.2] - 2026-09-25
 
 ### Fixed — 0-FP semver sweep across 54 older CVE version-pin rules

@@ -418,7 +418,6 @@ export function analyzeCode(
   const codeHasFilenameSanitization =
     /(?:\.replace\s*\(\s*\/\[?\^?[a-z0-9\\-_\]]*\]?\/?[gi]*\s*,|sanitize(?:File|Name|Path)|safeName|cleanName)/i.test(code) ||
     /(?:Date\.now\(\)|timestamp|uuid|nanoid|crypto\.randomUUID)[\s\S]{0,80}?\.\s*(?:ext|split|pop)/i.test(code);
-  const isPeerDeps = /["']peerDependencies["']/i.test(code);
   const codeHasAuthSession =
     /(?:supabase\.auth\.getUser|supabase\.auth\.getSession|getServerSession|auth\(\)|getSession\(\)|currentUser\(\))/i.test(code);
 
@@ -816,9 +815,6 @@ export function analyzeCode(
         if (!hasMutationInGet) continue;
       }
     }
-
-    // Skip CVE version rules in peerDependencies (ranges, not actual versions)
-    if (isPeerDeps && rule.id === "VG903") continue;
 
     // Skip VG140 (XXE) when file doesn't actually parse XML or uses browser DOMParser
     // Browser DOMParser with 'text/html' is safe by design — no external entity processing
@@ -1441,17 +1437,6 @@ export function analyzeCode(
             if (interpolations.length > 0 && interpolations.every(v => safeAuthPattern.test(v))) continue;
           }
         }
-      }
-
-      // Skip VG903 React version in peerDependencies sections
-      if (rule.id === "VG903") {
-        const beforeText = code.substring(0, match.index);
-        const lastPeer = beforeText.lastIndexOf("peerDependencies");
-        const lastDeps = Math.max(
-          beforeText.lastIndexOf('"dependencies"'),
-          beforeText.lastIndexOf('"devDependencies"')
-        );
-        if (lastPeer > lastDeps) continue;
       }
 
       findings.push({

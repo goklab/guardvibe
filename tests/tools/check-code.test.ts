@@ -1154,8 +1154,14 @@ describe("VG920 React CVE-2025-55182 version-range tightening (v3.1.14)", () => 
     assert.strictEqual(findings.filter(f => f.rule.id === "VG920").length, 0);
   });
 
-  it("STILL flags `react: 19.0.5` — vulnerable patch in 19.0.x range", () => {
+  it("does NOT flag `react: 19.0.5` — the 19.0.x line was fixed in 19.0.1 (GHSA-fv66-9v8q-g76r)", () => {
     const pkg = `{"dependencies":{"react":"19.0.5"}}`;
+    const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
+    assert.strictEqual(findings.filter(f => f.rule.id === "VG920").length, 0);
+  });
+
+  it("STILL flags `react: 19.0.0` — the only affected 19.0.x release", () => {
+    const pkg = `{"dependencies":{"react":"19.0.0"}}`;
     const findings = analyzeCode(pkg, "json", undefined, "/proj/package.json");
     assert(findings.filter(f => f.rule.id === "VG920").length > 0);
   });
