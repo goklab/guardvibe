@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37.2] - 2026-09-25
+
+### Fixed — 0-FP semver sweep across 54 older CVE version-pin rules
+These rules accepted any leading `^`, `~` or `>=` in front of an affected version, so dependency ranges that resolve to a fixed release were reported — for example `"next": "~14.1.0"` (VG900, fixed in 14.1.1), `"express": "^4.18.2"` (VG904) or `"react": "^19.0.0"` (VG920). Each pattern was regenerated from its own affected-version set with the same semantics as VG917/VG1066: an exact or `=` pin is flagged when affected; tilde and caret only when every version the range can resolve to is affected; open ranges (`>=`, `>`, `<`) are never flagged. Exact-version matching is unchanged (verified over ~1.9M version/prefix combinations against the previous patterns and a semver ground-truth model), apart from three rules whose two-digit patch/minor caps are widened to the whole release line (VG1047, VG1104, VG1113).
+
+Rules: VG900, VG901, VG902, VG903, VG904, VG905, VG906, VG907, VG908, VG909, VG910, VG912, VG913, VG914, VG915, VG918, VG919, VG920, VG921, VG922, VG924, VG927, VG929, VG930, VG1037, VG1039, VG1040, VG1042, VG1044, VG1046, VG1047, VG1050, VG1051, VG1057, VG1058, VG1059, VG1060, VG1061, VG1064, VG1065, VG1067, VG1076, VG1078, VG1079, VG1089, VG1090, VG1093, VG1097, VG1098, VG1102, VG1104, VG1109, VG1110, VG1113.
+
+Not changed on purpose: supply-chain rules that flag caret/tilde because a range could resolve to a compromised release during the attack window (VG923, VG1069, VG1100, VG1101, VG1111), the crypto-js deprecation rule (VG911), and rules that also pin prereleases (VG931, VG1053, VG1054, VG1077, VG1107). 33 existing tests that asserted a range false positive were corrected to exact pins; 12 tests added. Rule and CVE rule counts unchanged.
+
 ## [3.37.1] - 2026-09-25
 
 ### Fixed — VG1066 (systeminformation CVE-2026-44724) false positive
