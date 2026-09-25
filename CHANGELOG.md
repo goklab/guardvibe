@@ -5,6 +5,11 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37.1] - 2026-09-25
+
+### Fixed — VG1066 (systeminformation CVE-2026-44724) false positive
+VG1066 matched caret on the 5.x line although the fix (5.31.6) lands inside that major, so dependency ranges like `"systeminformation": "^5.22.11"` — declared by `@dotenvx/dotenvx`, which recent `shadcn` releases pull in — were flagged while resolving to fixed releases. It also matched tilde on 5.31.x and `>=` open ranges. Regenerated from the advisory range (4.17.0–5.31.5) and exhaustively verified; caret is now flagged only on 4.x. One existing test that asserted the caret false positive was corrected; 6 tests added.
+
 ## [3.37.0] - 2026-09-25
 
 ### Added — 1 rule: ws 2026 advisories (481 → 482 rules)
