@@ -17,6 +17,7 @@
  *   node scripts/intel-check.mjs            # last 50 reviewed npm advisories
  *   node scripts/intel-check.mjs --since 7  # only those published in last 7 days
  *   node scripts/intel-check.mjs --json     # machine-readable output
+ *   node scripts/intel-check.mjs --since 180 --max-pages 20   # backfill a long window (default 10 pages x 100)
  *
  * Optional: set GITHUB_TOKEN to raise the API rate limit (60/hr → 5000/hr).
  */
@@ -77,13 +78,28 @@ function buildCoverage() {
   return { cves, ghsas, packages };
 }
 
+const MAX_PAGES = args.includes("--max-pages") ? Number(args[args.indexOf("--max-pages") + 1]) || 10 : 10;
+
+/**
+ * Reviewed npm advisories, newest first. With --since, follows the Link
+ * header's next page until the window is covered (up to MAX_PAGES x 100), so a
+ * 30-day window isn't silently cut at the newest 100.
+ */
 async function fetchAdvisories() {
   const headers = { Accept: "application/vnd.github+json", "User-Agent": "guardvibe-intel-check" };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const url = `https://api.github.com/advisories?ecosystem=npm&type=reviewed&sort=published&per_page=${perPage}`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) throw new Error(`GitHub Advisory API ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return res.json();
+  let url = `https://api.github.com/advisories?ecosystem=npm&type=reviewed&sort=published&direction=desc&per_page=${perPage}`;
+  const all = [];
+  for (let page = 0; url && page < (sinceDays ? MAX_PAGES : 1); page++) {
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error(`GitHub Advisory API ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const batch = await res.json();
+    all.push(...batch);
+    const oldest = batch.at(-1)?.published_at;
+    if (!sinceDays || !oldest || !withinSince(oldest)) break;
+    url = /<([^>]+)>;\s*rel="next"/.exec(res.headers.get("link") ?? "")?.[1] ?? null;
+  }
+  return all;
 }
 
 function withinSince(published) {
@@ -114,6 +130,45 @@ function probeVersions(range) {
   return [...out];
 }
 
+// --- published versions (npm registry) -------------------------------------
+
+const versionCache = new Map();
+
+/** Stable published versions of a package, or null if the registry can't be reached. */
+async function publishedVersions(name) {
+  if (versionCache.has(name)) return versionCache.get(name);
+  let versions = null;
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${name.replace("/", "%2f")}`, {
+      headers: { Accept: "application/vnd.npm.install-v1+json", "User-Agent": "guardvibe-intel-check" },
+    });
+    if (res.ok) {
+      const doc = await res.json();
+      versions = Object.keys(doc.versions ?? {}).filter(v => /^\d+\.\d+\.\d+$/.test(v));
+    }
+  } catch { /* offline — caller falls back to derived probes */ }
+  versionCache.set(name, versions);
+  return versions;
+}
+
+const cmpVer = (a, b) => {
+  const x = a.split(".").map(Number), y = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
+  return 0;
+};
+
+/** Does a plain X.Y.Z version satisfy an advisory range like ">= 8.0.0, < 8.21.0"? */
+function inRange(version, range) {
+  for (const part of (range || "").split(",").map(x => x.trim()).filter(Boolean)) {
+    const m = part.match(/^(>=|<=|<|>|=)?\s*(\d+\.\d+\.\d+)$/);
+    if (!m) return false; // prerelease bounds etc. — don't guess
+    const c = cmpVer(version, m[2]);
+    const op = m[1] ?? "=";
+    if ((op === ">=" && c < 0) || (op === ">" && c <= 0) || (op === "<=" && c > 0) || (op === "<" && c >= 0) || (op === "=" && c !== 0)) return false;
+  }
+  return true;
+}
+
 /** Rules that inspect package manifests; only these can cover a version pin. */
 async function loadManifestRules() {
   try {
@@ -129,13 +184,18 @@ async function loadManifestRules() {
  * those rules actually match the affected versions. Returns the exact pins no
  * rule matches (a residual window), or null when nothing could be probed.
  */
-function uncoveredPins(advisory, rules) {
+async function uncoveredPins(advisory, rules) {
   const missing = [];
   let probed = 0;
   for (const v of advisory.vulnerabilities || []) {
     const name = v.package?.name;
     if (!name) continue;
-    for (const ver of probeVersions(v.vulnerable_version_range)) {
+    // Prefer every published affected version; derive bounds only when offline.
+    // Derived bounds miss e.g. "< 8.21.0", whose last affected release (8.20.x)
+    // can't be computed — which once let an old rule's 8.0.0 match hide a new advisory.
+    const published = await publishedVersions(name);
+    const affected = published?.filter(ver => inRange(ver, v.vulnerable_version_range)).sort(cmpVer);
+    for (const ver of affected?.length ? affected : probeVersions(v.vulnerable_version_range)) {
       probed++;
       const pin = `"${name}": "${ver}"`;
       const hit = rules.some(r => { r.pattern.lastIndex = 0; return r.pattern.test(pin); });
@@ -180,7 +240,7 @@ function uncoveredPins(advisory, rules) {
     let residual = null;
     if (knownPackage) {
       if (!manifestRules) continue; // legacy behaviour
-      const missing = uncoveredPins(a, manifestRules);
+      const missing = await uncoveredPins(a, manifestRules);
       if (missing && missing.length === 0) continue; // every affected pin already matched
       residual = missing ?? "unverified"; // null probe = range we couldn't derive; a human checks
     }
@@ -238,7 +298,7 @@ function uncoveredPins(advisory, rules) {
     console.log(`   pkgs: ${g.packages.join(", ") || "?"}`);
     if (g.knownPackage) {
       console.log(Array.isArray(g.residual)
-        ? `   ⚠ package already has rules, but none match: ${g.residual.join(", ")} (residual window)`
+        ? `   ⚠ package already has rules, but none match ${g.residual.length} affected version(s): ${g.residual.slice(0, 4).join(", ")}${g.residual.length > 4 ? ", …" : ""} (residual window)`
         : "   ⚠ package already has rules; affected range could not be probed — check coverage by hand");
     }
     console.log(`   ${g.summary}`);

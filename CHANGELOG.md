@@ -5,6 +5,21 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37.0] - 2026-09-25
+
+### Added — 1 rule: ws 2026 advisories (481 → 482 rules)
+- **VG1128 — ws memory-exhaustion DoS + uninitialized memory disclosure (CVE-2026-48779 / GHSA-96hv-2xvq-fx4p, high, CVSS 7.5; CVE-2026-45736 / GHSA-58qx-3vcg-4xpx, medium).** A client can exhaust server memory with a message sent as tiny fragments and data chunks; 8.0.0–8.20.0 can also disclose uninitialized memory. Affected 1.1.0–5.2.4, 6.0.0–6.2.3, 7.0.0–7.5.10, 8.0.0–8.20.x; fixed 5.2.5 / 6.2.4 / 7.5.11 / 8.21.0. Both advisories predate the daily intel run and were never surfaced — see the intel-check fix below. Pattern generated from the advisory ranges and verified against the semver semantics. 16 tests.
+
+### Fixed — VG917 (ws CVE-2024-37890) false positives
+VG917 matched caret on every line although each fix lands inside its own major (so `"ws": "^8.16.0"` and `"^7.5.9"`, common in lockfile dependency ranges, were flagged while resolving to fixed releases), tilde on a fix's own minor, `>=` open ranges, and 0.x–2.0.x versions outside this advisory. Regenerated from the advisory's per-line ranges (2.1.0–5.2.3, 6.0.0–6.2.2, 7.0.0–7.5.9, 8.0.0–8.17.0); exhaustively verified, no true positive lost. Two existing tests that asserted the caret false positive were corrected; 7 tests added.
+
+### Fixed — intel gap check missed older and residual advisories
+- **Pagination:** with `--since`, `scripts/intel-check.mjs` now follows the Advisory API's next pages until the window is covered (default 10 × 100, `--max-pages` to backfill) instead of stopping at the newest 100.
+- **Residual windows from real releases:** for a package GuardVibe already has rules for, it now probes every *published* affected version from the npm registry against the existing rules, falling back to derived bounds when offline. A range such as `< 8.21.0` has no derivable last version, so only its lower bound was probed — an older rule matching 8.0.0 made CVE-2026-48779 look covered. The same probe now surfaces other hidden windows (e.g. vm2 3.11.2–3.11.4, flowise 3.0.6–3.0.8).
+Development tooling only; not part of the published package.
+
+CVE version-pin rule count 106 → 107.
+
 ## [3.36.0] - 2026-09-25
 
 ### Added — 4 rules from daily intel: dbhub MCP server DNS rebinding + read-only bypass, Unleash permission bypass, Elysia multipart DoS, request-filtering-agent crash (477 → 481 rules)
