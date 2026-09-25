@@ -5,6 +5,18 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.36.0] - 2026-09-25
+
+### Added — 4 rules from daily intel: dbhub MCP server DNS rebinding + read-only bypass, Unleash permission bypass, Elysia multipart DoS, request-filtering-agent crash (477 → 481 rules)
+- **VG1124 — @bytebase/dbhub DNS-rebinding SQL execution + read-only mode bypass (CVE-2026-61742 / GHSA-fm8p-53ww-hf6w, critical; CVE-2026-61788 / GHSA-mwwr-p57h-56pf, high).** The unauthenticated HTTP transport's Origin==Host check does not stop DNS rebinding, so a malicious web page can call `execute_sql` from the victim's browser (`<= 0.22.4`); and `readonly = true` never reached the connectors, leaving a first-keyword classifier that side-effecting `SELECT`s pass (`< 0.22.6`). One rule, fixed in 0.22.6. 0.x-aware semver: caret locks the minor below 1.0, so `^0.21.x` is flagged and `^0.22.x` is not. 12 tests.
+- **VG1125 — Unleash missing-`await` permission bypass + cross-project IDOR (CVE-2026-77426 / GHSA-72h8-wp98-7hch, high).** `hasPermission()` was used without `await`, so the Promise is always truthy and any authenticated user can change segment assignments on any strategy; admin handlers also ignore `:projectId`. `< 8.0.3`, no backport to 7.x. 11 tests.
+- **VG1126 — Elysia multipart form data quadratic CPU DoS (CVE-2026-56669 / GHSA-9643-4qgh-g8mx, high).** Form data normalization calls `getAll()` once per unique key, so work grows with the square of the field count; any route accepting `multipart/form-data` is exposed. `< 1.4.29`. 11 tests.
+- **VG1127 — request-filtering-agent synchronous throw crashes the process (CVE-2026-62985 / GHSA-r3r9-wp5j-pq5g, high).** A literal private-IP hostname makes `createConnection()` throw synchronously, escaping `req.on('error')` — the SSRF guard becomes a one-request denial of service. `< 3.2.1`. 10 tests.
+
+All four patterns were checked against every published version of their package with `""`, `^`, `~` and `=` prefixes (3,060 specs): 0 false positives, 0 misses.
+
+CVE version-pin rule count 102 → 106.
+
 ## [3.35.1] - 2026-09-24
 
 ### Fixed — false positives on a real Next.js 16 + Clerk app
