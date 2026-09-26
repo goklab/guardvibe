@@ -5,6 +5,28 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.41.0] - 2026-09-26
+
+### Added — 11 rules from the 30-day advisory backlog (492 → 503 rules)
+- **VG1142 — multer multipart field-name DoS cluster (CVE-2026-82333 / GHSA-535w-7cp7-47q4, CVE-2026-77078 / GHSA-wc9g-mqfw-jrwm, CVE-2026-77037 / GHSA-qfvm-cv95-jqjf, high, CVSS 7.5).** Sparse-array index allocation, uncaught RangeError crash, and the 2.2.0 aborted-upload descriptor leak. Affected < 2.3.0, fixed 2.3.0. 8 tests.
+- **VG1143 — @xmldom/xmldom 2026-09 parser advisory cluster, residual window after VG928 (CVE-2026-83605 – CVE-2026-83619, 13 GHSA ids, high).** Covers 0.8.13–0.8.14 and 0.9.10–0.9.11; fixed 0.8.15 / 0.9.12. 9 tests.
+- **VG1144 — @tiptap/core quadratic ReDoS in Markdown attribute parsing (GHSA-j95f-988m-3j2f, high).** Affected 3.7.0–3.30.4, fixed 3.30.5. 8 tests.
+- **VG1145 — adm-zip uncontrolled allocation from the declared uncompressed size (CVE-2026-77301 / GHSA-7q85-xj36-vmfc, high, CVSS 7.5).** Affected < 0.6.1, fixed 0.6.1. 8 tests.
+- **VG1146 — @angular/platform-server SSR SSRF via URL-resolution discrepancy and `<template>` XSS (CVE-2026-88056 / GHSA-f6mr-pjwc-34m4, CVE-2026-88060 / GHSA-v3p8-whq6-r5jg, high).** Affected 20.0.0–20.3.29, 21.0.0–21.2.21, 22.0.0–22.1.3 and all of 19.x (end-of-life, no fix); fixed 20.3.30 / 21.2.22 / 22.1.4. 10 tests.
+- **VG1147 — @sap/cds-mtxs unauthenticated credential disclosure in multitenant CAP apps (CVE-2026-76969 / GHSA-955m-rr6m-2f9v, critical, CVSS 9.4).** Affected < 1.18.4, 2.0.2–2.7.6, 3.0.1–3.9.6, 4.0.1–4.0.2; fixed 1.18.4 / 2.7.7 / 3.9.7 / 4.0.3. 9 tests.
+- **VG1148 — @argos-ci/core OS command injection via CI branch name (CVE-2026-59960 / GHSA-4x45-gxvp-6283, high, CVSS 7.5).** Affected <= 6.2.0, fixed 6.2.1. 8 tests.
+- **VG1149 — @nuxtjs/mdc URL sanitizer bypass via SVG `xlink:href` and `data:text/html` (CVE-2026-63671 / GHSA-mxm6-v9r6-r94c, high, CVSS 8.1).** Affected < 0.22.1, fixed 0.22.1. 7 tests.
+- **VG1150 — ExifReader HEIC/AVIF `iloc` memory exhaustion (CVE-2026-85715 / GHSA-pj96-35fp-cfcc, high, CVSS 7.5).** Affected <= 4.41.0, fixed 4.41.1. 8 tests.
+- **VG1151 — @cyclonedx/cyclonedx-npm `--workspace` shell injection on Windows (CVE-2026-71538 / GHSA-q69g-4hcv-6jg4, high).** Affected < 6.0.0, fixed 6.0.0. 7 tests.
+- **VG1152 — @rsdoctor/rspack-plugin unauthenticated report API exposing source and build metadata (CVE-2026-61782 / GHSA-jmg2-rcxh-w8q3, high, CVSS 7.5).** Affected <= 1.5.15, fixed 1.5.16. 8 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+### Fixed — 0-FP semver on three rules with alternation package names
+VG928 (xmldom), VG1048 (react-server-dom-*) and VG1049 (@mikro-orm/*) still accepted any leading `^`, `~` or `>=`; the v3.37.2 sweep missed them because their package names are alternations. Regenerated from their ranges; exact-pin behaviour unchanged.
+
+CVE version-pin rule count 117 → 128.
+
 ## [3.40.0] - 2026-09-26
 
 ### Added — 8 rules from the 30-day advisory backlog, widest-reach packages first (484 → 492 rules)
