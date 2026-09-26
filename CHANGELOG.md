@@ -5,6 +5,25 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.40.0] - 2026-09-26
+
+### Added — 8 rules from the 30-day advisory backlog, widest-reach packages first (484 → 492 rules)
+- **VG1134 — mariadb connector sends the password before TLS peer validation (CVE-2026-55215 / GHSA-cqhc-2h57-wpxf, high, CVSS 7.5).** With `ssl: true` and no CA, fingerprint validation happens after the auth exchange, so an on-path attacker captures the password. Affected < 3.2.4, 3.3.0–3.3.2, 3.4.0–3.4.5, 3.5.0–3.5.2; fixed 3.2.4 / 3.3.3 / 3.4.6 / 3.5.3. 10 tests.
+- **VG1135 — engine.io WebTransport session-id prototype lookup crash (CVE-2026-59724 / GHSA-gr94-w7qr-f4j3, high, CVSS 7.5).** A `__proto__` session id in a WebTransport upgrade throws in an async context and terminates the process. Affected 6.5.0–6.6.6, fixed 6.6.7. 8 tests.
+- **VG1136 — browserslist untrusted custom-stats prototype write / crash and unbounded cache growth (CVE-2026-73088 / GHSA-73wf-gq98-2v4g, CVE-2026-73089 / GHSA-c83g-rgw3-j3cx, high, CVSS 7.5).** Affected <= 4.28.6, fixed 4.28.7. 9 tests.
+- **VG1137 — @faker-js/faker `helpers.fake()` template code execution (CVE-2026-73231 / GHSA-qxc2-j82w-r537, high, CVSS 7.8).** The property resolver reached `Function.prototype.constructor`. Affected <= 10.4.0, fixed 10.5.0. 8 tests.
+- **VG1138 — link-preview-js DNS-rebinding SSRF bypass of `resolveDNSHost` (CVE-2026-61704 / GHSA-cpjf-6666-r8fx, high, CVSS 7.5).** Incomplete fix for CVE-2026-43897: the validated IP is not pinned for the real fetch. Affected <= 4.0.3, fixed 4.0.4. 7 tests.
+- **VG1139 — @toon-format/toon prototype pollution when decoding untrusted input (CVE-2026-82404 / GHSA-p95v-992w-h6c3, high, CVSS 8.3).** Affected < 2.3.1, fixed 2.3.1. 8 tests.
+- **VG1140 — LiquidJS `strip_html` infinite loop and `join` memoryLimit bypass, residual window after VG1078 (CVE-2026-61556 / GHSA-m7fp-h3p4-hr49, CVE-2026-69222 / GHSA-4r6h-5v86-94p3, high).** Covers 10.26.0–10.27.1; fixed 10.27.2. 8 tests.
+- **VG1141 — js-yaml `maxTotalMergeKeys` bypass via empty merge sources, CPU exhaustion (CVE-2026-84375 / GHSA-2883-xcg3-v3hh, high, CVSS 7.5).** Affected 3.0.0–3.15.1 and 4.0.0–4.3.1; fixed 3.15.2 / 4.3.2. 12 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics (caret/tilde flagged only when they can never resolve to the fix).
+
+### Fixed — VG1086 (React Router 7 cluster) tilde false positive
+VG1086 flagged `~2.17.0`–`~2.17.4` on @remix-run/server-runtime although the fix (2.17.5) is inside that minor, and used a hand-written pattern without the digit boundary. Regenerated from its ranges (react-router 7.0.0–7.14.x, @remix-run/server-runtime 2.10.0–2.17.4); exact pins unchanged. 4 tests.
+
+CVE version-pin rule count 109 → 117.
+
 ## [3.39.0] - 2026-09-26
 
 ### Added — 5 rules from daily intel (479 → 484 rules)
