@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.39.0] - 2026-09-26
+
+### Added — 5 rules from daily intel (479 → 484 rules)
+- **VG1129 — Orval generated-client code injection RCE cluster (11 critical advisories: CVE-2026-62681 / GHSA-fg9p-mrxr-hvq7, CVE-2026-62682 / GHSA-88f2-fpv8-89q2, CVE-2026-72717, CVE-2026-71869, CVE-2026-71871, CVE-2026-71868, CVE-2026-72716, CVE-2026-71867, CVE-2026-71866, CVE-2026-71865, CVE-2026-71864).** OpenAPI paths, server URLs, schema/parameter defaults and property names were emitted into generated template literals and computed keys unescaped, so a malicious spec runs code when the generated client is imported or called. Affected < 8.21.0, fixed 8.21.0. 10 tests.
+- **VG1130 — Astro AVIF image optimization RCE (GHSA-26w7-cxv4-gfx2, critical, CVSS 9.8).** libheif in the default Sharp image service can execute code when a malicious AVIF is optimized. Affected < 7.2.8, fixed 7.2.8 (requires Sharp 0.35.4). 10 tests.
+- **VG1131 — Vendure external-authentication account takeover (CVE-2026-63472 / GHSA-6j36-r6pr-59x4, critical, CVSS 9.1).** External logins were linked to existing accounts by email without requiring a verified email. Affected < 3.7.0, fixed 3.7.0. 8 tests.
+- **VG1132 — MapLibre GL JS `DOM.sanitize()` bypass, zero-click XSS (CVE-2026-85061 / GHSA-jrc7-96c5-q579, critical, CVSS 10.0).** Removing attributes from a live NamedNodeMap skipped the next one, so a second event handler survived into the attribution control. Affected <= 6.4.0, fixed 6.4.1. 9 tests.
+- **VG1133 — yayson prototype pollution in Store/LegacyStore (CVE-2026-61534 / GHSA-325j-mg25-8q58, critical).** A JSON:API document with `type: "__proto__"` writes onto `Object.prototype`. Affected <= 4.2.0, fixed 4.3.0. 8 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics (caret/tilde flagged only when they can never resolve to the fix).
+
+CVE version-pin rule count 104 → 109.
+
 ## [3.38.0] - 2026-09-25
 
 ### Removed — 3 rules with no advisory behind them (482 → 479 rules)
