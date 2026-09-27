@@ -5,6 +5,21 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.42.0] - 2026-09-27
+
+### Added — 7 rules from the 30-day advisory backlog (503 → 510 rules)
+- **VG1153 — nanoid integer overflow corrupts the CSPRNG pool (CVE-2026-73086 / GHSA-xwg4-73v4-xw9w, high, CVSS 7.4).** A size of 2^31+ wraps negative and leaves every later ID in the process a constant string. Affected < 3.3.12 and 4.0.0–5.1.10; fixed 3.3.12 / 5.1.11. 14 tests.
+- **VG1154 — mysql2 auth plugin downgrade to mysql_clear_password (GHSA-3f6p-5ww8-9rcr, high).** A rogue server or MITM on a non-TLS link receives the password in plaintext. Affected < 3.22.0, fixed 3.22.0. 8 tests.
+- **VG1155 — pnpm virtual-store / manifest-name path traversal and proxy env exfiltration, residual window after VG1099 (CVE-2026-82392 / GHSA-c59q-g84q-2gj5, CVE-2026-82393 / GHSA-vq4v-j7r6-jq4m, GHSA-vx52-2968-3vc6, high).** Covers the Corepack pins 10.34.2–10.34.4 and 11.5.3–11.10.x; fixed 10.34.5 / 11.11.0. 13 tests.
+- **VG1156 — Orval generation-time SSRF and file inclusion via `$ref`, residual window after VG1129 (CVE-2026-62680 / GHSA-cxq5-97v7-87j8, high).** Covers 8.21.x; fixed 8.22.0. 7 tests.
+- **VG1157 — toml prototype pollution and uncontrolled recursion in `toml.parse()` (CVE-2026-63376 / GHSA-v5mp-jgw5-2x6j, CVE-2026-77465 / GHSA-82x6-q7mm-w9cf, high).** Affected < 4.2.0, fixed 4.2.0. 8 tests.
+- **VG1158 — SVGO `removeScripts` bypass via namespaced anchors and control characters (CVE-2026-84370 / GHSA-w27v-7q3p-w38r, high, CVSS 8.2).** Affected 1.0.0–2.8.3, 3.0.0–3.3.4, 4.0.x; fixed 2.8.4 / 3.3.5 / 4.1.0. 15 tests.
+- **VG1159 — Nodemailer quadratic-time addressparser DoS (GHSA-2x7j-588g-ccc2, high, CVSS 7.5).** Affected < 9.1.0, fixed 9.1.0. 8 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics (the pnpm rule matches the always-exact `packageManager` pin, like VG1099).
+
+CVE version-pin rule count 128 → 135.
+
 ## [3.41.0] - 2026-09-26
 
 ### Added — 11 rules from the 30-day advisory backlog (492 → 503 rules)
