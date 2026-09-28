@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.43.0] - 2026-09-28
+
+### Added — 5 rules from the 30-day advisory backlog (510 → 515 rules)
+- **VG1160 — smol-toml infinite loop in `parse()` via a trailing comment (CVE-2026-85730 / GHSA-7w5x-hrqm-74c2, high).** `parse('a=[1 #')` never returns and pins a CPU core. Affected ≤ 1.7.0, fixed 1.7.1. 10 tests.
+- **VG1161 — n8n expression sandbox escape, SSRF, ReDoS and OAuth registration storage exhaustion cluster (CVE-2026-86083 / GHSA-6xcw-7xm6-48c6, CVE-2026-86076 / GHSA-hw8v-xxg5-vvvx, CVE-2026-86082 / GHSA-34ff-336r-5q23, CVE-2026-86081 / GHSA-j535-v25q-vx3q, CVE-2026-86075 / GHSA-hh89-3r9w-qj3j, high).** Two legacy-engine sandbox escapes to code execution, a domain-restriction bypass in the OpenAI Chat Model node, a Git-node ReDoS and unauthenticated unbounded client registration. Affected 0.x–1.x, 2.0.0–2.37.6, 2.38.0–2.38.1; fixed 2.37.7 / 2.38.2. 15 tests.
+- **VG1162 — FrontMCP / mcp-from-openapi OpenAPI external `$ref` SSRF fix bypass (CVE-2026-59973 / GHSA-65h7-9wrw-629c, high, CVSS 8.5).** Loopback reached through DNS, redirects or IPv4-mapped IPv6 during tool generation. Affected mcp-from-openapi 2.3.0–2.4.x and frontmcp / @frontmcp/adapters 1.2.1–1.4.x; fixed 2.5.0 / 1.5.0. 15 tests.
+- **VG1163 — node-opcua client TCP socket leak via the keepalive reconnection cycle (CVE-2026-68904 / GHSA-r2pf-9cw4-5j65, high, CVSS 7.0).** Clock skew with the default `keepSessionAlive` leaks a socket per reconnect until OOM. Affected node-opcua / node-opcua-client / node-opcua-transport 2.0.0–2.169.x, fixed 2.170.0. 10 tests.
+- **VG1164 — Plate `@platejs/docx-io` SSRF with response disclosure in DOCX image embedding (CVE-2026-65842 / GHSA-4q39-2jhr-7qx8, high, CVSS 8.2).** Remote image URLs in converted HTML are fetched server-side and embedded in the document. Affected < 53.3.2, fixed 53.3.2. 10 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+CVE version-pin rule count 135 → 140.
+
 ## [3.42.0] - 2026-09-27
 
 ### Added — 7 rules from the 30-day advisory backlog (503 → 510 rules)

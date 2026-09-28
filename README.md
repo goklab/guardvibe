@@ -9,13 +9,13 @@
 > **Security infrastructure your AI can't be.**
 > No matter how good your coding agent gets, it can't know the CVE published after its training cutoff, it can't deterministically guarantee the same check every run, it can't hold your whole repo in context, and it can't objectively review its own code. GuardVibe does all four — the deterministic, post-cutoff-current, whole-repo, author-independent verification layer for AI-written code.
 
-- **🗓️ Knows what your AI doesn't.** CVE rules refreshed **daily** from GHSA / OSV.dev / CISA KEV — GuardVibe flags vulnerable dependencies published *after* your model's training cutoff. (135 CVE rules, `npm run intel` daily triage.)
+- **🗓️ Knows what your AI doesn't.** CVE rules refreshed **daily** from GHSA / OSV.dev / CISA KEV — GuardVibe flags vulnerable dependencies published *after* your model's training cutoff. (140 CVE rules, `npm run intel` daily triage.)
 - **🎯 Deterministic, not probabilistic.** Same code = same result, every run (content-hashed). Your AI guesses; GuardVibe doesn't.
 - **🗺️ Sees the whole repo.** Cross-file taint + auth-coverage across every route — catches the unprotected endpoint your agent's narrow context missed.
 - **🔍 An independent second pair of eyes.** The thing that wrote the code can't review itself. GuardVibe is the outside checker on AI-written code — in the loop *while* your AI codes (real-time edit hook), not after.
 - **⬅️ NEW: Starts before the first line of code.** Every scanner on earth — including your agent reviewing itself — acts *after* the code exists. [`secure_prompt`](#prompt-level-security-shift-left) acts *before*: it analyzes the coding prompt itself, detects the stack and attack surfaces it implies, and embeds severity-ranked GuardVibe requirements into the prompt your AI executes. The vulnerability is prevented, not caught. Deterministic, zero LLM calls — and if the prompt is already secure, it passes through untouched.
 
-**The security MCP built for vibe coding.** 510 security rules, 39 tools covering the entire AI-generated code journey — from the prompt itself to production deployment.
+**The security MCP built for vibe coding.** 515 security rules, 39 tools covering the entire AI-generated code journey — from the prompt itself to production deployment.
 
 Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf**, and any MCP-compatible coding agent.
 
@@ -27,11 +27,11 @@ Works with **Claude Code, Cursor, Gemini CLI, Codex, VS Code (Copilot), Windsurf
 
 Most security tools are built for enterprise security teams. GuardVibe is built for **you** — the developer using AI to build and ship web apps fast.
 
-- **510 security rules, 39 tools** purpose-built for the stacks AI agents generate
+- **515 security rules, 39 tools** purpose-built for the stacks AI agents generate
 - **Zero setup friction** — `npx guardvibe` and you're scanning
 - **No account required** — runs 100% locally, no API keys, no cloud
 - **Understands your stack** — not generic SAST, but rules that know Next.js, Supabase, Stripe, Clerk, and the tools you actually use
-- **CVE version intelligence** — detects 135 known vulnerable package versions in package.json, refreshed every day from GHSA / OSV.dev / CISA KEV
+- **CVE version intelligence** — detects 140 known vulnerable package versions in package.json, refreshed every day from GHSA / OSV.dev / CISA KEV
 - **AI agent & MCP security** — detects MCP server vulnerabilities, tool-description prompt injection (OWASP MCP Top 10), model-controlled sandbox-disable flags, excessive AI permissions, indirect prompt injection
 - **Auto-fix suggestions** — `fix_code` tool returns concrete patches and structured edits the AI agent can apply mechanically. Coverage: hardcoded credentials → env-var migration; public-prefix LLM keys (`NEXT_PUBLIC_/VITE_/EXPO_PUBLIC_/REACT_APP_`) → prefix removal; CORS wildcards → env allowlist; `dangerouslyAllowBrowser` flags → drop; sandbox bypass flags (`unsafe`/`noSandbox`/`allowEval`) → drop; agent loops → add `maxSteps`; raw-HTML React props → `<ReactMarkdown>`; missing auth checks → insert auth guard; SQL injection → parameterized queries; missing rate limiters / CSRF / security headers → snippet templates.
 - **Pre-commit hook** — block insecure code before it reaches your repo
@@ -39,8 +39,9 @@ Most security tools are built for enterprise security teams. GuardVibe is built 
 - **Agent-friendly output** — JSON format for AI agents, Markdown for humans, SARIF for CI/CD
 - **Plugin system** — extend with community or premium rule packs
 
-## New in v3.42.x
+## New in v3.43.x
 
+- **Parser, workflow and MCP gaps closed** — v3.43.0 adds `VG1160` smol-toml six-byte infinite-loop DoS (CVE-2026-85730), `VG1161` n8n expression sandbox escape / SSRF / ReDoS / OAuth registration cluster (5 advisories), `VG1162` FrontMCP / mcp-from-openapi `$ref` SSRF fix bypass (CVE-2026-59973), `VG1163` node-opcua client socket leak (CVE-2026-68904) and `VG1164` Plate DOCX export SSRF (CVE-2026-65842).
 - **Widest-reach gaps of the month closed** — v3.42.0 adds `VG1153` nanoid size-overflow that freezes every later ID to one constant string (CVE-2026-73086), `VG1154` mysql2 plaintext-password auth downgrade, `VG1159` Nodemailer addressparser quadratic DoS, `VG1157` toml prototype pollution + recursion crash, `VG1158` SVGO `removeScripts` XSS bypass, and residual windows for the September pnpm path-traversal / proxy-secret cluster (`VG1155`) and Orval `$ref` SSRF (`VG1156`).
 - **30-day backlog cleared** — every uncovered high/critical advisory of the last month on a package with real reach now has a rule (v3.40.0–v3.41.0): js-yaml, browserslist, multer, engine.io, @xmldom/xmldom, faker, adm-zip, @tiptap/core, @angular/platform-server SSR, @sap/cds-mtxs, mariadb and more. Older hand-written xmldom, RSC and MikroORM rules were regenerated so ranges that resolve past the fix are no longer flagged.
 - **Backlog worked by reach** — the daily run now ranks uncovered advisories by how many projects actually install the package. v3.40.0 closed the widest-reach gaps of the last month: `VG1141` js-yaml merge-key CPU exhaustion, `VG1136` browserslist custom-stats prototype write, `VG1135` engine.io WebTransport crash, `VG1137` faker `helpers.fake()` code execution, `VG1134` mariadb password-before-TLS-validation, plus link-preview-js, TOON and LiquidJS.
@@ -66,10 +67,10 @@ GuardVibe is purpose-built for the AI coding workflow. Traditional tools are exc
 | AI/LLM security (prompt injection, MCP, tool abuse) | 68 rules | Experimental/None | None |
 | AI host security (CVE-2025-59536, CVE-2026-21852) | `guardvibe doctor` | Not supported | Not supported |
 | Auto-fix suggestions for AI agents | `fix_code` tool | CLI autofix | Not supported |
-| CVE version detection | 135 packages, refreshed daily | Extensive | Extensive |
+| CVE version detection | 140 packages, refreshed daily | Extensive | Extensive |
 | Compliance mapping (SOC2, PCI-DSS, HIPAA) | Built-in | Paid tier | None |
 | SARIF CI/CD export | Yes | Yes | Limited |
-| Rule count | 510 (focused, 68 AI-native) | 5000+ (broad) | N/A |
+| Rule count | 515 (focused, 68 AI-native) | 5000+ (broad) | N/A |
 
 **When to use GuardVibe:** You're building with AI agents and want security scanning integrated into your coding workflow — no dashboard, no account, no CI setup.
 
@@ -194,7 +195,7 @@ React Native, Expo — AsyncStorage secrets, deep link token exposure, hardcoded
 ### Firebase
 Firestore security rules, Firebase Admin SDK exposure, storage rules, custom token validation
 
-### CVE Version Intelligence (135 CVEs, refreshed daily)
+### CVE Version Intelligence (140 CVEs, refreshed daily)
 **Frameworks:** Next.js (CVE-2024-34351, CVE-2024-46982, CVE-2025-29927, CVE-2026-23869, CVE-2026-44573 / 44574 / 44575 / 44578 / 44579 / 45109 May 2026 cluster), React + react-server-dom-* (CVE-2025-55182, CVE-2026-23870), Express, Hono pre-4.12.18 cluster, @vitejs/plugin-rsc, Strapi content-type-builder (CVE-2026-22599)
 **Auth:** Clerk middleware bypass (GHSA-vqx2), Clerk `has()` org/billing/reverification bypass (GHSA-w24r), Clerk `clerkFrontendApiProxy` SSRF (CVE-2026-34076), NextAuth.js (2 CVEs), jsonwebtoken
 **ORMs / SQL:** Drizzle SQL identifier injection (CVE-2026-39356) + Drizzle `sql.raw` interpolation (VG1073), MikroORM SQL injection (CVE-2026-44680), Prisma raw-query call-form, Kysely JSON-path traversal (CVE-2026-44635)
@@ -306,7 +307,7 @@ The offline tier is also a `full_audit` section (online never runs inside the au
 { "slopscan": { "online": true, "allow": ["@myorg/internal-pkg"] } }
 ```
 
-## Security Rules (510 rules across 25 modules)
+## Security Rules (515 rules across 25 modules)
 
 | Category | Rules | Coverage |
 |----------|-------|----------|
@@ -325,7 +326,7 @@ The offline tier is also a `full_audit` section (online never runs inside the au
 | AI / LLM Security | 33 | Prompt injection, MCP SSRF, excessive agency, indirect injection |
 | **AI Host Security** | **14** | **CVE-2025-59536 hook injection, CVE-2026-21852 base URL hijack, MCP config audit** |
 | **AI Tool Runtime** | **14** | **MCP tool output sanitization, obfuscated descriptions, safety bypass** |
-| CVE Version Intelligence | 135 | Known vulnerable versions in package.json — incl. Vite dev-server cmd injection (CVE-2024-52011), React Router 7 cluster (CVE-2026-33245/42211/42342), DOMPurify XSS (CVE-2026-47423), Better Auth bypass (CVE-2026-45337), Axios supply-chain backdoor |
+| CVE Version Intelligence | 140 | Known vulnerable versions in package.json — incl. Vite dev-server cmd injection (CVE-2024-52011), React Router 7 cluster (CVE-2026-33245/42211/42342), DOMPurify XSS (CVE-2026-47423), Better Auth bypass (CVE-2026-45337), Axios supply-chain backdoor |
 | Shell / Bash | 5 | Pipe to bash, chmod 777, rm -rf, sudo password |
 | SQL | 4 | DROP/DELETE without WHERE, stacked queries, GRANT ALL |
 | Supply Chain | 19 | Malicious install scripts, lockfile integrity, dependency confusion, typosquat detection |
