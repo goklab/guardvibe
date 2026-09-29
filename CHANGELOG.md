@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.44.0] - 2026-09-29
+
+### Added — 5 rules from the 30-day advisory backlog (515 → 520 rules)
+- **VG1165 — @angular/platform-server SSR infinite-loop DoS on a malformed DOCTYPE, residual window after VG1146 (CVE-2026-101895 / GHSA-f67j-2jqw-jpq7, high).** `<!DOCTYPE html ` at the end of untrusted HTML freezes the SSR process. Covers 22.1.4–22.1.5, 21.2.22 and 20.3.30, which VG1146 treats as fixed; fixed 22.1.6 / 21.2.23 / 20.3.31. 14 tests.
+- **VG1166 — pnpm 12 pre-release lockfile alias symlink escape with `--trust-lockfile` (GHSA-2rx9-3g3h-c2jv, high, CVSS 7.1).** A crafted lockfile alias creates links outside the project. Covers the Corepack pins 12.0.0-alpha.0–alpha.4; fixed 12.0.0-alpha.5. 10 tests.
+- **VG1167 — claude-code-templates Studio server unauthenticated OS command injection (CVE-2026-73222 / GHSA-79wm-x847-7cvg, high, CVSS 8.8).** `--studio` listens on all interfaces with wildcard CORS and passes request fields to a shell. Affected ≤ 1.29.2, fixed 1.29.4. 10 tests.
+- **VG1168 — OpenClaw Feishu tools ignore per-account disablement (GHSA-2q7j-2vhx-56g8 / GHSA-w8wf-3qvj-6xqf, high, CVSS 8.1).** Disabled accounts could still run Feishu and Feishu permission tools. Affected < 2026.6.9-beta.1, fixed 2026.6.9. 11 tests.
+- **VG1169 — @eigenpal/docx-editor CSS injection and print-time XSS via embedded font names (GHSA-x7m8-jrm8-hpvx, high, CVSS 8.1).** Affected @eigenpal/docx-editor-core / -react ≤ 1.8.2, fixed 1.8.3. 11 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+CVE version-pin rule count 140 → 145.
+
 ## [3.43.0] - 2026-09-28
 
 ### Added — 5 rules from the 30-day advisory backlog (510 → 515 rules)
