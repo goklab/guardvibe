@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.45.0] - 2026-09-30
+
+### Added — 5 rules from daily intel (520 → 525 rules)
+- **VG1170 — cline Hub dashboard cross-origin WebSocket hijacking (CVE-2026-59723 / GHSA-3cj3-hqcr-g934, high, CVSS 8.8).** `cline dashboard` accepts /browser WebSocket connections from any origin with no secret by default, and sessions auto-approve tools. Affected < 3.0.30, fixed 3.0.30. 11 tests.
+- **VG1171 — @xhmikosr/decompress path traversal via symlink chain (CVE-2026-101894 / GHSA-hrh2-vp3x-79xf, critical, CVSS 9.1).** A crafted archive writes outside the output directory; bypass of GHSA-mp2f-45pm-3cg9. Affected ≤ 10.2.1 and 11.0.0–11.1.3, fixed 10.2.2 / 11.1.4. 15 tests.
+- **VG1172 — brace-expansion stack-exhaustion DoS on nested and comma-chained braces (CVE-2026-102276 / GHSA-6j4f-fj2g-mc7p, CVE-2026-102278 / GHSA-qhr7-859c-m2p7, high, CVSS 7.5).** Covers < 1.1.20, 2.0.0–2.1.5, 3.0.0–3.0.7 and 4.0.0–5.0.10; fixed 1.1.20 / 2.1.6 / 3.0.8 / 5.0.11. 21 tests.
+- **VG1173 — undici WebSocket subprotocol crash, BalancedPool TLS check drop and interceptor cache poisoning, residual window after VG918/VG919 (CVE-2026-19534, CVE-2026-84961, CVE-2026-85152, high).** Covers 6.11.1–6.28.0, 7.0.0–7.29.0 and 8.0.0–8.10.1; fixed 6.28.1 / 7.29.1 / 8.10.2. 17 tests.
+- **VG1174 — joi `isoDate()` quadratic regex backtracking DoS (GHSA-6h2x-m376-mqjq, high, CVSS 7.5).** Affected 17.2.0–17.13.6 and 18.0.0–18.2.5, fixed 17.13.7 / 18.2.6. 15 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+CVE version-pin rule count 145 → 150.
+
 ## [3.44.0] - 2026-09-29
 
 ### Added — 5 rules from the 30-day advisory backlog (515 → 520 rules)
