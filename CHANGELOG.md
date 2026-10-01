@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.46.0] - 2026-10-01
+
+### Added — 5 rules from daily intel (525 → 530 rules)
+- **VG1175 — Next.js `next/og` ImageResponse remote code execution, residual window (GHSA-vcvr-r3jv-pc5j, critical, CVSS 9.5).** Attacker-controlled values rendered into SVG content, attributes or styles by the Node.js ImageResponse reach RCE. Affected 16.2.0–16.3.5, fixed 16.3.6; covers only what VG926/VG1047/VG1105/VG1115 left open (exact 16.3.3–16.3.5, tilde 16.2.0–16.2.10). 14 tests.
+- **VG1176 — Nodemailer addressparser quadratic backtracking DoS, residual window after VG1159 (GHSA-v53p-9fqp-m79j, GHSA-prgh-xp8r-p3m5, high, CVSS 7.5).** Free-text fallback regex and comment-joined addresses block the event loop. Covers 9.1.0–10.0.5 plus the ^9.0.x caret form; fixed 10.0.6. 14 tests.
+- **VG1177 — engine.io protocol revision mismatch crash on transport upgrade, residual window after VG1135 (CVE-2026-102599 / GHSA-2gc4-cqfq-p2gv, high, CVSS 7.5).** Covers 6.6.7–6.6.9; fixed 6.6.10. 9 tests.
+- **VG1178 — webpack-dev-middleware path traversal via non-slash-terminated publicPath (CVE-2026-76844 / GHSA-g84c-rxfj-3j2c, high, CVSS 7.4).** Covers < 7.4.5 and 8.0.0–8.2.x (the versions both the advisory metadata and its text mark affected); fixed 8.3.0. 15 tests.
+- **VG1179 — Electron sandbox inheritance, webview worker Node integration, custom-protocol CORS and preload cache poisoning cluster (CVE-2026-102673 – CVE-2026-102677, high, CVSS up to 8.3).** Covers stable releases before 41.10.6, 42.0.0–42.9.x and 43.0.0–43.4.x; fixed 41.10.6 / 42.10.0 / 43.5.0. Prerelease pins are never flagged. 18 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics and the existing rules (no overlap).
+
+CVE version-pin rule count 150 → 155.
+
 ## [3.45.0] - 2026-09-30
 
 ### Added — 5 rules from daily intel (520 → 525 rules)
