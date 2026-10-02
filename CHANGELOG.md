@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.47.0] - 2026-10-02
+
+### Added — 5 rules from daily intel (530 → 535 rules)
+- **VG1180 — NestJS microservices deeply nested message pattern process crash (CVE-2026-102281 / GHSA-m8vh-jmq9-5rjg, high, CVSS 7.5).** A single TCP or RabbitMQ message with a deeply nested pattern overflows JSON.stringify and terminates the process via an unhandled rejection. Affected < 11.2.4 and 12.0.0–12.0.1, fixed 11.2.4 / 12.0.2. 17 tests.
+- **VG1181 — axios prototype-pollution gadgets, fetch-adapter maxRedirects bypass, HTTP/2 lookup/proxy bypass and crash, ReDoS cluster, residual window after VG1042/VG1091/VG1114 (CVE-2026-101898, CVE-2026-101901, CVE-2026-101903, CVE-2026-101905, CVE-2026-101906, CVE-2026-101907, CVE-2026-101909, high, CVSS up to 8.3).** Covers only 1.18.0–1.19.x and 0.31.0–0.33.x; fixed 1.20.0 / 0.34.0. 15 tests.
+- **VG1182 — @grpc/grpc-js getAuthContext returns unauthorized client certificates as authorized (CVE-2026-101916 / GHSA-m9gg-hp2v-232j, high, CVSS 7.4).** Affects servers with requireClientCertificate: false that authenticate from getAuthContext(), including xDS RBAC. Affected < 1.13.6 and 1.14.0–1.14.4, fixed 1.13.6 / 1.14.5. 14 tests.
+- **VG1183 — Fastify not-found handler auth bypass via malformed URL, async validation body replacement, boolean false schema bypass and header dependency bypass (CVE-2026-76169, CVE-2026-84504, CVE-2026-84469, CVE-2026-84428, high, CVSS up to 8.1).** Affected < 5.12.2 (no 4.x backport), fixed 5.12.2. 13 tests.
+- **VG1184 — Angular router SSR denial of service via numeric URL matrix parameters (CVE-2026-101896 / GHSA-ff3f-86qr-9cv3, high, CVSS 8.2).** Covers 20.0.0–20.3.31, 21.0.0–21.2.23 and 22.0.0–22.1.x; fixed 20.3.32 / 21.2.24 / 22.2.0. Lines ≤ 19.2.25 have no patched release and are not flagged. 17 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics and the existing rules (no overlap).
+
+CVE version-pin rule count 155 → 160.
+
 ## [3.46.0] - 2026-10-01
 
 ### Added — 5 rules from daily intel (525 → 530 rules)
