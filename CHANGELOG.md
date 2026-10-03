@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.48.0] - 2026-10-03
+
+### Added — 5 rules from daily intel (535 → 540 rules)
+- **VG1185 — @nestjs/platform-fastify path-scoped middleware bypass via absolute-form request targets (GHSA-9c5c-9qcx-q35q, high, CVSS 7.4).** Middleware registered with forRoutes() is skipped when the request target is written in absolute form, while Fastify still routes to the protected handler. Affected < 11.2.4 and 12.0.0–12.0.1, fixed 11.2.4 / 12.0.2. 15 tests.
+- **VG1186 — Astro Node adapter crash via malformed Host header port (CVE-2026-102984 / GHSA-qh8j-hqjv-7m4x, high).** One unauthenticated request with a malformed port in the Host header terminates the server process. Affected ≤ 11.1.2, fixed 11.1.3. 11 tests.
+- **VG1187 — vm2 sandbox escape cluster, residual window after VG1037 (CVE-2026-92935 – CVE-2026-92958, 12 advisories, critical, CVSS up to 10.0).** node:-prefixed builtin allowlist/denylist bypasses, custom resolver package collision, nesting-guard bypass, native code via node:sqlite and crypto.setEngine, host TLS credential exposure and trust-store replacement, Node.js 26 promise escape, CLI without isolation. Covers only 3.11.2–3.11.6 exact pins; fixed 3.11.7. 10 tests.
+- **VG1188 — Piscina ThreadPool options prototype-pollution gadget to RCE (CVE-2026-102992 / GHSA-67c8-pqhq-4rmx, critical).** Inherited execArgv / env / loadBalancer options turn a same-process prototype pollution into code execution in worker threads. Affected < 4.9.4 and 5.0.0–5.3.1, fixed 4.9.4 / 5.3.2. 16 tests.
+- **VG1189 — devalue shared-memory serialization, uneval quadratic expansion and stringifyAsync unhandled rejection (CVE-2026-92708 / GHSA-j22f-vq7h-c4qm, GHSA-mcm9-63f2-9j32, GHSA-x5rw-q4pp-hg5g, high, CVSS 7.5).** Affected ≤ 5.9.2, fixed 5.9.3. 12 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics and the existing rules (no overlap).
+
+CVE version-pin rule count 160 → 165.
+
 ## [3.47.0] - 2026-10-02
 
 ### Added — 5 rules from daily intel (530 → 535 rules)
