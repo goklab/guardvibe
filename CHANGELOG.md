@@ -5,6 +5,22 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.50.0] - 2026-10-04
+
+### Added — 3 rules for windows a coverage audit found uncovered (545 → 548 rules)
+Every CVE version rule was compared with the advisories it cites, on every published npm release. Three affected windows were flagged by no rule:
+- **VG1195 — Next.js AVIF/libheif Image Optimization RCE, 10.x–11.x window (GHSA-2xp9-vwfh-vxw4, critical).** The advisory starts at 10.0.0; since v3.38.0 the first flagged release was 12.0.0. Both lines are end-of-life, so exact, tilde and caret specs are all flagged. Fixed 15.5.24. 8 tests.
+- **VG1196 — Angular Router SSR DoS via numeric matrix parameters, end-of-life lines (CVE-2026-101896 / GHSA-ff3f-86qr-9cv3, high).** VG1184 covers 20.x–22.x; 19.2.25 and older are listed as affected with no patched release and were not flagged. 7 tests.
+- **VG1197 — mcp-from-openapi / FrontMCP `$ref` SSRF, original window (CVE-2026-39885 / GHSA-v6ph-xcq9-qxxj, high, CVSS 7.5).** mcp-from-openapi <= 2.1.2, @frontmcp/sdk and @frontmcp/adapters <= 1.0.3; VG1162 only covered the later fix bypass. 11 tests.
+
+### Fixed — VG1146 (@angular/platform-server) end-of-life lines
+Caret ranges on 19.x and older were not flagged although no release on those lines carries the fix; they are now, consistent with VG1196. Exact and tilde behaviour unchanged.
+
+### Changed — development dependencies
+Lockfile refreshed within the current majors (@modelcontextprotocol/sdk, eslint, typescript-eslint, tsx, @types/node). Not part of the published package's install ranges.
+
+CVE version-pin rule count 170 → 173.
+
 ## [3.49.0] - 2026-10-04
 
 ### Added — 5 rules from daily intel (540 → 545 rules)
