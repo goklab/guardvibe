@@ -92,6 +92,20 @@ describe("AI Benchmark — Phase 1 Rules", () => {
       ));
     });
 
+    it("detects createClient with the new SUPABASE_SECRET_KEY", () => {
+      assert(hasRule(
+        `import { createClient } from "@supabase/supabase-js";\nconst supabase = createClient(url, process.env.SUPABASE_SECRET_KEY!);`,
+        "VG1007"
+      ));
+    });
+
+    it("allows the publishable key client", () => {
+      assert(!hasRule(
+        `const supabase = createClient(url, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);`,
+        "VG1007"
+      ));
+    });
+
     it("detects service_role in createClient", () => {
       assert(hasRule(
         `const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SERVICE_ROLE_KEY!);`,

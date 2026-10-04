@@ -217,7 +217,7 @@ function generatePatch(finding: Finding, sourceLine: string): string | undefined
 
   // --- Supabase service key exposure ---
   if (rule.id === "VG441") {
-    return "// Client: supabase = createClient(url, NEXT_PUBLIC_SUPABASE_ANON_KEY)\n// Server: supabase = createClient(url, SUPABASE_SERVICE_ROLE_KEY)";
+    return "// Client: supabase = createClient(url, NEXT_PUBLIC_SUPABASE_ANON_KEY)\n// Server: supabase = createClient(url, SUPABASE_SECRET_KEY)  // or the legacy SUPABASE_SERVICE_ROLE_KEY";
   }
 
   // --- Stripe price client-side ---

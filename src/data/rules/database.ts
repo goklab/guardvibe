@@ -92,16 +92,16 @@ export const databaseRules: SecurityRule[] = [
   },
   {
     id: "VG437",
-    name: "Supabase Service Role Key in Client",
+    name: "Supabase Service Role / Secret Key in Client",
     severity: "critical",
     owasp: "A07:2025 Sensitive Data Exposure",
     description:
-      "SUPABASE_SERVICE_ROLE_KEY is accessed in client-side code. This key bypasses RLS and grants full database access.",
-    pattern: /["']use client["'][\s\S]{0,500}?(?:SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE)/g,
+      "A Supabase key that bypasses Row Level Security is reachable from client-side code: the legacy SUPABASE_SERVICE_ROLE_KEY, the new secret key (SUPABASE_SECRET_KEY / an sb_secret_… literal — Supabase retires the legacy anon and service_role keys by the end of 2026), or a \"use client\" file that imports the module holding the admin client (supabase/admin, supabaseAdmin, service-role). Anything a client component imports is bundled for the browser, so the key or the admin client ships with it and grants full database access.",
+    pattern: /["']use client["'][\s\S]{0,500}?(?:SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|SUPABASE_SECRET_KEY|sb_secret_[A-Za-z0-9_-]{8,}|from\s+["'][^"'\n]*(?:supabase[\/._-]admin|supabaseAdmin|service[-_]?role)(?:\.[jt]s)?["'])/g,
     languages: ["javascript", "typescript"],
-    fix: "Never use the service role key in client code.",
+    fix: "Never use the service role or secret key in client code, and never import the admin-client module from a client component. Add `import \"server-only\"` to the module that creates the admin client so the build fails if a client file reaches it.",
     fixCode:
-      '// Server-side only\n"use server";\nconst adminClient = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!);',
+      '// lib/supabase/admin.ts — server-side only\nimport "server-only";\nexport const adminClient = createClient(url, process.env.SUPABASE_SECRET_KEY!);',
     compliance: ["SOC2:CC6.1", "HIPAA:§164.312(a)"],
   },
   {

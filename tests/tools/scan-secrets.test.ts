@@ -25,6 +25,16 @@ describe("scan_secrets", () => {
     assert(result.some((finding) => finding.provider === "AWS Access Key"));
   });
 
+  it("detects Supabase secret key (new sb_secret_ format)", () => {
+    const result = scanContent("SUPABASE_SECRET_KEY=sb_secret_AbCdEfGhIjKlMnOpQrStUvWx_12345678", ".env");
+    assert(result.some((finding) => finding.provider === "Supabase Secret Key"));
+  });
+
+  it("does not report the Supabase publishable key as a secret key", () => {
+    const result = scanContent("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_AbCdEfGhIjKlMnOpQrStUvWx", ".env");
+    assert(!result.some((finding) => finding.provider === "Supabase Secret Key"));
+  });
+
   it("detects GitHub token", () => {
     const result = scanContent("GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn", ".env");
     assert(result.some((finding) => finding.provider === "GitHub Token"));

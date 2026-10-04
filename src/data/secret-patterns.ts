@@ -67,6 +67,12 @@ export const secretPatterns: SecretPattern[] = [
     fix: "Revoke and recreate the key in SendGrid settings.",
   },
   {
+    provider: "Supabase Secret Key",
+    pattern: /sb_secret_[A-Za-z0-9_-]{20,}/g,
+    severity: "critical",
+    fix: "Delete the key in the Supabase Dashboard (Settings → API Keys) and create a new one; a secret key bypasses Row Level Security.",
+  },
+  {
     provider: "Private Key",
     pattern: /-----BEGIN (?:RSA |EC |DSA )?PRIVATE KEY-----/g,
     severity: "critical",
