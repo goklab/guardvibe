@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.49.0] - 2026-10-04
+
+### Added — 5 rules from daily intel (540 → 545 rules)
+- **VG1190 — basic-ftp quadratic-time directory-listing parser DoS (CVE-2026-102990 / GHSA-c475-qrg2-pj4r, high).** A crafted Unix listing line from the FTP server makes Client.list() backtrack quadratically and pins the event loop. Affected ≤ 6.2.0, fixed 6.2.1. 11 tests.
+- **VG1191 — @a2ui/web_core openUrl javascript: URI execution via agent-supplied button actions (CVE-2026-10032 / GHSA-72qq-p3r5-f7wq, critical, CVSS 9.3).** The Basic Catalog passes agent-controlled URLs to window.open() without a scheme check, giving XSS in the host origin on click. Affected 0.9.0–0.10.1, fixed 0.10.2. 12 tests.
+- **VG1192 — Trigger.dev default secrets, cross-tenant SQL injection, replay IDOR and alert webhook SSRF (GHSA-gg6r-gp4c-89hp, GHSA-9q4r-4842-93vw, GHSA-pqxw-g93w-hj9x, GHSA-pp95-gc86-jq6q, GHSA-qxpp-qjg8-x4jv, GHSA-xxv7-2vv3-h682, critical).** Hardcoded coordinator and .env.example secrets, TSQL window-function injection across tenants, unauthorized run replay into other organizations, unvalidated webhook URLs. Affected ≤ 4.5.5, fixed 4.5.6. 12 tests.
+- **VG1193 — @fastify/busboy DoS via prototype-named part header and oversized boundary (CVE-2026-19481 / GHSA-x8mw-p69m-v3mx, CVE-2026-19484 / GHSA-xjh9-v7x6-24jw, high, CVSS 7.5).** A __proto__ part header crashes the parser; a 252-byte boundary spins the boundary search. Affected 1.0.0–3.2.0, fixed 3.2.1. 13 tests.
+- **VG1194 — probe-image-size quadratic-time SVG parser DoS (CVE-2026-104861 / GHSA-gjj5-9665-rwrc, high, CVSS 7.5).** Input with many < and no > makes the SVG header regex quadratic in probe.sync / stream / url. Affected ≤ 7.3.0, fixed 7.4.0. 11 tests.
+
+CVE version-pin rule count 165 → 170.
+
 ## [3.48.0] - 2026-10-03
 
 ### Added — 5 rules from daily intel (535 → 540 rules)
