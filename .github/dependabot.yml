@@ -1,10 +1,13 @@
 version: 2
 updates:
+  # npm version updates are done by the weekly maintenance run (lockfile, same major,
+  # behind the release gate). Limit 0 switches version-update PRs off and keeps
+  # security-update PRs on.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     labels:
       - dependencies
     commit-message:
