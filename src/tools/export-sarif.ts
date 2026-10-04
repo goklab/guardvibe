@@ -34,7 +34,11 @@ export function exportSarif(path: string, rules?: SecurityRule[]): string {
   const config = loadConfig(scanRoot);
   const excludes = new Set([...DEFAULT_EXCLUDES, ...config.scan.exclude]);
   const filePaths: string[] = [];
-  walkDirectory(scanRoot, true, excludes, filePaths);
+  // Accept a single file (for `check <file> --format sarif`) or a directory.
+  let isFile = false;
+  try { isFile = statSync(scanRoot).isFile(); } catch { /* treat as dir */ }
+  if (isFile) filePaths.push(scanRoot);
+  else walkDirectory(scanRoot, true, excludes, filePaths);
 
   const allResults: SarifResult[] = [];
 

@@ -125,6 +125,21 @@ export const aiSecurityRules: SecurityRule[] = [
       '// Use spawn with argument array (no shell interpretation)\nimport { spawn } from "child_process";\nconst allowed = /^[a-zA-Z0-9._-]+$/;\nif (!allowed.test(args.filename)) throw new Error("Invalid filename");\nconst child = spawn("cat", [args.filename], { shell: false });',
     compliance: ["SOC2:CC7.1", "PCI-DSS:Req6.5.1", "EUAIACT:Art15"],
   },
+  {
+    id: "VG1095",
+    name: "MCP / Agent Tool-Call Endpoint Without Authentication",
+    severity: "high",
+    owasp: "A01:2025 Broken Access Control",
+    description:
+      "An HTTP route exposes an MCP tools/call endpoint, an /mcp endpoint, or an agent run/invoke/execute endpoint with no authentication guard near the route registration. Exposing tool execution or agent invocation over HTTP without auth lets any caller run server-side tools/agents — the pattern behind the June-2026 advisory wave for praisonai (unauthenticated HTTP tools/call + AgentOS agent listing/calling), network-ai (empty default secret authorizing every request), and AgenticMail (unauthenticated inbound mail driving a privileged agent session). Heuristic: flags `(app|router|server|fastify).(post|all|put|use)` on a tool-call/mcp/agent-exec path when no auth token (auth/verify/session/getAuth/bearer/apiKey/token/middleware/guard/protect) appears within the next ~200 characters. Add an auth check, or — for the MCP SDK — authenticate at the transport layer before registering tools.",
+    pattern:
+      /\b(?:app|router|server|fastify)\.(?:post|all|put|use)\s*\(\s*[`'"][^`'"]*(?:tools\/call|tool[-_]call|\/mcp\b|agents?\/[\w:./*-]*(?:run|invoke|execute|call)|(?:run|invoke|execute)[-_]?(?:tool|agent))[^`'"]*[`'"](?![\s\S]{0,200}?\b(?:auth|requireAuth|verify|authenticate|middleware|getAuth|getSession|session|currentUser|requireUser|isAuthenticated|bearer|apiKey|token|protect|guard)\b)/gi,
+    languages: ["javascript", "typescript"],
+    fix: "Require authentication before exposing tool-call or agent-invocation endpoints. Gate the route with auth middleware or an in-handler session/token check; for MCP over HTTP, authenticate the transport (bearer/API key) before dispatching tools/call.",
+    fixCode:
+      '// Gate the MCP tools/call endpoint with auth middleware\nimport { requireAuth } from "./auth";\n\napp.post("/mcp/tools/call", requireAuth, async (req, res) => {\n  const session = await getSession(req);\n  if (!session) return res.status(401).json({ error: "Unauthorized" });\n  // ... dispatch tool call\n});',
+    compliance: ["SOC2:CC6.1", "PCI-DSS:Req6.5.10", "EUAIACT:Art15"],
+  },
 
   // ── Katman 2: Excessive Agency Detection ───────────────────────────
 

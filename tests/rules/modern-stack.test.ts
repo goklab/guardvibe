@@ -234,6 +234,96 @@ describe("Modern Stack Security Rules", () => {
         "VG973"
       ));
     });
+    it("does NOT fire when credentials:true (that is VG1094's credentialed case)", () => {
+      assert(!hasRule(
+        `app.use("/*", cors({ origin: "*", credentials: true }));`,
+        "VG973"
+      ));
+    });
+  });
+
+  describe("VG1094 - CORS origin reflection with credentials", () => {
+    it("detects origin:true with credentials:true", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ origin: true, credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("detects reflecting arrow function with credentials (origin first)", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ origin: (o) => o, credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("detects reflecting arrow function with credentials (credentials first)", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ credentials: true, origin: (origin) => origin }));`,
+        "VG1094"
+      ));
+    });
+    it("allows allowlist arrow function returning a guarded value", () => {
+      assert(!hasRule(
+        `app.use("/api/*", cors({ origin: (o) => ALLOWED.has(o) ? o : null, credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("allows reflected origin WITHOUT credentials", () => {
+      assert(!hasRule(
+        `app.use("/api/*", cors({ origin: true }));`,
+        "VG1094"
+      ));
+    });
+    it("allows explicit origin allowlist with credentials", () => {
+      assert(!hasRule(
+        `app.use("/api/*", cors({ origin: ["https://myapp.com"], credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("detects wildcard origin:'*' WITH credentials:true (CVE-2026-54290)", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ origin: "*", credentials: true }));`,
+        "VG1094"
+      ));
+    });
+    it("detects credentials:true with NO origin key (default reflects)", () => {
+      assert(hasRule(
+        `app.use("/api/*", cors({ credentials: true }));`,
+        "VG1094"
+      ));
+    });
+  });
+
+  describe("VG1095 - MCP/agent tool-call endpoint without auth", () => {
+    it("detects POST /mcp/tools/call without auth", () => {
+      assert(hasRule(
+        `app.post("/mcp/tools/call", async (req, res) => { res.json(await callTool(req.body)); });`,
+        "VG1095"
+      ));
+    });
+    it("detects agent invoke endpoint without auth", () => {
+      assert(hasRule(
+        `router.post("/agents/:id/invoke", (req, res) => runAgent(req.params.id));`,
+        "VG1095"
+      ));
+    });
+    it("allows tools/call gated by requireAuth middleware", () => {
+      assert(!hasRule(
+        `app.post("/mcp/tools/call", requireAuth, async (req, res) => { res.json(await callTool(req.body)); });`,
+        "VG1095"
+      ));
+    });
+    it("allows agent endpoint with an in-handler session check", () => {
+      assert(!hasRule(
+        `router.post("/agents/:id/invoke", async (req, res) => { const session = await getSession(req); if (!session) return res.status(401).end(); runAgent(); });`,
+        "VG1095"
+      ));
+    });
+    it("does not fire on a normal CRUD route", () => {
+      assert(!hasRule(
+        `app.post("/users", (req, res) => createUser(req.body));`,
+        "VG1095"
+      ));
+    });
   });
 
   // =====================================================

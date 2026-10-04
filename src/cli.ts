@@ -15,8 +15,15 @@ const SCAN_SCRIPT_DETECTED = process.argv[1]?.endsWith("guardvibe-scan") ||
   process.argv[1]?.endsWith("guardvibe-scan.js");
 
 if (SCAN_SCRIPT_DETECTED) {
-  const { runScan } = await import("./cli/scan.js");
-  await runScan();
+  const scanArgs = process.argv.slice(2);
+  if (scanArgs.includes("--version") || scanArgs.includes("-V")) {
+    console.log(pkg.version);
+  } else if (scanArgs.includes("--help") || scanArgs.includes("-h")) {
+    printUsage();
+  } else {
+    const { runScan } = await import("./cli/scan.js");
+    await runScan();
+  }
 } else {
   await main();
 }
@@ -40,6 +47,7 @@ function printUsage(): void {
     npx guardvibe auth-coverage [path]  Auth coverage analysis (Next.js routes)
     npx guardvibe compliance [path]     Compliance report (--framework SOC2|GDPR|...)
     npx guardvibe deep-scan <file>   LLM-powered deep scan (IDOR, business logic, race conditions)
+    npx guardvibe slopscan [path]    Detect AI-hallucinated / slopsquatted packages (--offline = deterministic-only)
     npx guardvibe init <platform>    Setup MCP server configuration
     npx guardvibe hook install       Install pre-commit security hook
     npx guardvibe hook uninstall     Remove pre-commit security hook
@@ -165,6 +173,9 @@ async function main(): Promise<void> {
   } else if (command === "deep-scan") {
     const { runDeepScan } = await import("./cli/deep-scan.js");
     await runDeepScan(subArgs);
+  } else if (command === "slopscan") {
+    const { runSlopscan } = await import("./cli/slopscan.js");
+    await runSlopscan(subArgs);
   } else {
     console.error(`  Unknown command: ${command}`);
     printUsage();

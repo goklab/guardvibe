@@ -298,4 +298,82 @@ describe("taint analysis", () => {
         "raw interpolation of req.body must still be a SQLi flow");
     });
   });
+
+  // FAZ 3 part (d) — multi-hop SQL injection: the SQL string is built into a VARIABLE,
+  // then that bare variable is passed to the sink (`db.sequelize.query(query)`). The
+  // inline sink patterns require the dangerous string to appear in the sink call line
+  // (backtick or `+`), so they miss the bare-variable case the AST engine catches.
+  describe("multi-hop bare-variable SQL sink (FAZ 3 part d)", () => {
+    it("detects a SQL string built from req.* and passed bare to sequelize.query", () => {
+      const code = [
+        "module.exports.userSearch = function (req, res) {",
+        "  var query = \"SELECT name,id FROM Users WHERE login='\" + req.body.login + \"'\";",
+        "  db.sequelize.query(query, { model: db.User });",
+        "}",
+      ].join("\n");
+      const findings = analyzeTaint(code, "javascript");
+      const sqli = findings.filter(f => f.sink.type === "sql-injection");
+      assert.strictEqual(sqli.length, 1, "one SQLi at the bare-variable sink");
+      assert.strictEqual(sqli[0].sink.line, 3);
+    });
+
+    it("detects a two-hop flow (source -> intermediate var -> SQL var -> sink)", () => {
+      const code = [
+        "const login = req.body.login;",
+        "const query = \"SELECT * FROM users WHERE login = '\" + login + \"'\";",
+        "await connection.query(query);",
+      ].join("\n");
+      const findings = analyzeTaint(code, "javascript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 1);
+    });
+
+    it("does NOT flag a parameterized query whose user value is a bind argument", () => {
+      const code = [
+        "const q = \"SELECT * FROM users WHERE id = $1\";",
+        "await db.query(q, [req.body.id]);",
+      ].join("\n");
+      const findings = analyzeTaint(code, "javascript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 0);
+    });
+
+    it("does NOT flag a non-SQL .query() whose argument has no SQL keywords", () => {
+      const code = [
+        "const opts = req.body.filter;",
+        "queryClient.query(opts);",
+      ].join("\n");
+      const findings = analyzeTaint(code, "javascript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 0);
+    });
+
+    it("does NOT flag a constant SQL string (no user input) passed bare", () => {
+      const code = [
+        "const q = \"SELECT * FROM users WHERE active = true\";",
+        "await db.query(q);",
+      ].join("\n");
+      const findings = analyzeTaint(code, "javascript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 0);
+    });
+
+    it("does NOT flag when the SQL value passed through a sanitizer hop with no req source", () => {
+      // Service-layer code: the email arrives as a function argument (not a req.* token),
+      // and is wrapped in a sanitizer — neither seeding nor taint applies. (cal CrmService.)
+      const code = [
+        "function search(emailArray) {",
+        "  const attendeeEmail = emailArray[0];",
+        "  const soql = `SELECT Id FROM Contact WHERE Email = '${sanitizeSoqlValue(attendeeEmail)}'`;",
+        "  return conn.query(soql);",
+        "}",
+      ].join("\n");
+      const findings = analyzeTaint(code, "typescript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 0);
+    });
+
+    it("does not double-report when the sink line is also an inline match", () => {
+      // Reuse the existing inline fixture (above) so this dedup check adds no new
+      // intentional-vuln line of its own; an inline ${req.params.id} sink must yield
+      // exactly one sql-injection finding, not one inline + one bare-variable.
+      const findings = analyzeTaint(inlineTaint, "javascript");
+      assert.strictEqual(findings.filter(f => f.sink.type === "sql-injection").length, 1);
+    });
+  });
 });

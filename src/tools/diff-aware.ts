@@ -77,3 +77,46 @@ export function getAddedLinesForDiff(base: string, relPath: string, cwd: string)
 export function getAddedLinesStaged(relPath: string, cwd: string): Set<number> {
   return gitDiffAddedLines(["--cached"], relPath, cwd);
 }
+
+function gitTry(cwd: string, args: string[]): string | null {
+  try {
+    return execFileSync("git", args, { cwd, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+export interface BaseResolution {
+  ok: boolean;
+  base?: string;
+  error?: string;
+}
+
+/**
+ * Resolve a usable diff base. Distinguishes "not a git repository" from "that ref does
+ * not exist here" (the old code conflated both as "Ensure you're in a git repository"),
+ * and — when no base is explicitly requested — auto-detects instead of hard-coding `main`
+ * (which fails on `master`-named or freshly-initialized repos). Fallback order:
+ * origin/HEAD → main → master → HEAD~1 → HEAD (uncommitted changes).
+ *
+ * @param strict when a base IS requested but missing, error instead of falling back
+ *   (used by the CLI so a typo'd ref is reported, not silently swapped).
+ */
+export function resolveGitBase(cwd: string, requested?: string, opts: { strict?: boolean } = {}): BaseResolution {
+  if (gitTry(cwd, ["rev-parse", "--is-inside-work-tree"]) !== "true") {
+    return { ok: false, error: "Not a git repository. Run `git init`, or pass a path inside a repo." };
+  }
+  const refExists = (ref: string): boolean =>
+    gitTry(cwd, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]) !== null;
+
+  if (requested) {
+    if (refExists(requested)) return { ok: true, base: requested };
+    if (opts.strict) return { ok: false, error: `Base ref "${requested}" not found in this repository.` };
+  }
+
+  const originHead = gitTry(cwd, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
+  for (const cand of [originHead, "main", "master", "HEAD~1", "HEAD"]) {
+    if (cand && refExists(cand)) return { ok: true, base: cand };
+  }
+  return { ok: false, error: "No base ref available — repository has no commits yet." };
+}

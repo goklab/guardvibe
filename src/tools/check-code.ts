@@ -418,7 +418,6 @@ export function analyzeCode(
   const codeHasFilenameSanitization =
     /(?:\.replace\s*\(\s*\/\[?\^?[a-z0-9\\-_\]]*\]?\/?[gi]*\s*,|sanitize(?:File|Name|Path)|safeName|cleanName)/i.test(code) ||
     /(?:Date\.now\(\)|timestamp|uuid|nanoid|crypto\.randomUUID)[\s\S]{0,80}?\.\s*(?:ext|split|pop)/i.test(code);
-  const isPeerDeps = /["']peerDependencies["']/i.test(code);
   const codeHasAuthSession =
     /(?:supabase\.auth\.getUser|supabase\.auth\.getSession|getServerSession|auth\(\)|getSession\(\)|currentUser\(\))/i.test(code);
 
@@ -816,9 +815,6 @@ export function analyzeCode(
         if (!hasMutationInGet) continue;
       }
     }
-
-    // Skip CVE version rules in peerDependencies (ranges, not actual versions)
-    if (isPeerDeps && rule.id === "VG903") continue;
 
     // Skip VG140 (XXE) when file doesn't actually parse XML or uses browser DOMParser
     // Browser DOMParser with 'text/html' is safe by design — no external entity processing
@@ -1443,17 +1439,6 @@ export function analyzeCode(
         }
       }
 
-      // Skip VG903 React version in peerDependencies sections
-      if (rule.id === "VG903") {
-        const beforeText = code.substring(0, match.index);
-        const lastPeer = beforeText.lastIndexOf("peerDependencies");
-        const lastDeps = Math.max(
-          beforeText.lastIndexOf('"dependencies"'),
-          beforeText.lastIndexOf('"devDependencies"')
-        );
-        if (lastPeer > lastDeps) continue;
-      }
-
       findings.push({
         rule: effectiveRule,
         match: match[0].substring(0, 80),
@@ -1542,9 +1527,12 @@ function isDuplicatePair(a: Finding, b: Finding): boolean {
   const aIsAuth = authPatterns.some(p => a.rule.name.includes(p));
   const bIsAuth = authPatterns.some(p => b.rule.name.includes(p));
   if (aIsAuth && bIsAuth) return true;
-  // Both are CORS wildcard rules — VG040+VG403+VG973 duplicate case
-  const aIsCors = a.rule.name.includes("CORS") && a.rule.name.includes("ildcard");
-  const bIsCors = b.rule.name.includes("CORS") && b.rule.name.includes("ildcard");
+  // Both are CORS misconfiguration rules on the SAME line — same CORS construct, so the
+  // generic VG040 ("CORS wildcard") is redundant next to a more specific one like VG1094
+  // ("CORS Origin Reflection With Credentials", CVE-2026-54290) or VG973 (Hono). Keep the
+  // most specific (isMoreSpecific); a line with only one CORS finding is untouched (0-FN).
+  const aIsCors = a.rule.name.includes("CORS");
+  const bIsCors = b.rule.name.includes("CORS");
   if (aIsCors && bIsCors) return true;
   // Both are admin role check rules — VG426+VG957 duplicate case
   const adminPatterns = ["Admin", "Role Check", "Role Verification"];

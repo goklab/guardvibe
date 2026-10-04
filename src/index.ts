@@ -14,6 +14,7 @@ import { getSecurityDocs } from "./tools/get-security-docs.js";
 import { checkDependencies } from "./tools/check-deps.js";
 import { scanDirectory } from "./tools/scan-directory.js";
 import { scanDependencies } from "./tools/scan-dependencies.js";
+import { scanHallucinatedPackages } from "./tools/scan-hallucinated.js";
 import { scanSecrets } from "./tools/scan-secrets.js";
 import { scanStaged } from "./tools/scan-staged.js";
 import { complianceReport } from "./tools/compliance-report.js";
@@ -47,7 +48,7 @@ import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js"
 import { secureThis } from "./tools/secure-this.js";
 import { securePrompt } from "./tools/secure-prompt.js";
 import { buildAgentReport } from "./tools/agent-output.js";
-import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
+import { analyzeAuthCoverage, findMiddlewareFile, formatAuthCoverage } from "./tools/auth-coverage.js";
 import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
 import { runFullAudit, formatAuditResult } from "./tools/full-audit.js";
 import { generateRemediationPlan, formatRemediationPlan } from "./tools/remediation-plan.js";
@@ -68,7 +69,7 @@ function mergeStatsIntoOutput(results: string, summary: string, format: string):
 const server = new McpServer({
   name: "guardvibe",
   version: pkg.version,
-  description: `Security MCP for vibe coding — single source of truth for AI assistants. ${builtinRules.length} security rules and 38 tools. Call secure_prompt with the user's coding prompt BEFORE generating code to embed security requirements up front (shift left). Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.`,
+  description: `Security MCP for vibe coding — single source of truth for AI assistants. ${builtinRules.length} security rules and 39 tools. Call secure_prompt with the user's coding prompt BEFORE generating code to embed security requirements up front (shift left). Use full_audit for a comprehensive PASS/FAIL/WARN verdict with deterministic result hash, coverage %, and unified report across code, secrets, dependencies, config, taint analysis, and auth coverage. IMPORTANT: When full_audit returns FAIL/WARN, call remediation_plan to get a mandatory section-by-section fix checklist covering ALL 6 sections (not just code). After fixing, call verify_remediation to confirm all sections were addressed. Same code = same hash = same results regardless of which AI assistant runs it. Covers OWASP, Next.js, Supabase, Stripe, Clerk, Prisma, Hono, AI SDK, MCP server security, host hardening. Maps to SOC2, PCI-DSS, HIPAA, GDPR, ISO27001, EU AI Act. Runs 100% locally with zero configuration.`,
 });
 
 // Tool 1: Analyze code for security vulnerabilities
@@ -184,10 +185,11 @@ server.tool(
       },
       z.array(packageSchema)
     ).describe("List of packages to check: [{name, version, ecosystem}]"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable for agents)"),
   },
-  async ({ packages }) => {
+  async ({ packages, format }) => {
     try {
-      const results = await checkDependencies(packages);
+      const results = await checkDependencies(packages, format);
       return { content: [{ type: "text", text: results }] };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -253,6 +255,31 @@ server.tool(
       recordScan(root, { toolName: "scan_dependencies", filesScanned: 1, findings: [] });
     }
     return { content: [{ type: "text", text: results }] };
+  }
+);
+
+// Detect AI-hallucinated / slopsquatted packages (phantom imports + typosquats + registry truth)
+server.tool(
+  "scan_hallucinated_packages",
+  "Detect AI-hallucinated and slopsquatted packages in a repo — the supply-chain seam commodity SCA misses. OFFLINE (deterministic): flags phantom imports (a package imported in source but absent from every package.json — a classic LLM hallucination tell) and typosquats of popular packages. ONLINE (opt-in, default on; gracefully degrades offline): adds npm-registry truth — packages that return 404 (definitive hallucination) and brand-new low-download packages (slopsquat-registration pattern). Run on AI-generated code at PR time, before `npm install`. Pass online:false for a fully deterministic, air-gapped scan.",
+  {
+    path: z.string().default(".").describe("Repository root to scan (default current directory)"),
+    online: z.boolean().default(true).describe("Query the npm registry for existence/age/downloads. false = deterministic offline-only (phantom imports + typosquats)."),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (guardvibe.slopscan.v1 for agents)"),
+  },
+  async ({ path, online, format }) => {
+    try {
+      const results = await scanHallucinatedPackages(path, format, { online });
+      const { resolve: resolvePath } = await import("path");
+      const root = resolvePath(path);
+      try {
+        const parsed = format === "json" ? JSON.parse(results) : null;
+        recordScan(root, { toolName: "scan_hallucinated_packages", filesScanned: 1, findings: (parsed?.findings ?? []).map((f: any) => ({ severity: f.severity, ruleId: f.ruleId })) });
+      } catch { recordScan(root, { toolName: "scan_hallucinated_packages", filesScanned: 1, findings: [] }); }
+      return { content: [{ type: "text", text: results }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `# GuardVibe Slopsquat Report\n\nError scanning ${path}: ${(e as Error).message}\n\nThis may be a network issue reaching the npm registry. Retry with online:false for a deterministic offline scan.` }] };
+    }
   }
 );
 
@@ -704,15 +731,22 @@ server.tool(
     const { readFileSync, existsSync } = await import("fs");
     const { resolve, extname, basename } = await import("path");
     const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("./utils/constants.js");
-    const { getAddedLinesForDiff, filterToAddedLines } = await import("./tools/diff-aware.js");
+    const { getAddedLinesForDiff, filterToAddedLines, resolveGitBase } = await import("./tools/diff-aware.js");
 
     const root = resolve(repoPath);
+    // Resolve the base: fall back from the default ref (origin/HEAD → main → master →
+    // HEAD~1 → HEAD) so single-commit / master-named repos work; precise error otherwise.
+    const resolution = resolveGitBase(root, base, { strict: false });
+    if (!resolution.ok) {
+      return { content: [{ type: "text", text: format === "json" ? JSON.stringify({ error: resolution.error }) : `Error: ${resolution.error}` }] };
+    }
+    const effectiveBase = resolution.base!;
     let changedFiles: string[];
     try {
-      const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", base], { cwd: root, encoding: "utf-8" });
+      const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", effectiveBase], { cwd: root, encoding: "utf-8" });
       changedFiles = output.trim().split("\n").filter(Boolean);
     } catch {
-      return { content: [{ type: "text", text: format === "json" ? JSON.stringify({ error: "Failed to get git diff" }) : "Error: Failed to get git diff. Ensure you're in a git repository." }] };
+      return { content: [{ type: "text", text: format === "json" ? JSON.stringify({ error: `git diff against ${effectiveBase} failed` }) : `Error: git diff against ${effectiveBase} failed.` }] };
     }
 
     if (changedFiles.length === 0) {
@@ -740,7 +774,7 @@ server.tool(
         const content = readFileSync(fullPath, "utf-8");
         let findings = analyzeFileSecurity(content, language, undefined, fullPath, root, rules);
         if (diff_aware) {
-          const added = getAddedLinesForDiff(base, relPath, root);
+          const added = getAddedLinesForDiff(effectiveBase, relPath, root);
           const kept = filterToAddedLines(findings, added);
           preExistingHidden += findings.length - kept.length;
           findings = kept;
@@ -1054,10 +1088,10 @@ server.tool(
 
       const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
       const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
-      const middlewareFile = jsFiles.find(f => /middleware\.(ts|js)$/.test(f.path));
+      const middlewareFile = findMiddlewareFile(jsFiles);
 
       const cfg = loadConfig(path);
-      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, cfg.authExceptions);
+      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, cfg.authExceptions, cfg.authFunctions);
       const output = formatAuthCoverage(report, format);
       return { content: [{ type: "text", text: output }] };
     }

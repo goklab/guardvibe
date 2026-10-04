@@ -77,6 +77,8 @@ export function levenshtein(a: string, b: string): number {
 interface TyposquatResult {
   similarTo: string;
   confidence: number;
+  /** How the match was made — lets callers apply method-specific precision gates. */
+  method?: "prefix" | "suffix" | "separator" | "levenshtein";
 }
 
 // Deceptive prefixes used in supply chain attacks (e.g., "plain-crypto-js" → "crypto-js")
@@ -105,13 +107,13 @@ function detectPrefixSuffixSquat(name: string): TyposquatResult | null {
     if (lower.startsWith(prefix)) {
       const stripped = lower.slice(prefix.length);
       if (POPULAR_PACKAGES.includes(stripped)) {
-        return { similarTo: stripped, confidence: 0.95 };
+        return { similarTo: stripped, confidence: 0.95, method: "prefix" };
       }
       // Also check Levenshtein against stripped name
       for (const popular of POPULAR_PACKAGES) {
         const popularBare = popular.startsWith("@") ? popular.split("/").pop() ?? popular : popular;
         if (Math.abs(stripped.length - popularBare.length) <= 1 && levenshtein(stripped, popularBare) === 1) {
-          return { similarTo: popular, confidence: 0.85 };
+          return { similarTo: popular, confidence: 0.85, method: "prefix" };
         }
       }
     }
@@ -121,7 +123,7 @@ function detectPrefixSuffixSquat(name: string): TyposquatResult | null {
     if (lower.endsWith(suffix)) {
       const stripped = lower.slice(0, -suffix.length);
       if (POPULAR_PACKAGES.includes(stripped)) {
-        return { similarTo: stripped, confidence: 0.9 };
+        return { similarTo: stripped, confidence: 0.9, method: "suffix" };
       }
     }
   }
@@ -138,12 +140,12 @@ function detectSeparatorSquat(name: string): TyposquatResult | null {
   // Replace underscores and dots with hyphens, then check
   const normalized = lower.replace(/[_.]/g, "-");
   if (normalized !== lower && POPULAR_PACKAGES.includes(normalized)) {
-    return { similarTo: normalized, confidence: 0.9 };
+    return { similarTo: normalized, confidence: 0.9, method: "separator" };
   }
   // Reverse: replace hyphens with underscores/dots
   const withUnderscore = lower.replace(/-/g, "_");
   if (withUnderscore !== lower && POPULAR_PACKAGES.includes(withUnderscore)) {
-    return { similarTo: withUnderscore, confidence: 0.9 };
+    return { similarTo: withUnderscore, confidence: 0.9, method: "separator" };
   }
   return null;
 }
@@ -188,5 +190,5 @@ export function detectTyposquat(name: string): TyposquatResult | null {
   // Confidence: distance 1 = 0.9, distance 2 = 0.7
   const confidence = bestDistance === 1 ? 0.9 : 0.7;
 
-  return { similarTo: bestMatch, confidence };
+  return { similarTo: bestMatch, confidence, method: "levenshtein" };
 }
