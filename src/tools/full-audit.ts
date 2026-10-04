@@ -16,7 +16,7 @@ import { scanSecrets } from "./scan-secrets.js";
 import { scanDependencies } from "./scan-dependencies.js";
 import { auditConfig } from "./audit-config.js";
 import { analyzeCrossFileTaint } from "./cross-file-taint.js";
-import { analyzeAuthCoverage } from "./auth-coverage.js";
+import { analyzeAuthCoverage, findMiddlewareFile } from "./auth-coverage.js";
 import { detectHallucinatedOffline } from "./scan-hallucinated.js";
 import { getRules } from "../utils/rule-registry.js";
 import { loadConfig } from "../utils/config.js";
@@ -460,9 +460,9 @@ export async function runFullAudit(
     const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
     const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
     if (routeFiles.length > 0) {
-      const middlewareFile = jsFiles.find(f => /middleware\.(ts|js)$/.test(f.path));
+      const middlewareFile = findMiddlewareFile(jsFiles);
       const config = loadConfig(projectRoot);
-      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, config.authExceptions);
+      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, config.authExceptions, config.authFunctions);
       const unprotected = report.unprotectedRoutes;
       const authFindings: SectionFinding[] = report.unprotectedList.map(r => ({
         ruleId: "AUTH:UNPROTECTED",

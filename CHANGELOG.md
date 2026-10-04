@@ -5,6 +5,380 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.50.0] - 2026-10-04
+
+### Added — 3 rules for windows a coverage audit found uncovered (545 → 548 rules)
+Every CVE version rule was compared with the advisories it cites, on every published npm release. Three affected windows were flagged by no rule:
+- **VG1195 — Next.js AVIF/libheif Image Optimization RCE, 10.x–11.x window (GHSA-2xp9-vwfh-vxw4, critical).** The advisory starts at 10.0.0; since v3.38.0 the first flagged release was 12.0.0. Both lines are end-of-life, so exact, tilde and caret specs are all flagged. Fixed 15.5.24. 8 tests.
+- **VG1196 — Angular Router SSR DoS via numeric matrix parameters, end-of-life lines (CVE-2026-101896 / GHSA-ff3f-86qr-9cv3, high).** VG1184 covers 20.x–22.x; 19.2.25 and older are listed as affected with no patched release and were not flagged. 7 tests.
+- **VG1197 — mcp-from-openapi / FrontMCP `$ref` SSRF, original window (CVE-2026-39885 / GHSA-v6ph-xcq9-qxxj, high, CVSS 7.5).** mcp-from-openapi <= 2.1.2, @frontmcp/sdk and @frontmcp/adapters <= 1.0.3; VG1162 only covered the later fix bypass. 11 tests.
+
+### Fixed — VG1146 (@angular/platform-server) end-of-life lines
+Caret ranges on 19.x and older were not flagged although no release on those lines carries the fix; they are now, consistent with VG1196. Exact and tilde behaviour unchanged.
+
+### Changed — development dependencies
+Lockfile refreshed within the current majors (@modelcontextprotocol/sdk, eslint, typescript-eslint, tsx, @types/node). Not part of the published package's install ranges.
+
+CVE version-pin rule count 170 → 173.
+
+## [3.49.0] - 2026-10-04
+
+### Added — 5 rules from daily intel (540 → 545 rules)
+- **VG1190 — basic-ftp quadratic-time directory-listing parser DoS (CVE-2026-102990 / GHSA-c475-qrg2-pj4r, high).** A crafted Unix listing line from the FTP server makes Client.list() backtrack quadratically and pins the event loop. Affected ≤ 6.2.0, fixed 6.2.1. 11 tests.
+- **VG1191 — @a2ui/web_core openUrl javascript: URI execution via agent-supplied button actions (CVE-2026-10032 / GHSA-72qq-p3r5-f7wq, critical, CVSS 9.3).** The Basic Catalog passes agent-controlled URLs to window.open() without a scheme check, giving XSS in the host origin on click. Affected 0.9.0–0.10.1, fixed 0.10.2. 12 tests.
+- **VG1192 — Trigger.dev default secrets, cross-tenant SQL injection, replay IDOR and alert webhook SSRF (GHSA-gg6r-gp4c-89hp, GHSA-9q4r-4842-93vw, GHSA-pqxw-g93w-hj9x, GHSA-pp95-gc86-jq6q, GHSA-qxpp-qjg8-x4jv, GHSA-xxv7-2vv3-h682, critical).** Hardcoded coordinator and .env.example secrets, TSQL window-function injection across tenants, unauthorized run replay into other organizations, unvalidated webhook URLs. Affected ≤ 4.5.5, fixed 4.5.6. 12 tests.
+- **VG1193 — @fastify/busboy DoS via prototype-named part header and oversized boundary (CVE-2026-19481 / GHSA-x8mw-p69m-v3mx, CVE-2026-19484 / GHSA-xjh9-v7x6-24jw, high, CVSS 7.5).** A __proto__ part header crashes the parser; a 252-byte boundary spins the boundary search. Affected 1.0.0–3.2.0, fixed 3.2.1. 13 tests.
+- **VG1194 — probe-image-size quadratic-time SVG parser DoS (CVE-2026-104861 / GHSA-gjj5-9665-rwrc, high, CVSS 7.5).** Input with many < and no > makes the SVG header regex quadratic in probe.sync / stream / url. Affected ≤ 7.3.0, fixed 7.4.0. 11 tests.
+
+CVE version-pin rule count 165 → 170.
+
+## [3.48.0] - 2026-10-03
+
+### Added — 5 rules from daily intel (535 → 540 rules)
+- **VG1185 — @nestjs/platform-fastify path-scoped middleware bypass via absolute-form request targets (GHSA-9c5c-9qcx-q35q, high, CVSS 7.4).** Middleware registered with forRoutes() is skipped when the request target is written in absolute form, while Fastify still routes to the protected handler. Affected < 11.2.4 and 12.0.0–12.0.1, fixed 11.2.4 / 12.0.2. 15 tests.
+- **VG1186 — Astro Node adapter crash via malformed Host header port (CVE-2026-102984 / GHSA-qh8j-hqjv-7m4x, high).** One unauthenticated request with a malformed port in the Host header terminates the server process. Affected ≤ 11.1.2, fixed 11.1.3. 11 tests.
+- **VG1187 — vm2 sandbox escape cluster, residual window after VG1037 (CVE-2026-92935 – CVE-2026-92958, 12 advisories, critical, CVSS up to 10.0).** node:-prefixed builtin allowlist/denylist bypasses, custom resolver package collision, nesting-guard bypass, native code via node:sqlite and crypto.setEngine, host TLS credential exposure and trust-store replacement, Node.js 26 promise escape, CLI without isolation. Covers only 3.11.2–3.11.6 exact pins; fixed 3.11.7. 10 tests.
+- **VG1188 — Piscina ThreadPool options prototype-pollution gadget to RCE (CVE-2026-102992 / GHSA-67c8-pqhq-4rmx, critical).** Inherited execArgv / env / loadBalancer options turn a same-process prototype pollution into code execution in worker threads. Affected < 4.9.4 and 5.0.0–5.3.1, fixed 4.9.4 / 5.3.2. 16 tests.
+- **VG1189 — devalue shared-memory serialization, uneval quadratic expansion and stringifyAsync unhandled rejection (CVE-2026-92708 / GHSA-j22f-vq7h-c4qm, GHSA-mcm9-63f2-9j32, GHSA-x5rw-q4pp-hg5g, high, CVSS 7.5).** Affected ≤ 5.9.2, fixed 5.9.3. 12 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics and the existing rules (no overlap).
+
+CVE version-pin rule count 160 → 165.
+
+## [3.47.0] - 2026-10-02
+
+### Added — 5 rules from daily intel (530 → 535 rules)
+- **VG1180 — NestJS microservices deeply nested message pattern process crash (CVE-2026-102281 / GHSA-m8vh-jmq9-5rjg, high, CVSS 7.5).** A single TCP or RabbitMQ message with a deeply nested pattern overflows JSON.stringify and terminates the process via an unhandled rejection. Affected < 11.2.4 and 12.0.0–12.0.1, fixed 11.2.4 / 12.0.2. 17 tests.
+- **VG1181 — axios prototype-pollution gadgets, fetch-adapter maxRedirects bypass, HTTP/2 lookup/proxy bypass and crash, ReDoS cluster, residual window after VG1042/VG1091/VG1114 (CVE-2026-101898, CVE-2026-101901, CVE-2026-101903, CVE-2026-101905, CVE-2026-101906, CVE-2026-101907, CVE-2026-101909, high, CVSS up to 8.3).** Covers only 1.18.0–1.19.x and 0.31.0–0.33.x; fixed 1.20.0 / 0.34.0. 15 tests.
+- **VG1182 — @grpc/grpc-js getAuthContext returns unauthorized client certificates as authorized (CVE-2026-101916 / GHSA-m9gg-hp2v-232j, high, CVSS 7.4).** Affects servers with requireClientCertificate: false that authenticate from getAuthContext(), including xDS RBAC. Affected < 1.13.6 and 1.14.0–1.14.4, fixed 1.13.6 / 1.14.5. 14 tests.
+- **VG1183 — Fastify not-found handler auth bypass via malformed URL, async validation body replacement, boolean false schema bypass and header dependency bypass (CVE-2026-76169, CVE-2026-84504, CVE-2026-84469, CVE-2026-84428, high, CVSS up to 8.1).** Affected < 5.12.2 (no 4.x backport), fixed 5.12.2. 13 tests.
+- **VG1184 — Angular router SSR denial of service via numeric URL matrix parameters (CVE-2026-101896 / GHSA-ff3f-86qr-9cv3, high, CVSS 8.2).** Covers 20.0.0–20.3.31, 21.0.0–21.2.23 and 22.0.0–22.1.x; fixed 20.3.32 / 21.2.24 / 22.2.0. Lines ≤ 19.2.25 have no patched release and are not flagged. 17 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics and the existing rules (no overlap).
+
+CVE version-pin rule count 155 → 160.
+
+## [3.46.0] - 2026-10-01
+
+### Added — 5 rules from daily intel (525 → 530 rules)
+- **VG1175 — Next.js `next/og` ImageResponse remote code execution, residual window (GHSA-vcvr-r3jv-pc5j, critical, CVSS 9.5).** Attacker-controlled values rendered into SVG content, attributes or styles by the Node.js ImageResponse reach RCE. Affected 16.2.0–16.3.5, fixed 16.3.6; covers only what VG926/VG1047/VG1105/VG1115 left open (exact 16.3.3–16.3.5, tilde 16.2.0–16.2.10). 14 tests.
+- **VG1176 — Nodemailer addressparser quadratic backtracking DoS, residual window after VG1159 (GHSA-v53p-9fqp-m79j, GHSA-prgh-xp8r-p3m5, high, CVSS 7.5).** Free-text fallback regex and comment-joined addresses block the event loop. Covers 9.1.0–10.0.5 plus the ^9.0.x caret form; fixed 10.0.6. 14 tests.
+- **VG1177 — engine.io protocol revision mismatch crash on transport upgrade, residual window after VG1135 (CVE-2026-102599 / GHSA-2gc4-cqfq-p2gv, high, CVSS 7.5).** Covers 6.6.7–6.6.9; fixed 6.6.10. 9 tests.
+- **VG1178 — webpack-dev-middleware path traversal via non-slash-terminated publicPath (CVE-2026-76844 / GHSA-g84c-rxfj-3j2c, high, CVSS 7.4).** Covers < 7.4.5 and 8.0.0–8.2.x (the versions both the advisory metadata and its text mark affected); fixed 8.3.0. 15 tests.
+- **VG1179 — Electron sandbox inheritance, webview worker Node integration, custom-protocol CORS and preload cache poisoning cluster (CVE-2026-102673 – CVE-2026-102677, high, CVSS up to 8.3).** Covers stable releases before 41.10.6, 42.0.0–42.9.x and 43.0.0–43.4.x; fixed 41.10.6 / 42.10.0 / 43.5.0. Prerelease pins are never flagged. 18 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics and the existing rules (no overlap).
+
+CVE version-pin rule count 150 → 155.
+
+## [3.45.0] - 2026-09-30
+
+### Added — 5 rules from daily intel (520 → 525 rules)
+- **VG1170 — cline Hub dashboard cross-origin WebSocket hijacking (CVE-2026-59723 / GHSA-3cj3-hqcr-g934, high, CVSS 8.8).** `cline dashboard` accepts /browser WebSocket connections from any origin with no secret by default, and sessions auto-approve tools. Affected < 3.0.30, fixed 3.0.30. 11 tests.
+- **VG1171 — @xhmikosr/decompress path traversal via symlink chain (CVE-2026-101894 / GHSA-hrh2-vp3x-79xf, critical, CVSS 9.1).** A crafted archive writes outside the output directory; bypass of GHSA-mp2f-45pm-3cg9. Affected ≤ 10.2.1 and 11.0.0–11.1.3, fixed 10.2.2 / 11.1.4. 15 tests.
+- **VG1172 — brace-expansion stack-exhaustion DoS on nested and comma-chained braces (CVE-2026-102276 / GHSA-6j4f-fj2g-mc7p, CVE-2026-102278 / GHSA-qhr7-859c-m2p7, high, CVSS 7.5).** Covers < 1.1.20, 2.0.0–2.1.5, 3.0.0–3.0.7 and 4.0.0–5.0.10; fixed 1.1.20 / 2.1.6 / 3.0.8 / 5.0.11. 21 tests.
+- **VG1173 — undici WebSocket subprotocol crash, BalancedPool TLS check drop and interceptor cache poisoning, residual window after VG918/VG919 (CVE-2026-19534, CVE-2026-84961, CVE-2026-85152, high).** Covers 6.11.1–6.28.0, 7.0.0–7.29.0 and 8.0.0–8.10.1; fixed 6.28.1 / 7.29.1 / 8.10.2. 17 tests.
+- **VG1174 — joi `isoDate()` quadratic regex backtracking DoS (GHSA-6h2x-m376-mqjq, high, CVSS 7.5).** Affected 17.2.0–17.13.6 and 18.0.0–18.2.5, fixed 17.13.7 / 18.2.6. 15 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+CVE version-pin rule count 145 → 150.
+
+## [3.44.0] - 2026-09-29
+
+### Added — 5 rules from the 30-day advisory backlog (515 → 520 rules)
+- **VG1165 — @angular/platform-server SSR infinite-loop DoS on a malformed DOCTYPE, residual window after VG1146 (CVE-2026-101895 / GHSA-f67j-2jqw-jpq7, high).** `<!DOCTYPE html ` at the end of untrusted HTML freezes the SSR process. Covers 22.1.4–22.1.5, 21.2.22 and 20.3.30, which VG1146 treats as fixed; fixed 22.1.6 / 21.2.23 / 20.3.31. 14 tests.
+- **VG1166 — pnpm 12 pre-release lockfile alias symlink escape with `--trust-lockfile` (GHSA-2rx9-3g3h-c2jv, high, CVSS 7.1).** A crafted lockfile alias creates links outside the project. Covers the Corepack pins 12.0.0-alpha.0–alpha.4; fixed 12.0.0-alpha.5. 10 tests.
+- **VG1167 — claude-code-templates Studio server unauthenticated OS command injection (CVE-2026-73222 / GHSA-79wm-x847-7cvg, high, CVSS 8.8).** `--studio` listens on all interfaces with wildcard CORS and passes request fields to a shell. Affected ≤ 1.29.2, fixed 1.29.4. 10 tests.
+- **VG1168 — OpenClaw Feishu tools ignore per-account disablement (GHSA-2q7j-2vhx-56g8 / GHSA-w8wf-3qvj-6xqf, high, CVSS 8.1).** Disabled accounts could still run Feishu and Feishu permission tools. Affected < 2026.6.9-beta.1, fixed 2026.6.9. 11 tests.
+- **VG1169 — @eigenpal/docx-editor CSS injection and print-time XSS via embedded font names (GHSA-x7m8-jrm8-hpvx, high, CVSS 8.1).** Affected @eigenpal/docx-editor-core / -react ≤ 1.8.2, fixed 1.8.3. 11 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+CVE version-pin rule count 140 → 145.
+
+## [3.43.0] - 2026-09-28
+
+### Added — 5 rules from the 30-day advisory backlog (510 → 515 rules)
+- **VG1160 — smol-toml infinite loop in `parse()` via a trailing comment (CVE-2026-85730 / GHSA-7w5x-hrqm-74c2, high).** `parse('a=[1 #')` never returns and pins a CPU core. Affected ≤ 1.7.0, fixed 1.7.1. 10 tests.
+- **VG1161 — n8n expression sandbox escape, SSRF, ReDoS and OAuth registration storage exhaustion cluster (CVE-2026-86083 / GHSA-6xcw-7xm6-48c6, CVE-2026-86076 / GHSA-hw8v-xxg5-vvvx, CVE-2026-86082 / GHSA-34ff-336r-5q23, CVE-2026-86081 / GHSA-j535-v25q-vx3q, CVE-2026-86075 / GHSA-hh89-3r9w-qj3j, high).** Two legacy-engine sandbox escapes to code execution, a domain-restriction bypass in the OpenAI Chat Model node, a Git-node ReDoS and unauthenticated unbounded client registration. Affected 0.x–1.x, 2.0.0–2.37.6, 2.38.0–2.38.1; fixed 2.37.7 / 2.38.2. 15 tests.
+- **VG1162 — FrontMCP / mcp-from-openapi OpenAPI external `$ref` SSRF fix bypass (CVE-2026-59973 / GHSA-65h7-9wrw-629c, high, CVSS 8.5).** Loopback reached through DNS, redirects or IPv4-mapped IPv6 during tool generation. Affected mcp-from-openapi 2.3.0–2.4.x and frontmcp / @frontmcp/adapters 1.2.1–1.4.x; fixed 2.5.0 / 1.5.0. 15 tests.
+- **VG1163 — node-opcua client TCP socket leak via the keepalive reconnection cycle (CVE-2026-68904 / GHSA-r2pf-9cw4-5j65, high, CVSS 7.0).** Clock skew with the default `keepSessionAlive` leaks a socket per reconnect until OOM. Affected node-opcua / node-opcua-client / node-opcua-transport 2.0.0–2.169.x, fixed 2.170.0. 10 tests.
+- **VG1164 — Plate `@platejs/docx-io` SSRF with response disclosure in DOCX image embedding (CVE-2026-65842 / GHSA-4q39-2jhr-7qx8, high, CVSS 8.2).** Remote image URLs in converted HTML are fetched server-side and embedded in the document. Affected < 53.3.2, fixed 53.3.2. 10 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+CVE version-pin rule count 135 → 140.
+
+## [3.42.0] - 2026-09-27
+
+### Added — 7 rules from the 30-day advisory backlog (503 → 510 rules)
+- **VG1153 — nanoid integer overflow corrupts the CSPRNG pool (CVE-2026-73086 / GHSA-xwg4-73v4-xw9w, high, CVSS 7.4).** A size of 2^31+ wraps negative and leaves every later ID in the process a constant string. Affected < 3.3.12 and 4.0.0–5.1.10; fixed 3.3.12 / 5.1.11. 14 tests.
+- **VG1154 — mysql2 auth plugin downgrade to mysql_clear_password (GHSA-3f6p-5ww8-9rcr, high).** A rogue server or MITM on a non-TLS link receives the password in plaintext. Affected < 3.22.0, fixed 3.22.0. 8 tests.
+- **VG1155 — pnpm virtual-store / manifest-name path traversal and proxy env exfiltration, residual window after VG1099 (CVE-2026-82392 / GHSA-c59q-g84q-2gj5, CVE-2026-82393 / GHSA-vq4v-j7r6-jq4m, GHSA-vx52-2968-3vc6, high).** Covers the Corepack pins 10.34.2–10.34.4 and 11.5.3–11.10.x; fixed 10.34.5 / 11.11.0. 13 tests.
+- **VG1156 — Orval generation-time SSRF and file inclusion via `$ref`, residual window after VG1129 (CVE-2026-62680 / GHSA-cxq5-97v7-87j8, high).** Covers 8.21.x; fixed 8.22.0. 7 tests.
+- **VG1157 — toml prototype pollution and uncontrolled recursion in `toml.parse()` (CVE-2026-63376 / GHSA-v5mp-jgw5-2x6j, CVE-2026-77465 / GHSA-82x6-q7mm-w9cf, high).** Affected < 4.2.0, fixed 4.2.0. 8 tests.
+- **VG1158 — SVGO `removeScripts` bypass via namespaced anchors and control characters (CVE-2026-84370 / GHSA-w27v-7q3p-w38r, high, CVSS 8.2).** Affected 1.0.0–2.8.3, 3.0.0–3.3.4, 4.0.x; fixed 2.8.4 / 3.3.5 / 4.1.0. 15 tests.
+- **VG1159 — Nodemailer quadratic-time addressparser DoS (GHSA-2x7j-588g-ccc2, high, CVSS 7.5).** Affected < 9.1.0, fixed 9.1.0. 8 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics (the pnpm rule matches the always-exact `packageManager` pin, like VG1099).
+
+CVE version-pin rule count 128 → 135.
+
+## [3.41.0] - 2026-09-26
+
+### Added — 11 rules from the 30-day advisory backlog (492 → 503 rules)
+- **VG1142 — multer multipart field-name DoS cluster (CVE-2026-82333 / GHSA-535w-7cp7-47q4, CVE-2026-77078 / GHSA-wc9g-mqfw-jrwm, CVE-2026-77037 / GHSA-qfvm-cv95-jqjf, high, CVSS 7.5).** Sparse-array index allocation, uncaught RangeError crash, and the 2.2.0 aborted-upload descriptor leak. Affected < 2.3.0, fixed 2.3.0. 8 tests.
+- **VG1143 — @xmldom/xmldom 2026-09 parser advisory cluster, residual window after VG928 (CVE-2026-83605 – CVE-2026-83619, 13 GHSA ids, high).** Covers 0.8.13–0.8.14 and 0.9.10–0.9.11; fixed 0.8.15 / 0.9.12. 9 tests.
+- **VG1144 — @tiptap/core quadratic ReDoS in Markdown attribute parsing (GHSA-j95f-988m-3j2f, high).** Affected 3.7.0–3.30.4, fixed 3.30.5. 8 tests.
+- **VG1145 — adm-zip uncontrolled allocation from the declared uncompressed size (CVE-2026-77301 / GHSA-7q85-xj36-vmfc, high, CVSS 7.5).** Affected < 0.6.1, fixed 0.6.1. 8 tests.
+- **VG1146 — @angular/platform-server SSR SSRF via URL-resolution discrepancy and `<template>` XSS (CVE-2026-88056 / GHSA-f6mr-pjwc-34m4, CVE-2026-88060 / GHSA-v3p8-whq6-r5jg, high).** Affected 20.0.0–20.3.29, 21.0.0–21.2.21, 22.0.0–22.1.3 and all of 19.x (end-of-life, no fix); fixed 20.3.30 / 21.2.22 / 22.1.4. 10 tests.
+- **VG1147 — @sap/cds-mtxs unauthenticated credential disclosure in multitenant CAP apps (CVE-2026-76969 / GHSA-955m-rr6m-2f9v, critical, CVSS 9.4).** Affected < 1.18.4, 2.0.2–2.7.6, 3.0.1–3.9.6, 4.0.1–4.0.2; fixed 1.18.4 / 2.7.7 / 3.9.7 / 4.0.3. 9 tests.
+- **VG1148 — @argos-ci/core OS command injection via CI branch name (CVE-2026-59960 / GHSA-4x45-gxvp-6283, high, CVSS 7.5).** Affected <= 6.2.0, fixed 6.2.1. 8 tests.
+- **VG1149 — @nuxtjs/mdc URL sanitizer bypass via SVG `xlink:href` and `data:text/html` (CVE-2026-63671 / GHSA-mxm6-v9r6-r94c, high, CVSS 8.1).** Affected < 0.22.1, fixed 0.22.1. 7 tests.
+- **VG1150 — ExifReader HEIC/AVIF `iloc` memory exhaustion (CVE-2026-85715 / GHSA-pj96-35fp-cfcc, high, CVSS 7.5).** Affected <= 4.41.0, fixed 4.41.1. 8 tests.
+- **VG1151 — @cyclonedx/cyclonedx-npm `--workspace` shell injection on Windows (CVE-2026-71538 / GHSA-q69g-4hcv-6jg4, high).** Affected < 6.0.0, fixed 6.0.0. 7 tests.
+- **VG1152 — @rsdoctor/rspack-plugin unauthenticated report API exposing source and build metadata (CVE-2026-61782 / GHSA-jmg2-rcxh-w8q3, high, CVSS 7.5).** Affected <= 1.5.15, fixed 1.5.16. 8 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics.
+
+### Fixed — 0-FP semver on three rules with alternation package names
+VG928 (xmldom), VG1048 (react-server-dom-*) and VG1049 (@mikro-orm/*) still accepted any leading `^`, `~` or `>=`; the v3.37.2 sweep missed them because their package names are alternations. Regenerated from their ranges; exact-pin behaviour unchanged.
+
+CVE version-pin rule count 117 → 128.
+
+## [3.40.0] - 2026-09-26
+
+### Added — 8 rules from the 30-day advisory backlog, widest-reach packages first (484 → 492 rules)
+- **VG1134 — mariadb connector sends the password before TLS peer validation (CVE-2026-55215 / GHSA-cqhc-2h57-wpxf, high, CVSS 7.5).** With `ssl: true` and no CA, fingerprint validation happens after the auth exchange, so an on-path attacker captures the password. Affected < 3.2.4, 3.3.0–3.3.2, 3.4.0–3.4.5, 3.5.0–3.5.2; fixed 3.2.4 / 3.3.3 / 3.4.6 / 3.5.3. 10 tests.
+- **VG1135 — engine.io WebTransport session-id prototype lookup crash (CVE-2026-59724 / GHSA-gr94-w7qr-f4j3, high, CVSS 7.5).** A `__proto__` session id in a WebTransport upgrade throws in an async context and terminates the process. Affected 6.5.0–6.6.6, fixed 6.6.7. 8 tests.
+- **VG1136 — browserslist untrusted custom-stats prototype write / crash and unbounded cache growth (CVE-2026-73088 / GHSA-73wf-gq98-2v4g, CVE-2026-73089 / GHSA-c83g-rgw3-j3cx, high, CVSS 7.5).** Affected <= 4.28.6, fixed 4.28.7. 9 tests.
+- **VG1137 — @faker-js/faker `helpers.fake()` template code execution (CVE-2026-73231 / GHSA-qxc2-j82w-r537, high, CVSS 7.8).** The property resolver reached `Function.prototype.constructor`. Affected <= 10.4.0, fixed 10.5.0. 8 tests.
+- **VG1138 — link-preview-js DNS-rebinding SSRF bypass of `resolveDNSHost` (CVE-2026-61704 / GHSA-cpjf-6666-r8fx, high, CVSS 7.5).** Incomplete fix for CVE-2026-43897: the validated IP is not pinned for the real fetch. Affected <= 4.0.3, fixed 4.0.4. 7 tests.
+- **VG1139 — @toon-format/toon prototype pollution when decoding untrusted input (CVE-2026-82404 / GHSA-p95v-992w-h6c3, high, CVSS 8.3).** Affected < 2.3.1, fixed 2.3.1. 8 tests.
+- **VG1140 — LiquidJS `strip_html` infinite loop and `join` memoryLimit bypass, residual window after VG1078 (CVE-2026-61556 / GHSA-m7fp-h3p4-hr49, CVE-2026-69222 / GHSA-4r6h-5v86-94p3, high).** Covers 10.26.0–10.27.1; fixed 10.27.2. 8 tests.
+- **VG1141 — js-yaml `maxTotalMergeKeys` bypass via empty merge sources, CPU exhaustion (CVE-2026-84375 / GHSA-2883-xcg3-v3hh, high, CVSS 7.5).** Affected 3.0.0–3.15.1 and 4.0.0–4.3.1; fixed 3.15.2 / 4.3.2. 12 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics (caret/tilde flagged only when they can never resolve to the fix).
+
+### Fixed — VG1086 (React Router 7 cluster) tilde false positive
+VG1086 flagged `~2.17.0`–`~2.17.4` on @remix-run/server-runtime although the fix (2.17.5) is inside that minor, and used a hand-written pattern without the digit boundary. Regenerated from its ranges (react-router 7.0.0–7.14.x, @remix-run/server-runtime 2.10.0–2.17.4); exact pins unchanged. 4 tests.
+
+CVE version-pin rule count 109 → 117.
+
+## [3.39.0] - 2026-09-26
+
+### Added — 5 rules from daily intel (479 → 484 rules)
+- **VG1129 — Orval generated-client code injection RCE cluster (11 critical advisories: CVE-2026-62681 / GHSA-fg9p-mrxr-hvq7, CVE-2026-62682 / GHSA-88f2-fpv8-89q2, CVE-2026-72717, CVE-2026-71869, CVE-2026-71871, CVE-2026-71868, CVE-2026-72716, CVE-2026-71867, CVE-2026-71866, CVE-2026-71865, CVE-2026-71864).** OpenAPI paths, server URLs, schema/parameter defaults and property names were emitted into generated template literals and computed keys unescaped, so a malicious spec runs code when the generated client is imported or called. Affected < 8.21.0, fixed 8.21.0. 10 tests.
+- **VG1130 — Astro AVIF image optimization RCE (GHSA-26w7-cxv4-gfx2, critical, CVSS 9.8).** libheif in the default Sharp image service can execute code when a malicious AVIF is optimized. Affected < 7.2.8, fixed 7.2.8 (requires Sharp 0.35.4). 10 tests.
+- **VG1131 — Vendure external-authentication account takeover (CVE-2026-63472 / GHSA-6j36-r6pr-59x4, critical, CVSS 9.1).** External logins were linked to existing accounts by email without requiring a verified email. Affected < 3.7.0, fixed 3.7.0. 8 tests.
+- **VG1132 — MapLibre GL JS `DOM.sanitize()` bypass, zero-click XSS (CVE-2026-85061 / GHSA-jrc7-96c5-q579, critical, CVSS 10.0).** Removing attributes from a live NamedNodeMap skipped the next one, so a second event handler survived into the attribution control. Affected <= 6.4.0, fixed 6.4.1. 9 tests.
+- **VG1133 — yayson prototype pollution in Store/LegacyStore (CVE-2026-61534 / GHSA-325j-mg25-8q58, critical).** A JSON:API document with `type: "__proto__"` writes onto `Object.prototype`. Affected <= 4.2.0, fixed 4.3.0. 8 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics (caret/tilde flagged only when they can never resolve to the fix).
+
+CVE version-pin rule count 104 → 109.
+
+## [3.38.0] - 2026-09-25
+
+### Removed — 3 rules with no advisory behind them (482 → 479 rules)
+- **VG903** "React Vulnerable to XSS in Older Versions" cited no CVE and flagged react 15.0.0–18.3.0; the npm `react` package has no advisory after 0.14.
+- **VG912** "Prisma Client DoS (CVE-2024-32970)" — that CVE is a Ruby `phlex` advisory; `@prisma/client` has no published advisory.
+- **VG913** "Prisma Raw Query SQL Injection (CVE-2024-49382)" — that CVE is an Acronis archive-server issue.
+The Prisma raw-query code-pattern rules are unaffected.
+
+### Fixed — version ranges aligned with the GitHub Advisory Database
+Every CVE version-pin rule was compared against the advisories it cites, on every published npm release. Rules that flagged releases outside those ranges, or missed releases inside them, were regenerated from the advisory ranges (semver 0-FP, no new overlap with other rules):
+- **Narrowed (false positives removed):** VG900 next 13.0–13.3 (range starts 13.4.0), VG901 next 13.0–13.5.0 and 13.5.7+, VG902 next 10.x–11.x and fixed 12.3.5+/13.5.9+, VG905 axios 1.6.0–1.6.8 and 0.28+ (fixed), VG907 lodash 0.x–3.x, VG909 tar 0.x–2.x, 4.4.16+ and 6.1.7–6.1.8, VG921 @anthropic-ai/sdk 0.10–0.78, VG925 @clerk/nextjs (ranges belonged to @clerk/nuxt; nextjs is covered by VG1045), VG929 flowise before 3.0.5, VG1038 fast-uri 2.4.1+, VG1042 axios 0.31+, VG1052 @opentelemetry/auto-instrumentations-node 0.75+, VG1055 unaffected @clerk/backend/express/hono/fastify lines, VG1062 protobufjs-cli 1.2.1+ / 2.0.2+, VG1076 vitest 3.2.6+ (3.x backport), VG920 react 19.0.1+ (fixed in 19.0.1), VG926 react/react-dom 16.x (the Next.js list had been applied to react) — now react, react-dom and react-server-dom-* 19.0.0–19.0.4, 19.1.0–19.1.5, 19.2.0–19.2.4.
+- **Widened (missed releases added):** VG904 express 0.x–2.x, VG908 node-fetch 0.x, VG925 @clerk/astro 0.0.1–1.5.6, VG1045 @clerk/shared 2.20.17–2.22.0, VG1062 protobufjs 8.0.1, VG1090 postcss 0.x.
+- **Re-attributed:** VG906 now cites CVE-2022-23539 / 23540 / 23541 (the previously cited CVE-2022-23529 was withdrawn; severity high), VG916 now cites sharp's own libwebp / libvips advisories (GHSA-54xq-cgqr-rpm3 / GHSA-f88m-g3jw-g9cj) instead of an `ip` package CVE. Ranges unchanged.
+
+Across the affected packages, 382 published releases are no longer flagged and every release inside a cited advisory range is. 20 existing tests were corrected to the advisory ranges; 20 tests added.
+
+CVE version-pin rule count 107 → 104.
+
+## [3.37.2] - 2026-09-25
+
+### Fixed — 0-FP semver sweep across 54 older CVE version-pin rules
+These rules accepted any leading `^`, `~` or `>=` in front of an affected version, so dependency ranges that resolve to a fixed release were reported — for example `"next": "~14.1.0"` (VG900, fixed in 14.1.1), `"express": "^4.18.2"` (VG904) or `"react": "^19.0.0"` (VG920). Each pattern was regenerated from its own affected-version set with the same semantics as VG917/VG1066: an exact or `=` pin is flagged when affected; tilde and caret only when every version the range can resolve to is affected; open ranges (`>=`, `>`, `<`) are never flagged. Exact-version matching is unchanged (verified over ~1.9M version/prefix combinations against the previous patterns and a semver ground-truth model), apart from three rules whose two-digit patch/minor caps are widened to the whole release line (VG1047, VG1104, VG1113).
+
+Rules: VG900, VG901, VG902, VG903, VG904, VG905, VG906, VG907, VG908, VG909, VG910, VG912, VG913, VG914, VG915, VG918, VG919, VG920, VG921, VG922, VG924, VG927, VG929, VG930, VG1037, VG1039, VG1040, VG1042, VG1044, VG1046, VG1047, VG1050, VG1051, VG1057, VG1058, VG1059, VG1060, VG1061, VG1064, VG1065, VG1067, VG1076, VG1078, VG1079, VG1089, VG1090, VG1093, VG1097, VG1098, VG1102, VG1104, VG1109, VG1110, VG1113.
+
+Not changed on purpose: supply-chain rules that flag caret/tilde because a range could resolve to a compromised release during the attack window (VG923, VG1069, VG1100, VG1101, VG1111), the crypto-js deprecation rule (VG911), and rules that also pin prereleases (VG931, VG1053, VG1054, VG1077, VG1107). 33 existing tests that asserted a range false positive were corrected to exact pins; 12 tests added. Rule and CVE rule counts unchanged.
+
+## [3.37.1] - 2026-09-25
+
+### Fixed — VG1066 (systeminformation CVE-2026-44724) false positive
+VG1066 matched caret on the 5.x line although the fix (5.31.6) lands inside that major, so dependency ranges like `"systeminformation": "^5.22.11"` — declared by `@dotenvx/dotenvx`, which recent `shadcn` releases pull in — were flagged while resolving to fixed releases. It also matched tilde on 5.31.x and `>=` open ranges. Regenerated from the advisory range (4.17.0–5.31.5) and exhaustively verified; caret is now flagged only on 4.x. One existing test that asserted the caret false positive was corrected; 6 tests added.
+
+## [3.37.0] - 2026-09-25
+
+### Added — 1 rule: ws 2026 advisories (481 → 482 rules)
+- **VG1128 — ws memory-exhaustion DoS + uninitialized memory disclosure (CVE-2026-48779 / GHSA-96hv-2xvq-fx4p, high, CVSS 7.5; CVE-2026-45736 / GHSA-58qx-3vcg-4xpx, medium).** A client can exhaust server memory with a message sent as tiny fragments and data chunks; 8.0.0–8.20.0 can also disclose uninitialized memory. Affected 1.1.0–5.2.4, 6.0.0–6.2.3, 7.0.0–7.5.10, 8.0.0–8.20.x; fixed 5.2.5 / 6.2.4 / 7.5.11 / 8.21.0. Both advisories predate the daily intel run and were never surfaced — see the intel-check fix below. Pattern generated from the advisory ranges and verified against the semver semantics. 16 tests.
+
+### Fixed — VG917 (ws CVE-2024-37890) false positives
+VG917 matched caret on every line although each fix lands inside its own major (so `"ws": "^8.16.0"` and `"^7.5.9"`, common in lockfile dependency ranges, were flagged while resolving to fixed releases), tilde on a fix's own minor, `>=` open ranges, and 0.x–2.0.x versions outside this advisory. Regenerated from the advisory's per-line ranges (2.1.0–5.2.3, 6.0.0–6.2.2, 7.0.0–7.5.9, 8.0.0–8.17.0); exhaustively verified, no true positive lost. Two existing tests that asserted the caret false positive were corrected; 7 tests added.
+
+### Fixed — intel gap check missed older and residual advisories
+- **Pagination:** with `--since`, `scripts/intel-check.mjs` now follows the Advisory API's next pages until the window is covered (default 10 × 100, `--max-pages` to backfill) instead of stopping at the newest 100.
+- **Residual windows from real releases:** for a package GuardVibe already has rules for, it now probes every *published* affected version from the npm registry against the existing rules, falling back to derived bounds when offline. A range such as `< 8.21.0` has no derivable last version, so only its lower bound was probed — an older rule matching 8.0.0 made CVE-2026-48779 look covered. The same probe now surfaces other hidden windows (e.g. vm2 3.11.2–3.11.4, flowise 3.0.6–3.0.8).
+Development tooling only; not part of the published package.
+
+CVE version-pin rule count 106 → 107.
+
+## [3.36.0] - 2026-09-25
+
+### Added — 4 rules from daily intel: dbhub MCP server DNS rebinding + read-only bypass, Unleash permission bypass, Elysia multipart DoS, request-filtering-agent crash (477 → 481 rules)
+- **VG1124 — @bytebase/dbhub DNS-rebinding SQL execution + read-only mode bypass (CVE-2026-61742 / GHSA-fm8p-53ww-hf6w, critical; CVE-2026-61788 / GHSA-mwwr-p57h-56pf, high).** The unauthenticated HTTP transport's Origin==Host check does not stop DNS rebinding, so a malicious web page can call `execute_sql` from the victim's browser (`<= 0.22.4`); and `readonly = true` never reached the connectors, leaving a first-keyword classifier that side-effecting `SELECT`s pass (`< 0.22.6`). One rule, fixed in 0.22.6. 0.x-aware semver: caret locks the minor below 1.0, so `^0.21.x` is flagged and `^0.22.x` is not. 12 tests.
+- **VG1125 — Unleash missing-`await` permission bypass + cross-project IDOR (CVE-2026-77426 / GHSA-72h8-wp98-7hch, high).** `hasPermission()` was used without `await`, so the Promise is always truthy and any authenticated user can change segment assignments on any strategy; admin handlers also ignore `:projectId`. `< 8.0.3`, no backport to 7.x. 11 tests.
+- **VG1126 — Elysia multipart form data quadratic CPU DoS (CVE-2026-56669 / GHSA-9643-4qgh-g8mx, high).** Form data normalization calls `getAll()` once per unique key, so work grows with the square of the field count; any route accepting `multipart/form-data` is exposed. `< 1.4.29`. 11 tests.
+- **VG1127 — request-filtering-agent synchronous throw crashes the process (CVE-2026-62985 / GHSA-r3r9-wp5j-pq5g, high).** A literal private-IP hostname makes `createConnection()` throw synchronously, escaping `req.on('error')` — the SSRF guard becomes a one-request denial of service. `< 3.2.1`. 10 tests.
+
+All four patterns were checked against every published version of their package with `""`, `^`, `~` and `=` prefixes (3,060 specs): 0 false positives, 0 misses.
+
+CVE version-pin rule count 102 → 106.
+
+## [3.35.1] - 2026-09-24
+
+### Fixed — false positives on a real Next.js 16 + Clerk app
+Found by auditing a production Next.js 16 / Clerk / Supabase site with GuardVibe itself: 16 of its findings were scanner errors, not vulnerabilities.
+
+- **Next.js 16 `proxy.ts` is now recognized as the middleware entry.** Next.js 16 renamed `middleware.ts` to `proxy.ts`; auth-coverage (full audit, `auth-coverage` CLI and MCP tool) only looked for `middleware.ts`, so every route protected by a Clerk `createRouteMatcher` in `proxy.ts` was reported as unprotected. A `proxy.ts` only counts where Next.js loads it — beside the `app/` directory it serves — so an unrelated `src/lib/proxy.ts` is never mistaken for it.
+- **AC011 now uses real Next.js matcher semantics.** Its own normalization turned Clerk's recommended `"/(api|trpc)(.*)"` into `"/(.*)"`, which matched nothing, so every API route looked uncovered. It now shares auth-coverage's matcher parser.
+- **`.guardviberc` `authFunctions` are honored by auth-coverage and AC011**, not only by `check`. A layout calling `requireAdmin()` or a handler calling `authorized(req)` is recognized once the name is configured.
+- **The app root page is reported as `/`**, not `/page.tsx`, so an `authExceptions` entry for `"/"` covers the homepage.
+- **VG1045 (Clerk GHSA-w24r-5266-9c3c) is now matched per package line.** One version alternation was applied to all 16 `@clerk/*` packages, so it both over-matched (e.g. `@clerk/react` 6.5–6.39, `@clerk/express` 2.2+) and missed affected versions (`@clerk/shared` 3.3–3.47.4, `@clerk/clerk-js` 5.x, `@clerk/backend` 2.33.2). The pattern is now generated from the advisory's per-package ranges and verified exhaustively against the semver semantics; `@clerk/clerk-react` stays with VG1116. 203 tests (the rule had none).
+- **0-FP semver in VG916 (sharp), VG1038 (fast-uri), VG1043 (hono) and VG1117 (@zereight/mcp-gitlab).** Caret was matched on lines whose fix shares the major (e.g. `"fast-uri": "^3.0.1"` and `"hono": "^4.11.4"` in dependency ranges inside lockfiles, which resolve to fixed versions), tilde on the fix's own minor, and `>=` open ranges, which always resolve to the latest release. 17 regression tests.
+
+## [3.35.0] - 2026-09-24
+
+### Added — 5 rules from daily intel: SunEditor XSS, sharp libheif RCE residual, notebooklm-mcp path traversal, 9router auth-bypass cluster, deepstream permission-bypass residual (472 → 477 rules)
+- **VG1119 — SunEditor sanitizer bypass, stored XSS via namespaced elements (CVE-2026-59167 / GHSA-6rf4-v2fh-m6p4, critical, CVSS 10.0).** Event-handler attributes survive sanitization on custom/namespaced tags (`<a:b onclick=…>`), so stored editor HTML executes script for every viewer. `<= 2.47.10`, fixed 2.47.11; the 3.x line is unaffected. 11 tests.
+- **VG1120 — sharp bundled libheif RCE residual window (GHSA-rgj7-g3m4-5g8c, upstream GHSA-g89c-p67h-r497 / GHSA-2jg2-4ch7-h545, high).** libheif advisories rated Critical upstream can lead to RCE on glibc Linux when decoding crafted AVIF/HEIF — relevant to any service resizing user uploads, including Next.js Image Optimization. VG916 stops at 0.33.2 (an unrelated older CVE); this closes 0.33.3–0.35.3 below the 0.35.4 fix with no double-fire. 0.x-aware semver: caret locks the minor below 1.0, so `^0.34.x` is flagged and `^0.35.x` is not. 10 tests.
+- **VG1121 — @roomi-fields/notebooklm-mcp `vault_batch` path traversal (CVE-2026-61647 / GHSA-jjhp-8crj-mppq, high).** A caller-supplied `vault_dir` reaches `path.resolve()` + `fs.mkdir()` with no containment check; the advisory treats a prompt-injected LLM driving the MCP tool as the attacker. `>= 1.6.0, < 2.0.3`. 10 tests.
+- **VG1122 — 9router LLM-router auth-bypass cluster (CVE-2026-56681 / -56675 / -56676 / -56679, high).** Spoofable `X-9r-Real-Ip` locality header and reverse-proxy locality collapse both exempt remote callers from the API key (exposing the owner's provider credentials), plus a DNS-rebinding SSRF in image prefetch and a mass assignment that can set `requireLogin: false`. One rule for `<= 0.5.4`; 0.5.8 fixes all four and no 0.5.5–0.5.7 releases exist. 10 tests.
+- **VG1123 — deepstream `PATCH_MULTI` Valve permission bypass residual window (CVE-2026-63116 / GHSA-89vx-jh4q-vg3w, high, CVSS 8.8).** The action is missing from `RULES_MAP`, the lookup returns null, and null is treated as allow — any authenticated user can overwrite any record. Affects exactly 10.1.0, fixed 10.1.1; VG1098 never matched 10.1.0. 7 tests.
+
+### Fixed — intel gap check hid new advisories on packages that already had any rule
+`scripts/intel-check.mjs` treated a package as covered as soon as its name appeared in any rule, so a new advisory on `next`, `sharp` or `@deepstream/server` never surfaced as a gap — this is how VG1120 and VG1123's windows went unflagged. With a build present it now probes the actual rule patterns against the advisory's affected versions and reports unmatched pins as residual windows (falls back to the old behaviour without a build). It also reads `first_patched_version` whether the Advisory API returns it as an object or a plain string. Development tooling only; not part of the published package.
+
+CVE version-pin rule count 97 → 102.
+
+## [3.34.1] - 2026-09-21
+
+### Fixed
+- Resolved 7 dev-dependency advisories (`npm audit fix`) that were blocking the npm publish CI gate — 0 vulnerabilities now.
+
+## [3.34.0] - 2026-09-21
+
+### Added — 4 rules from daily intel: Next.js AVIF/Windows RCE, Clerk clerk-react 5.x gap, @zereight/mcp-gitlab triple-CVE, PostCSS residual (468 → 472 rules)
+- **VG1115 — Next.js AVIF/libheif RCE + Windows-hosted RCE residual window (GHSA-2xp9-vwfh-vxw4 / CVE-2026-75604, critical, CVSS 9.5).** Unauthenticated RCE via a crafted AVIF file reaching libheif through sharp's Image Optimization path, plus a same-round Windows-hosting-specific RCE. Closes the residual window VG1047+VG1105 left open (15.5.21-15.5.23, 16.2.11-16.3.2) below the 15.5.24/16.3.3 fix. 14 tests.
+- **VG1116 — @clerk/clerk-react 5.x org/billing/reverification bypass (CVE-2026-42349 / GHSA-w24r-5266-9c3c, high).** VG1045 already matches the clerk-react package name but has no 5.x version branch — a project pinned to clerk-react's actual affected line (5.9.0-5.61.5) was invisible to it. 9 tests.
+- **VG1117 — @zereight/mcp-gitlab unauthenticated file read / SSRF / DNS rebinding (CVE-2026-61560/-61559/-61568, critical).** Three critical advisories in a 14-day window on one MCP server; DNS-rebinding-to-localhost-MCP-transport was a structural class GuardVibe had no rule for. 9 tests.
+- **VG1118 — PostCSS sourceMappingURL residual window (GHSA-fxqj-rqcc-2cmp / GHSA-r28c-9q8g-f849, high).** VG1106 stopped at the 8.5.12 fix for GHSA-6g55-p6wh-862q, but that fix was incomplete (guard only ran when `from` was set) and a second independent previous-map traversal was never covered — postcss 8.5.12 through 8.5.22 was fully unflagged. 6 tests.
+
+### Fixed — semver false-positive risk in 5 rules shipped in v3.32.0/v3.33.0 (VG1110, VG1112, VG1113, VG1114)
+Caret (and in one case tilde) was included in version-prefix alternations for residual windows where the fix lands in the *same* major or minor as the flagged range — meaning `^`/`~` on a real project would resolve past the fix and the rule would still fire on an already-patched pin. Corrected to exact-only (or tilde+exact where the fix genuinely lives in a later minor/major, which caret/tilde can't reach) across VG1110's 1.x branch, all of VG1112, VG1113's 4.5.x branch, and VG1114 — following the same 0-FP convention already used by VG1092/VG1096/VG1105/VG1106/VG1108. 8 existing test cases corrected, 12 new caret/tilde-boundary tests added.
+
+CVE version-pin rule count 93 → 97.
+
+## [3.33.0] - 2026-08-14
+
+### Added — 3 rules from daily intel: React2Shell react-server-dom-* gap, trigger.dev prototype pollution, Axios Basic-auth injection (465 → 468 rules)
+- **VG1112 — react-server-dom-* / React2Shell RCE residual window (CVE-2025-55182 / CVE-2025-66478 / GHSA-9qr9-h5gf-34mp, critical, CVSS 10.0).** react-server-dom-webpack/parcel/turbopack at exactly 19.0.0/19.1.0/19.1.1/19.2.0 carry the unauthenticated Flight-protocol deserialization RCE; VG920 only matched the `react` package capped at 19.1.0. Next.js's own advisory for the same bug is already fully subsumed by VG1047+VG1105's next coverage — no next-package changes needed. Closes the react-server-dom-* package gap plus react's 19.1.1/19.2.0 residual. 9 tests.
+- **VG1113 — @trigger.dev/core prototype pollution → cross-tenant DoS (CVE-2026-73654 / GHSA-p28v-f755-9qrg, high).** Unsanitized run-metadata keys pollute Object.prototype, crashing the whole process (Prisma validation + Prometheus client both throw) for every tenant, not just the attacker's. 3.3.8–4.5.5, fixed 4.5.6. 6 tests.
+- **VG1114 — axios prototype-pollution Basic-auth header injection residual window (GHSA-xj6q-8x83-jv6g, high).** An external prototype-pollution primitive plus an axios call with a partial auth object lets an attacker control the outbound Authorization: Basic header. Distinct from VG1091 (proxy gadget, 1.15.2–1.15.x); this rule covers the residual 1.16.0–1.17.x, fixed 1.18.0. 5 tests.
+
+Investigated but not added (already covered by existing rules, confirmed by re-reading their version ranges): Drizzle ORM identifier SQLi (GHSA-gpj5-g38j-94v9, already VG931/VG1053), Clerk org/billing/reverification bypass (GHSA-w24r-5266-9c3c, already VG1045), Clerk JS middleware bypass (GHSA-vqx2-fgx2-5wq9, already VG925/VG1108), @anthropic-ai/sdk memory-tool sandbox escape (GHSA-5474-4w2j-mq4c, already the superset VG1044), Vercel AI SDK file-type whitelist bypass (GHSA-rwvc-j5jr-mgvh, already VG1054), Hono serve-static %5C path traversal (GHSA-wwfh-h76j-fc44, already fully spanned by VG1043 + VG1092's combined <4.12.25 range), RSC DoS cluster (CVE-2026-23864/-23870, already VG1048/VG1004/VG1047).
+
+CVE version-pin rule count 90 → 93.
+
+## [3.32.0] - 2026-08-09
+
+### Added — 3 rules from daily intel: crypto-js entropy, jsii-diff command injection, keyv/cacheable ChainDrop worm (462 → 465 rules)
+- **VG1109 — crypto-js WordArray.random() insufficient entropy (CVE-2026-71851 / GHSA-rg76-677x-56q9, critical, CVSS 9.0).** crypto-js < 4.0.0 seeds its RNG from Math.random() via a custom MWC PRNG, collapsing 128/256-bit "entropy" to ~2^39/2^47 — already drained $5.7M+ across two 2026 wallet-drain waves. Distinct from VG911's general unmaintained-package warning. 6 tests.
+- **VG1110 — jsii-diff OS command injection via npm: package argument (CVE-2026-15895 / GHSA-wcx4-wpfv-mc5c, high).** jsii-diff < 1.131.0 passes its npm: package argument into a shell command unsanitized (CWE-78) — CI-runner RCE via crafted package specifiers. 6 tests.
+- **VG1111 — keyv/cacheable ChainDrop supply-chain worm (Mini Shai-Hulud, August 2026, critical).** 2026-08-04 maintainer GitHub account compromise published validly-signed, backdoored releases of keyv, cacheable (+ @cacheable/memory|node-cache|utils|net), cache-manager, cacheable-request, and the ESLint deps flat-cache/file-entry-cache — preinstall hook steals CI npm/GitHub tokens and self-propagates. IOC-style, 400+ packages affected total; this rule covers the primary maintainer-compromised set. 9 tests.
+
+CVE version-pin rule count 89 → 90.
+
+## [3.31.0] - 2026-07-23
+
+### Added — 6 rules from daily intel: Auth.js critical pair, Next.js/PostCSS July residual windows, AsyncAPI supply-chain IOC, Clerk 5.x gap (456 → 462 rules)
+- **VG1103 — Auth.js v5 beta fail-open + homoglyph (GHSA-8fpg-xm3f-6cx3 / GHSA-7rqj-j65f-68wh, critical, CVSS 9.1).** next-auth 5.0.0-beta.0–beta.31: config errors populate the auth object with a truthy error payload, so `if (req.auth)` grants access to every request (fails open); plus the homoglyph '@' email bypass. Both fixed in beta.32. Exact/= beta pins flagged (caret/tilde prerelease ranges resolve to the fix). 8 tests.
+- **VG1104 — Auth.js homoglyph '@' email normalization bypass (GHSA-7rqj-j65f-68wh, critical, CVSS 9.1).** @auth/core 0.1.0–0.41.2 (fix 0.41.3) + next-auth 4.10.3–4.24.14 (fix 4.24.15) validate email before NFKC normalization — a homoglyph that normalizes to '@' routes magic links to an attacker mailbox (account takeover, no victim interaction). v5 beta window lives in VG1103 (no double-fire). 12 tests.
+- **VG1105 — Next.js July-2026 SSRF cluster residual window (CVE-2026-64649/-64645/-64642/-64641, high).** Server Actions SSRF via untrusted Host header + rewrites()/redirects() hostname SSRF/open-redirect, fixed 15.5.21/16.2.11. Flags exactly the residual exact-pin windows VG1047's advice landed in: 15.5.18–15.5.20 and 16.2.6–16.2.10. 9 tests.
+- **VG1106 — PostCSS sourceMappingURL arbitrary file read residual window (CVE-2026-45623 / GHSA-6g55-p6wh-862q, high).** Unvalidated sourceMappingURL paths (incl. ../ traversal) let attacker-controlled CSS read any Node-readable file; fixed 8.5.12. Flags the residual exact pins 8.5.10–8.5.11 above VG1090's window. 6 tests.
+- **VG1107 — @asyncapi/* compromised releases (July 2026 supply chain, critical).** Five malicious versions across four packages published 2026-07-14 via a CI 'pwn request' bot-credential compromise: @asyncapi/specs 6.11.2-alpha.1 + 6.11.2, generator 3.3.1, generator-components 0.7.1, generator-helpers 1.1.1. Import-time payload → IPFS-staged botnet + credential-stealing RAT. IOC-style, ranges flagged too. 10 tests.
+- **VG1108 — @clerk/nextjs 5.x middleware route-protection bypass (CVE-2026-41248 / GHSA-vqx2-fgx2-5wq9, critical, CVSS 9.1).** Fills the 5.0.0–5.7.5 version-space no existing Clerk rule covers (1.x/2.x = VG925, 4.x = VG1096, 6.x/7.x ⊂ VG1045); 5.x backport fix 5.7.6. 0-FP semver: caret-5.x/tilde-5.7 resolve to the fix. 9 tests.
+
+Skipped from the brief's Section-6 proposals (all covered or FP-prone, verified): GV-AUTHJS-FAILOPEN-001 behavioral truthy-check regex (`if (session)` is the standard, safe pattern on patched versions — version pin covers the CVE); GV-NEXT-SERVERACTION-SSRF-002 (taint-analysis SSRF sink + VG120 cover the behavioral case); GV-AISDK-UPLOAD-MIME-003 (File Upload Without Type Validation rule + the AI SDK version pin cover it). WordPress SQLi/RCE KEV chain and Langflow CVE-2026-0770 KEV are non-JS/out of stack.
+
+CVE version-pin rule count 83 → 89.
+
+## [3.30.0] - 2026-07-14
+
+### Added — 3 rules from daily intel: jscrambler + Injective supply-chain IOCs, n8n-mcp cross-tenant (453 → 456 rules)
+- **VG1100 — jscrambler Compromised Releases (July 2026 supply chain attack, critical).** Versions 8.14.0/8.16.0/8.17.0/8.18.0/8.20.0 published 2026-07-11 via a stolen npm credential run a Rust infostealer — 8.14–8.17 from an undocumented `preinstall` hook, 8.18+ as a self-executing function in `dist/index.js` (import-time). Targets cloud/CI credentials, browser sessions, crypto wallets, Bitwarden vaults, and AI coding-tool configs. Plugins (webpack/gulp/Metro/grunt) were NOT hit. Safe: 8.22.0+ or the pre-compromise 8.13.0. 10 tests.
+- **VG1101 — @injectivelabs/sdk-ts Wallet-Key Backdoor (July 2026, critical).** Version 1.20.21 (published 2026-07-08 from a compromised GitHub account) hooks `PrivateKey.fromMnemonic()`/`fromHex()` and exfiltrates BIP-39 seed phrases and private keys base64-encoded in the `X-Request-Id` header of fake-telemetry requests. Clean release: 1.20.23. 4 tests.
+- **VG1102 — n8n-mcp Multi-Tenant Cross-Tenant Access (CVE-2026-54052 / GHSA-j6r7-6fhx-77wx, critical).** Through 2.56.0, multi-tenant HTTP deployments fail to isolate workflow version backups — one tenant can read/delete another tenant's snapshots, leaking credential references and authorization headers from full node definitions. Fixed in 2.56.1. 0-FP semver: caret on 2.x / tilde within 2.56 resolve to the fix; only exact/= pins (and older lines) are flagged. 9 tests.
+
+### Changed
+- **VG1044 (@anthropic-ai/sdk Memory Tool)** description now records the assigned CVE ids — CVE-2026-41686 (insecure file permissions, fix 0.91.1) and CVE-2026-34451 (path escape, fix 0.81.0) — so CVE-number lookups resolve; version-space already fully covered, no pattern change.
+- **VG1043 (Hono pre-4.12.18 cluster)** description now also documents CVE-2026-56763 (parseBody `dot:true` `__proto__` prototype pollution, fix 4.12.7) and CVE-2026-56762 (setCookie missing cookie-name validation, fix 4.12.12) — both version windows were already fully flagged by this rule; no pattern change.
+
+CVE version-pin rule count 80 → 83.
+
+## [3.29.0] - 2026-06-27
+
+### Added — 2 rules from daily intel: deepstream prototype pollution + pnpm path-traversal cluster (451 → 453 rules)
+- **VG1098 — deepstream Server Prototype Pollution (CVE-2026-49252 / GHSA-9v98-6g37-x9g6, critical, CVSS 9.9).** `@deepstream/server` before 10.0.5 lets an authenticated client with write permissions merge `__proto__`-style keys onto `Object.prototype` via a crafted record/RPC payload — privilege escalation / DoS across the realtime server. Published 2026-06-26. 0-FP semver: 10.0.5 is a patch within 10.0, so caret/tilde on 10.0.x resolve to the fix; only exact/= pins in 10.0.0–10.0.4 (and any range on 0.x–9.x) are flagged. 9 tests.
+- **VG1099 — pnpm Lockfile/Manifest Path-Traversal & RCE Cluster (CVE-2026-55698 / -55487 / -50016 and others, June 2026, high).** A crafted `pnpm-lock.yaml` / manifest can escape the project root and overwrite arbitrary files on the install host (transitive alias path traversal, manifest identity spoof running attacker lifecycle scripts, env-lockfile resolution short-circuit, malicious patch-file write) — supply-chain RCE on dev/CI machines. Fixed in 10.34.2 (10.x) / 11.5.3 (11.x). Flags the Corepack `packageManager` pin (always exact): any `pnpm@` below 10.34.2, or in 11.0.0–11.5.2; recommends 10.34.4 / 11.8.0. 12 tests.
+
+CVE version-pin rule count 78 → 80. Gate green (build / lint / test / self-audit PASS / A / 0).
+
+## [3.28.0] - 2026-06-25
+
+### Added — 1 rule from daily intel: i18next missing-key prototype pollution (450 → 451 rules)
+- **VG1097 — i18next missing-key prototype pollution (CVE-2026-48713 / CVE-2026-48714, critical).** Two i18next missing-key handlers write attacker-supplied key segments onto `Object.prototype`: `i18next-fs-backend` before 2.6.6 (GHSA-2933-q333-qg83) persists `__proto__.polluted`-style keys, and `i18next-http-middleware` before 3.9.7 (GHSA-f49m-vf83-692w) blocks literal `__proto__` but not dotted variants that downstream backends split on `keySeparator`. Both published 2026-06-25. Distinct from the existing `i18next-http-backend` path-traversal rule (different package). 0-FP semver: a caret on the current major (^2 / ^3) and a tilde within the fixed minor resolve to the patched release, so only exact/= pins and ranges that stay in the vulnerable line are flagged. CVE version-pin rule count 77 → 78. 16 tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
+## [3.27.0] - 2026-06-25
+
+### Improved — AST engine: multi-hop SQL-injection taint (no rule/tool count change: 450 rules / 39 tools)
+- **Multi-hop bare-variable SQL sinks.** Dataflow analysis now catches the case where a user-tainted SQL string is built into a *variable* and that bare variable is passed to a query sink (`const q = "SELECT ... " + req.body.x; db.sequelize.query(q)`). The inline taint patterns only match the dangerous string when it appears literally in the sink call, so they missed the variable-indirection (multi-hop) shape; the AST locates sinks whose first argument is a bare identifier and confirms it is a tainted SQL string before reporting.
+- **High precision / zero-FP guarding:** reports only when the variable is user-tainted *and* its definition is provably a SQL string (carries SQL keywords) — a parameterized query (`db.query(q, [userVal])`) stays silent (the SQL string has no tainted source; the user value rides the bind array), as does a non-SQL `.query(opts)` or a sanitizer-wrapped service-layer build. Deterministic (bundled TypeScript parser).
+- Corpus delta: 1 real SQL-injection caught that the inline patterns missed, zero false positives, zero drift on other rules. 7 new tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
+## [3.26.0] - 2026-06-25
+
+### Improved — AST engine: inter-procedural & nested ownership for BOLA/IDOR (no rule/tool count change: 450 rules / 39 tools)
+- **VG950 (find-by-id BOLA) precision via the AST engine.** The ownership guard now also recognizes two real-world authorization shapes the same-function analysis structurally could not see: (1) an ownership field nested inside a relation filter (`members: { some: { userId } }`, `teams.some.team.members.some.userId`), and (2) an **inter-procedural** check — an authorization helper the function calls *before* the query, passing both a session value and the same id (`isAdminForUser(ctx.user.id, targetId)` → throw, then `findUnique({ where: { id: targetId } })`). The same inter-procedural guard now also applies to VG951 (delete/update BOLA).
+- **Soundness preserved:** only a session/auth-derived ownership value counts — a request-controlled value (`req.body.UserId`) is attacker-chosen and keeps firing. Deterministic (bundled TypeScript parser, no resolution of the scanned project's copy).
+- Corpus delta: 3 confirmed false positives removed, zero true positives lost, zero drift on other rules. 8 new tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
+## [3.25.0] - 2026-06-24
+
+### Fixed — QA hardening pass (no rule/tool count change: 450 rules / 39 tools)
+- **Pre-commit gate now actually blocks.** `scan --staged` (the command the installed pre-commit hook runs) was falling through to a whole-directory scan that always exited 0, so the hook never blocked an insecure commit. It now runs a staged scan and defaults to `--fail-on critical`. The slopsquat/typosquat detector no longer false-flags declared, popular packages (e.g. `cors`, `chai`, `sinon`) or first-party source dirs as hallucinated, and `--format` now errors on an unsupported (command, format) combo instead of silently emitting markdown (so `check --format sarif` produces real SARIF).
+- **Robustness & accuracy:** `diff` / changed-files scans auto-detect the base branch (origin/HEAD → main → master → HEAD~1 → HEAD) instead of assuming `main`, with a clear "not a git repository" vs "ref not found" distinction; `check_dependencies` gained `format: json`; `secure_this` returns clean rule IDs; the edit hook no longer depends on `jq`; `guardvibe-scan --help`/`--version` and a non-zero exit on an unknown `explain <rule>` now work.
+- **Docs:** corrected the CVE-rule count, the per-category rule table (now sums to the real total), and the dependency description; added consistency guards so those counts cannot silently drift again. +20 regression tests.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
+## [3.24.0] - 2026-06-23
+
+### Added — 1 rule from daily intel: Clerk 4.x auth() IDOR version-pin (449 → 450 rules)
+- **VG1096 — @clerk/nextjs 4.x auth()/getAuth() IDOR (CVE-2024-22206 / GHSA-q6w5-jg5q-47vg, critical).** @clerk/nextjs 4.7.0–4.29.2 misattributes a request to the wrong session in auth() (App Router) / getAuth() (Pages Router) — an IDOR / privilege escalation. Fixed in 4.29.3. Fills the legacy 4.x version-space that the 1.x/2.x middleware-bypass pin (VG925) and 6.x/7.x has() bypass pin (VG1045) do not cover. 0-FP semver: caret on 4.x and tilde within 4.29 resolve to the fix → only exact/= pins (and tilde within 4.7–4.28) flagged; 4.0–4.6 not affected. CVE version-pin rule count 76 → 77. 9 tests.
+- **Verified already-covered (no action) from the 2026-06-23 brief:** the install-time dropper signature (Miasma/Mastra/node-gyp) — supply-chain.ts already ships "Install Script Downloads and Executes Remote Code", "Malicious postinstall Script", "Obfuscated Payload in Install Script", plus VG1074 (Miasma IOC) and the CI `--ignore-scripts` rule; axios user-controlled-URL SSRF — covered more precisely by the host-position-aware taint SSRF sink + VG120; Clerk CVE-2026-42349 (has() bypass = VG1045) and CVE-2026-41248 (middleware bypass = VG925); Next.js RSC cluster (VG1047); React/Next RSC RCE (CVE-2025-55182). The brief's GV-CLERK-MIDDLEWARE-BYPASS behavioral suggestion was not added — bare clerkMiddleware() is the allow-by-default safe pattern, so the regex is FP-prone, and the CVE is already version-pinned.
+
+Gate green (build / lint / test / self-audit PASS / A / 0).
+
 ## [3.23.0] - 2026-06-19
 
 ### Added — MCP/agent unauth endpoint rule + full CORS-credentials coverage from daily intel (448 → 449 rules)

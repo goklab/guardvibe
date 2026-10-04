@@ -48,7 +48,7 @@ import { fixCode as fixCodeTool, type FixSuggestion } from "./tools/fix-code.js"
 import { secureThis } from "./tools/secure-this.js";
 import { securePrompt } from "./tools/secure-prompt.js";
 import { buildAgentReport } from "./tools/agent-output.js";
-import { analyzeAuthCoverage, formatAuthCoverage } from "./tools/auth-coverage.js";
+import { analyzeAuthCoverage, findMiddlewareFile, formatAuthCoverage } from "./tools/auth-coverage.js";
 import { buildDeepScanPrompt, parseDeepScanResult, formatDeepScanFindings, callLLM } from "./tools/deep-scan.js";
 import { runFullAudit, formatAuditResult } from "./tools/full-audit.js";
 import { generateRemediationPlan, formatRemediationPlan } from "./tools/remediation-plan.js";
@@ -185,10 +185,11 @@ server.tool(
       },
       z.array(packageSchema)
     ).describe("List of packages to check: [{name, version, ecosystem}]"),
+    format: z.enum(["markdown", "json"]).default("markdown").describe("Output format: markdown (human) or json (machine-readable for agents)"),
   },
-  async ({ packages }) => {
+  async ({ packages, format }) => {
     try {
-      const results = await checkDependencies(packages);
+      const results = await checkDependencies(packages, format);
       return { content: [{ type: "text", text: results }] };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -730,15 +731,22 @@ server.tool(
     const { readFileSync, existsSync } = await import("fs");
     const { resolve, extname, basename } = await import("path");
     const { EXTENSION_MAP, CONFIG_FILE_MAP } = await import("./utils/constants.js");
-    const { getAddedLinesForDiff, filterToAddedLines } = await import("./tools/diff-aware.js");
+    const { getAddedLinesForDiff, filterToAddedLines, resolveGitBase } = await import("./tools/diff-aware.js");
 
     const root = resolve(repoPath);
+    // Resolve the base: fall back from the default ref (origin/HEAD → main → master →
+    // HEAD~1 → HEAD) so single-commit / master-named repos work; precise error otherwise.
+    const resolution = resolveGitBase(root, base, { strict: false });
+    if (!resolution.ok) {
+      return { content: [{ type: "text", text: format === "json" ? JSON.stringify({ error: resolution.error }) : `Error: ${resolution.error}` }] };
+    }
+    const effectiveBase = resolution.base!;
     let changedFiles: string[];
     try {
-      const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", base], { cwd: root, encoding: "utf-8" });
+      const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", effectiveBase], { cwd: root, encoding: "utf-8" });
       changedFiles = output.trim().split("\n").filter(Boolean);
     } catch {
-      return { content: [{ type: "text", text: format === "json" ? JSON.stringify({ error: "Failed to get git diff" }) : "Error: Failed to get git diff. Ensure you're in a git repository." }] };
+      return { content: [{ type: "text", text: format === "json" ? JSON.stringify({ error: `git diff against ${effectiveBase} failed` }) : `Error: git diff against ${effectiveBase} failed.` }] };
     }
 
     if (changedFiles.length === 0) {
@@ -766,7 +774,7 @@ server.tool(
         const content = readFileSync(fullPath, "utf-8");
         let findings = analyzeFileSecurity(content, language, undefined, fullPath, root, rules);
         if (diff_aware) {
-          const added = getAddedLinesForDiff(base, relPath, root);
+          const added = getAddedLinesForDiff(effectiveBase, relPath, root);
           const kept = filterToAddedLines(findings, added);
           preExistingHidden += findings.length - kept.length;
           findings = kept;
@@ -1080,10 +1088,10 @@ server.tool(
 
       const routeFiles = jsFiles.filter(f => /\/(route|page)\.(ts|tsx|js|jsx)$/.test(f.path));
       const layoutFiles = jsFiles.filter(f => /\/layout\.(ts|tsx|js|jsx)$/.test(f.path));
-      const middlewareFile = jsFiles.find(f => /middleware\.(ts|js)$/.test(f.path));
+      const middlewareFile = findMiddlewareFile(jsFiles);
 
       const cfg = loadConfig(path);
-      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, cfg.authExceptions);
+      const report = analyzeAuthCoverage(routeFiles, middlewareFile?.content ?? "", layoutFiles, cfg.authExceptions, cfg.authFunctions);
       const output = formatAuthCoverage(report, format);
       return { content: [{ type: "text", text: output }] };
     }
