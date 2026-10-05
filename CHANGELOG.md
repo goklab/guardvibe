@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.51.0] - 2026-10-05
+
+### Added — 5 rules from daily intel: figlet, @yeger/turbo-graph, Payload alt-text plugin, Mockoon, libp2p PeerStore (548 → 553 rules)
+- **VG1198 — figlet infinite-loop DoS via `whitespaceBreak` with a narrow width (CVE-2026-96780 / GHSA-62ch-8vmq-8xm7, high).** `text()`/`textSync()` never terminate when `width` is smaller than one rendered character, pinning a CPU core and blocking the event loop. Affected < 1.11.3, fixed 1.11.3. 11 tests.
+- **VG1199 — @yeger/turbo-graph unauthenticated network-exposed task execution via `/api/run` (CVE-2026-59160 / GHSA-2r5q-h53f-9rp3, high, CVSS 8.8).** The embedded server listens on all interfaces and runs any Turborepo task it is sent. Affected <= 2.8.8, fixed 2.8.12. 10 tests.
+- **VG1200 — Payload alt-text plugin authorization bypass via omitted `overrideAccess` (CVE-2026-59965 / GHSA-4qpv-39hg-f7fx, high, CVSS 7.1).** Any authenticated user can read and overwrite alt text and keywords of upload documents outside their access. Affected < 0.8.0, fixed 0.8.0. 9 tests.
+- **VG1201 — Mockoon unauthenticated admin API with wildcard CORS (CVE-2026-59148 / GHSA-rqx4-3f6q-3x2v, high, CVSS 8.8).** Any web page or network peer can read secrets from and rewrite running mock environments. @mockoon/commons-server and @mockoon/cli < 9.7.0, fixed 9.7.0. 11 tests.
+- **VG1202 — libp2p PeerStore accepts attacker-signed PeerRecords for a victim peer ID (CVE-2026-86039 / GHSA-vrf4-mx87-p53w, high, CVSS 8.2).** Attacker-controlled multiaddrs are stored as certified addresses for another peer. Affected 8.0.0 – 12.0.23, fixed 12.0.24. 10 tests.
+
+CVE version-pin rule count 173 → 178.
+
 ## [3.50.0] - 2026-10-04
 
 ### Added — 3 rules for windows a coverage audit found uncovered (545 → 548 rules)
