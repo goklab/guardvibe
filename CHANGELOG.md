@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.52.0] - 2026-10-08
+
+### Added — 5 rules from daily intel: source-map-js, proxy-addr, simple-git, Seroval, Tinypool (553 → 558 rules)
+- **VG1203 — source-map-js event-loop DoS via indexed source-map section offsets (CVE-2026-93749 / GHSA-68fv-2mgg-jv7q, high, CVSS 7.5).** An unvalidated per-section offset line makes SourceMapConsumer block the event loop synchronously on a crafted map. Affected 1.0.0 – 1.2.1, fixed 1.2.2. 9 tests.
+- **VG1204 — proxy-addr IP spoofing via IPv4-mapped IPv6 trust subnet (CVE-2026-90711 / GHSA-jqcg-44mw-7w3h, critical, CVSS 9.1).** A short-prefix `::ffff:` trust subnet compiles to a mask that matches every IPv4 client, so Express's `req.ip` returns whatever the client sends in X-Forwarded-For. Affected 1.1.0 – 2.0.7, fixed 2.0.8. 10 tests.
+- **VG1205 — simple-git unsafe-operation guard bypasses (CVE-2026-102828 / GHSA-x6jw-m9v5-85vh, CVE-2026-102826 / GHSA-g4wm-2vf7-vfgr, CVE-2026-102827 / GHSA-858h-whjf-mvg5, CVE-2026-102829 / GHSA-v5rq-49vh-5v5c, critical).** `trailer.<token>.cmd`, `include.path` / `includeIf.*.path`, abbreviated long options (`--receive-p`) and the `VISUAL` editor all slip past `blockUnsafeOperationsPlugin` to command execution. simple-git up to 4.0.0, fixed 4.0.1; @simple-git/argv-parser before 2.0.1, fixed 2.0.1. 15 tests.
+- **VG1206 — Seroval `fromJSON` thenable assimilation and unbounded TypedArray allocation (CVE-2026-104846 / GHSA-p6vx-979v-rg4c, critical, CVSS 9.8; CVE-2026-104845 / GHSA-jp82-f5mq-hwhp, high).** A deserialized fulfilled Promise invokes a plugin-produced callable (bypass of GHSA-mv8w-475r-vwqw); one integer in untrusted JSON allocates an arbitrarily large TypedArray. Affected up to 1.6.2, fixed 1.6.3. 9 tests.
+- **VG1207 — Tinypool prototype-pollution gadgets to RCE (CVE-2026-104848 / GHSA-5gmw-xhrv-c9v3, CVE-2026-104849 / GHSA-85c8-ppgw-ccpr, critical).** Inherited `execArgv` / `env` worker options and the `run()` `filename` option turn a same-process prototype pollution into code execution in pool workers. Affected before 2.1.2, fixed 2.1.1 / 2.1.2. 10 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics; no existing rule covers these packages.
+
+CVE version-pin rule count 178 → 183.
+
 ## [3.51.0] - 2026-10-05
 
 ### Added — 5 rules from daily intel: figlet, @yeger/turbo-graph, Payload alt-text plugin, Mockoon, libp2p PeerStore (548 → 553 rules)
