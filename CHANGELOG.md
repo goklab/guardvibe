@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.53.0] - 2026-10-09
+
+### Added — 5 rules from daily intel: Strapi (CISA KEV), Capacitor, compression, prosemirror-view, @vue/server-renderer (558 → 563 rules)
+- **VG1208 — Strapi unauthenticated private-field filtering leaks admin password-reset tokens (CVE-2023-22894 / GHSA-jjqf-j4w7-92w8, high, CVSS 7.5, CISA KEV).** Filtering the users collection on private columns lets an unauthenticated caller infer reset tokens and take over the Super Admin account. @strapi/strapi 3.2.1 – 4.7.1, fixed 4.8.0; the 3.x line is flagged with any prefix. 10 tests.
+- **VG1209 — Capacitor remote content at the app origin via the internal HTTP proxy path (CVE-2026-103922 / GHSA-rvm3-566m-v7fv, critical, CVSS 9.3).** The navigation guard ignored the path, so a tapped link to `/_capacitor_http_interceptor_` loads attacker content with same-origin access to storage and native plugins, even with CapacitorHttp disabled. @capacitor/android and @capacitor/ios 6.0.0 – 6.2.1, 7.0.0 – 7.6.8, 8.0.0 – 8.4.2 and 8.5.0; fixed 6.2.2 / 7.6.9 / 8.4.3 / 8.5.1. 18 tests.
+- **VG1210 — compression memory-leak DoS on premature response close (CVE-2026-87776 / GHSA-vc2v-76pw-4v95, high, CVSS 7.5).** Aborted compressed responses never destroy their zlib stream, so repeated disconnects exhaust memory. Affected < 1.8.2, fixed 1.8.2. 9 tests.
+- **VG1211 — prosemirror-view XSS via pasted HTML (CVE-2026-104847 / GHSA-c8x8-7fp4-3x9w, high).** Pasting attacker-provided HTML runs script in the editor window; reaches Tiptap, Remirror, BlockNote and other ProseMirror editors. Affected < 1.42.3, fixed 1.42.3. 9 tests.
+- **VG1212 — @vue/server-renderer SSR XSS via carriage return in dynamic attribute names (GHSA-g2v6-rqmx-r4w6, high, CVSS 7.2).** The attribute-name blacklist misses CR, so user-controlled keys spread with `v-bind` break out into the server-rendered HTML. Affected < 3.5.42, fixed 3.5.42; the 3.6.0 pre-release window (< 3.6.0-rc.6) is not flagged. 9 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics; no existing rule covers these packages.
+
+CVE version-pin rule count 183 → 188.
+
 ## [3.52.0] - 2026-10-08
 
 ### Added — 5 rules from daily intel: source-map-js, proxy-addr, simple-git, Seroval, Tinypool (553 → 558 rules)
