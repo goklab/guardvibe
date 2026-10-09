@@ -94,6 +94,9 @@ describe("Auth Rules", () => {
   it("VG427: allows getUser call", () => {
     testRule("VG427", "const { data } = await supabase.auth.getUser()", false);
   });
+  it("VG427: allows getClaims call", () => {
+    testRule("VG427", "const { data } = await supabase.auth.getClaims()", false);
+  });
 
   // VG428 - Clerk unsafeMetadata Used for Authorization
   describe("VG428 - Clerk unsafeMetadata for Authorization", () => {

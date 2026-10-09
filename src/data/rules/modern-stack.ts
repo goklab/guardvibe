@@ -662,14 +662,14 @@ export const modernStackRules: SecurityRule[] = [
   },
   {
     id: "VG1007",
-    name: "Supabase Service Role Key Bypasses RLS",
+    name: "Supabase Service Role / Secret Key Bypasses RLS",
     severity: "critical",
     owasp: "A01:2025 Broken Access Control",
     description:
-      "Server-side Supabase client is initialized with the service_role key, which bypasses all Row Level Security policies. If any route handler is missing an auth check, the entire table is exposed.",
-    pattern: /createClient\s*\(\s*[\s\S]{0,100}?(?:SERVICE_ROLE|service_role)/gi,
+      "Server-side Supabase client is initialized with the service_role key or the new secret key (SUPABASE_SECRET_KEY / sb_secret_…), which bypasses all Row Level Security policies. If any route handler is missing an auth check, the entire table is exposed.",
+    pattern: /createClient\s*\(\s*[\s\S]{0,100}?(?:SERVICE_ROLE|service_role|SUPABASE_SECRET_KEY|sb_secret_)/gi,
     languages: ["javascript", "typescript"],
-    fix: "Use createServerClient() with per-request auth context, or use anon key with RLS policies. Reserve service_role for admin-only background jobs.",
+    fix: "Use createServerClient() with per-request auth context, or use anon key with RLS policies. Reserve the service_role / secret key for admin-only background jobs.",
     fixCode:
       '// BAD: service role bypasses all RLS\nconst supabase = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!);\n\n// GOOD: per-request client respects RLS\nimport { createServerClient } from "@supabase/ssr";\nconst supabase = createServerClient(url, anonKey, { cookies });',
     compliance: ["SOC2:CC6.1", "PCI-DSS:Req6.5.10", "GDPR:Art32"],
