@@ -5,6 +5,20 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.54.0] - 2026-10-10
+
+### Added — 6 rules from daily intel: vm2, GraphQL Tools, Nx, shell-quote, MCP TypeScript SDK (563 → 569 rules)
+- **VG1213 — vm2 sandbox-escape cluster, residual window 3.11.7–3.12.1 (CVE-2026-92934, CVE-2026-92953, CVE-2026-92954, CVE-2026-92955, CVE-2026-92959, CVE-2026-93605, CVE-2026-100721, CVE-2026-100722 and their duplicate GHSAs, critical, CVSS up to 10.0).** AggregateError and TypedArray-intrinsic escapes, NodeVM custom-resolution boundary bypass, allowAsync bypass and host-terminating Promise rejections, fixed across 3.11.8 / 3.12.1 / 3.12.2. Flags 3.11.7–3.12.1 exactly and any ~3.11.x (the fix is on 3.12); no overlap with VG1037 / VG1187. 12 tests.
+- **VG1214 — @graphql-tools/utils mergeDeep prototype-pollution DoS (CVE-2026-104852 / GHSA-7mx3-vvmw-hjmv, high).** Aliased `constructor` / `__proto__` keys colliding across subgraphs overwrite `Function.prototype.call` in the gateway process with one unauthenticated query. Affected <= 12.0.0, fixed 12.0.1. 10 tests.
+- **VG1215 — @graphql-tools/executor-legacy-ws TLS certificate validation disabled (CVE-2026-103921 / GHSA-6fw5-9hq8-w87g, high, CVSS 7.4).** Hardcoded `rejectUnauthorized: false` on wss:// lets a network attacker read connection credentials and tamper with subscriptions. Affected <= 1.1.34, fixed 1.1.35. 9 tests.
+- **VG1216 — Nx command injection and daemon socket RCE (GHSA-w2vw-w76x-qr89, CVE-2026-104854 / GHSA-w3vv-58gj-gw77, CVE-2026-104859 / GHSA-6vc5-vf29-ffr2, high).** `nx.json` defaultBase and remote branch names reach `/bin/sh` in `nx affected` / `nx import`; world-accessible daemon sockets let other local users run code; `@nx/docker` release config is interpolated into `sh -c`. nx 14.0.0 – 22.7.8 and 23.0.0 – 23.1.1 (fixed 22.7.9 / 23.1.2); @nx/docker 21.4.0 – 22.7.7 and 23.0.0 – 23.1.0 (fixed 22.7.8 / 23.1.1). 20 tests.
+- **VG1217 — shell-quote `quote()` command injection after a comment token (CVE-2026-102422 / GHSA-pqg4-j6r4-53mv, critical, CVSS 8.1).** A line terminator in a string after a `{ comment }` token ends the comment and the rest runs as shell input; bypass of the CVE-2026-9277 fix. Affected 1.8.4 – 1.10.x, fixed 1.11.0. 10 tests.
+- **VG1218 — MCP TypeScript SDK OAuth client sends credentials to a server-chosen authorization server (CVE-2026-104850 / GHSA-6qxp-vccf-f47h, high, CVSS 7.5).** A malicious MCP server can name its own authorization server and receive stored refresh tokens and client secrets. @modelcontextprotocol/sdk 1.12.0 – 1.30.x (fixed 1.31.0), @modelcontextprotocol/client 2.0.0 – 2.1.x (fixed 2.2.0). 13 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics; no existing rule covers these packages or windows.
+
+CVE version-pin rule count 188 → 194.
+
 ## [3.53.0] - 2026-10-09
 
 ### Added — 5 rules from daily intel: Strapi (CISA KEV), Capacitor, compression, prosemirror-view, @vue/server-renderer (558 → 563 rules)
