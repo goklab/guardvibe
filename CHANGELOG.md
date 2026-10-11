@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.55.0] - 2026-10-11
+
+### Added — 5 rules from daily intel: Payload CMS, Quasar, Next.js, sharp (569 → 574 rules)
+- **VG1219 — Payload CMS core cluster fixed in 3.90.0 (CVE-2026-105859 / GHSA-f7hx-52q9-hcrf, CVE-2026-105863 / GHSA-66wr-7vmr-p5jq, CVE-2026-105851 / GHSA-vc4h-q48j-5hcx, CVE-2026-105845 / GHSA-v49j-62m6-pgrr and ten high advisories, critical).** Unauthorized document updates, auth-collection field access bypass, auth token handling, SQL injection on SQLite/Postgres, first-register RCE, API key and hidden-field disclosure, multipart ReDoS and four upload issues. payload < 3.90.0; the 0.x–2.x lines are flagged with any prefix; 4.0.0 canary pre-releases are not flagged. 13 tests.
+- **VG1220 — Payload CMS plugins and database adapters cluster (CVE-2026-105857 / GHSA-r488-j9vj-wx3q, CVE-2026-105844 / GHSA-qf28-8hc6-vwrp, CVE-2026-105856 / GHSA-pj7x-6wpf-pgvp, CVE-2026-105806, CVE-2026-105860, CVE-2026-105867, CVE-2026-106100, CVE-2026-105850, critical).** Form builder RCE, import/export prototype pollution, SQL injection in db-sqlite / db-d1-sqlite (fixed 3.90.0) and db-postgres / db-vercel-postgres (fixed 3.73.0), MCP API key access control (3.61.0 – 3.87.x), multi-tenant authorization bypass, S3 object overwrite, MongoDB field-level write bypass (fixed 3.87.0) and ecommerce order confirmation. 27 tests.
+- **VG1221 — Quasar Framework cluster (CVE-2026-106102 / GHSA-pq96-jpmf-w254 critical, CVE-2026-106103 – 106107, high).** SSR meta-tag XSS (quasar < 2.22.0), User-Agent ReDoS (quasar <= 2.23.2), dev error page environment disclosure (@quasar/render-ssr-error <= 2.2.3), unconstrained SSR nonce and world-readable dev TLS keys (@quasar/app-vite <= 3.2.0, @quasar/ssl-certificate <= 2.0.0, @quasar/cli <= 5.0.3) and Icon Genie path traversal (@quasar/icongenie < 6.1.1). 25 tests.
+- **VG1222 — Next.js Image Optimization SSRF, residual window 16.3.6 – 16.3.7 (CVE-2026-94483 / GHSA-cjq9-62q9-8jv4, high, CVSS v4 8.3).** DNS-controllable allow-listed remote hosts steer `/_next/image` to private addresses. Affected 16.0.0 – 16.3.7, fixed 16.3.8; everything below 16.3.6 was already flagged, so only exact pins on 16.3.6 / 16.3.7 are added. 9 tests.
+- **VG1223 — sharp bundled librsvg memory corruption, residual window 0.35.4 (GHSA-wq5f-xc86-pv6w / CVE-2026-96889, high).** Crafted SVG input can reach RCE on glibc Linux; fixed in 0.35.5 (librsvg 2.63.2). Everything below 0.35.4 was already flagged by VG916 / VG1120. 7 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics; no existing rule covers these packages or windows.
+
+CVE version-pin rule count 194 → 199.
+
 ## [3.54.0] - 2026-10-10
 
 ### Added — 6 rules from daily intel: vm2, GraphQL Tools, Nx, shell-quote, MCP TypeScript SDK (563 → 569 rules)
