@@ -5,6 +5,19 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.56.0] - 2026-10-12
+
+### Added — 5 rules from daily intel: Backstage, Handlebars (574 → 579 rules)
+- **VG1224 — Backstage Scaffolder task data exposure and action input authorization bypass (CVE-2026-106501 / GHSA-g2v8-7jhw-pp8p critical CVSS 9.6, CVE-2026-106503 / GHSA-hmp2-4m7g-22cv high).** Users who can read another user's task receive internal execution data including integration credentials; template action restrictions can be bypassed. @backstage/plugin-scaffolder-backend < 3.3.1, 3.4.0, 4.0.0 – 4.0.2 and 4.0.4+, fixed 3.3.1 / 3.4.1 / 4.0.3 / 4.1.0; 0.x – 2.x flagged with any prefix. 20 tests.
+- **VG1225 — Backstage TechDocs mkdocs.yml code execution and SSRF cluster (CVE-2026-106558 / GHSA-qmw3-745m-w99g, CVE-2026-106510 / GHSA-4488-j8vj-vqqv, CVE-2026-106509 / GHSA-8w7q-29mw-gf5c, CVE-2026-106505 / GHSA-p75x-jh7p-ppcx, CVE-2026-106557 / GHSA-f7v3-xhm6-w245, CVE-2026-106455 / GHSA-q38j-6vcm-2f5m, high).** Unsafe YAML, markdown_extensions, theme and plugin configuration and a sanitizer bypass give code execution, local file reads and internal network fetches in the generator. @backstage/plugin-techdocs-node < 1.15.5 (1.14.7 is fixed for the SSRF only); 2.x not affected. 11 tests.
+- **VG1226 — Backstage backend-defaults service credential restriction bypass via plugin delegation (CVE-2026-106492 / GHSA-cq7v-rfgc-5c7v, high, CVSS 7.6).** Restricted external service credentials can perform writes through plugin delegation paths. Affected < 0.17.8, fixed 0.17.8. 10 tests.
+- **VG1227 — Backstage catalog-backend placeholder resolution SSRF (CVE-2026-106498 / GHSA-qgvj-qcf8-xq73, high, CVSS 7.7).** Crafted placeholder directives read resources outside the entity's source repository with integration credentials. Affected < 3.9.1, fixed 3.9.1; 0.x – 2.x flagged with any prefix. 9 tests.
+- **VG1228 — Handlebars JavaScript injection via AST type confusion and own-property prototype check bypass (CVE-2026-106446 / GHSA-8r5x-fm3f-whwj, CVE-2026-106445 / GHSA-p8wg-vrv2-v86f, critical, CVSS 9.8).** Untrusted AST objects passed to compile()/precompile() bypass the 4.7.9 validation; `constructor` as an own prototype property reaches the Function constructor under allowProtoMethodsByDefault. Affected 4.0.0 – 4.7.9, fixed 4.7.10. 11 tests.
+
+All patterns generated from the advisory ranges and verified against the semver semantics; no existing rule covers these packages or windows.
+
+CVE version-pin rule count 199 → 204.
+
 ## [3.55.0] - 2026-10-11
 
 ### Added — 5 rules from daily intel: Payload CMS, Quasar, Next.js, sharp (569 → 574 rules)
