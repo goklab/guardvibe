@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.57.0] - 2026-10-13
+
+### Added — 5 rules from daily intel: fast-jwt, mariadb, msgpack5, Vendure, libp2p (579 → 584 rules)
+- **VG1229 — fast-jwt algorithm confusion, unsigned token acceptance and claim-validator bypass cluster (CVE-2026-107722 / GHSA-ww5h-9m49-7xx4 critical, CVE-2026-107720 / GHSA-8wpc-h4q6-8fxv, CVE-2026-107723 / GHSA-5hjw-83fp-phq9, CVE-2026-107724 / GHSA-g3jj-5cmm-3hxx high).** Incomplete CVE-2026-34950 fix re-enables RSA→HS256 confusion; unsigned tokens accepted with an empty/null key; array payloads skip claim validators; raw public JWK treated as an HMAC secret. fast-jwt < 6.3.1. 10 tests.
+- **VG1230 — mariadb SQL injection and uninitialized memory disclosure, residual window (CVE-2026-107385 / GHSA-r3rv-jm3r-62q2, CVE-2026-107384 / GHSA-v6pj-gxxw-phfw, CVE-2026-107383 / GHSA-48qf-xh34-q73r, high).** NO_BACKSLASH_ESCAPES and SET-expansion SQL injection plus GeoJSON memory disclosure. Affected < 3.2.5, 3.3.0 – 3.3.3, 3.4.0 – 3.4.6, 3.5.0 – 3.5.3; closes the 3.2.4 / 3.3.3 / 3.4.6 / 3.5.3 pins VG1134 left open. 11 tests.
+- **VG1231 — msgpack5 streaming decoder stack exhaustion and truncated map32 crash (CVE-2026-107300 / GHSA-5x5g-h9x8-2fh9, CVE-2026-107302 / GHSA-8f34-f56x-9xph, high, CVSS 7.5).** Untrusted MessagePack streams crash the decoding process. Affected < 6.1.0, fixed 6.1.0. 8 tests.
+- **VG1232 — Vendure Admin Dashboard stored XSS via innerHTML description stripping (CVE-2026-63459 / GHSA-xhq9-whgq-49j5, high).** Entity descriptions execute event-handler payloads in administrators' sessions. @vendure/dashboard < 3.6.5, fixed 3.6.5. 8 tests.
+- **VG1233 — libp2p gossipsub StrictSign accepts attacker-signed messages as a victim RSA peer (CVE-2026-86038 / GHSA-c3gv-825q-fvmp, high).** Messages verified against the embedded key instead of the sender's peer ID. Affected 15.0.0 – 16.0.4, fixed 16.0.5. 10 tests.
+
+CVE version-pin rule count 204 → 209.
+
 ## [3.56.0] - 2026-10-12
 
 ### Added — 5 rules from daily intel: Backstage, Handlebars (574 → 579 rules)
