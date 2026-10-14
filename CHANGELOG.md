@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.58.0] - 2026-10-14
+
+### Added — 5 rules from daily intel: TinaCMS, File Viewer, BSV wallet toolbox, Flowise, Backstage (584 → 589 rules)
+- **VG1234 — TinaCMS self-hosted auth accepts tokens from any TinaCloud app (CVE-2026-63506 / GHSA-g74q-6g2f-874x, high, CVSS 8.8).** `isAuthorized` trusts the request's clientID, so any TinaCloud user can authorize against a self-hosted site. @tinacms/auth <= 1.1.3 (fixed 1.1.4) and next-tinacms-azure <= 15.0.0 (fixed 15.0.1). 15 tests.
+- **VG1235 — File Viewer legacy DOC renderer DOM XSS via unsafe hyperlink schemes (CVE-2026-91127 / GHSA-3753-m2x2-q623, high, CVSS 8.2).** Crafted .doc files render live javascript:/data: links. @file-viewer/doc <= 2.3.0 (fixed 2.3.1) and msdoc-viewer <= 0.2.1 (fixed 0.2.2). 14 tests.
+- **VG1236 — BSV wallet toolbox signs storage-supplied output scripts without checking them (CVE-2026-56744 / GHSA-36f9-7rg5-cpf8, high).** A malicious remote storage server can redirect payments. @bsv/wallet-toolbox, -client >= 1.1.47 and -mobile >= 1.3.21, all < 2.4.0, fixed 2.4.0. 14 tests.
+- **VG1237 — Flowise CSV/Airtable Agent Python validator bypass and NodeVM puppeteer sandbox escape (CVE-2026-73487 / GHSA-w7x8-q2gp-5cgg, CVE-2026-73483 / GHSA-9gvv-qjj3-2p6g, critical).** Prompt injection to data exfiltration/SSRF through the unauthenticated prediction API, and OS command execution through puppeteer.launch(). flowise and flowise-components <= 3.1.2, fixed 3.1.3; residual window next to VG929 (flowise 3.0.5 pin excluded, no overlap). 16 tests.
+- **VG1238 — Backstage OIDC provider sign-in accepts unverified email identity (CVE-2026-106488 / GHSA-826h-28h9-65hg, high).** Email-based resolution lets a provider account claim another catalog user. @backstage/plugin-auth-backend-module-oidc-provider < 0.4.20, fixed 0.4.20. 10 tests.
+
+CVE version-pin rule count 209 → 214.
+
 ## [3.57.0] - 2026-10-13
 
 ### Added — 5 rules from daily intel: fast-jwt, mariadb, msgpack5, Vendure, libp2p (579 → 584 rules)
