@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.59.0] - 2026-10-15
+
+### Added — 5 rules from daily intel: Handlebars, shell-quote, Backstage Scaffolder, OpenZeppelin Confidential Contracts, Backstage Bitbucket (589 → 594 rules)
+- **VG1239 — Handlebars own-property prototype check bypass, residual window 3.x (CVE-2026-106445 / GHSA-p8wg-vrv2-v86f, critical).** `constructor` is an own property of prototype objects, so templates can reach the Function constructor. The advisory covers >= 3.0.0; VG1228 flagged only 4.x. The end-of-life 3.x line has no fix and is flagged with any prefix. 9 tests.
+- **VG1240 — shell-quote quote() command injection via newline in operator tokens, residual window 1.1.0–1.8.3 (CVE-2026-9277 / GHSA-w7jw-789q-3m8p, critical, CVSS 8.1).** Cited as background by VG1217 but not flagged by any rule. Fixed 1.8.4. 9 tests.
+- **VG1241 — Backstage Scaffolder task state validation file access, residual window (CVE-2026-106500 / GHSA-xvgh-hmx8-9xxf, high, CVSS 8.5).** Fixed only in 4.1.0; closes the 3.3.1+, 3.4.1+ and 4.0.3 window VG1224 leaves open (no overlap). 12 tests.
+- **VG1242 — OpenZeppelin Confidential Contracts unauthorized encrypted handle disclosure (GHSA-29h2-jr22-frmh, high).** Malicious ERC-7984 tokens or transfer recipients can recover private values. @openzeppelin/confidential-contracts < 0.3.2, < 0.4.2, < 0.5.2. 12 tests.
+- **VG1243 — Backstage Bitbucket pull-request Scaffolder actions path validation bypass (CVE-2026-106486 / GHSA-g8rx-f7m5-7794, high, CVSS 8.5).** bitbucket-cloud < 0.3.10 and bitbucket-server < 0.2.25. 12 tests.
+
+CVE version-pin rule count 214 → 219.
+
 ## [3.58.0] - 2026-10-14
 
 ### Added — 5 rules from daily intel: TinaCMS, File Viewer, BSV wallet toolbox, Flowise, Backstage (584 → 589 rules)
