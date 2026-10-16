@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.60.0] - 2026-10-16
+
+### Added — 5 rules from daily intel: TanStack Start, OpenNext Cloudflare, Claude Code, Ghost, Backstage Scaffolder (594 → 599 rules)
+- **VG1244 — TanStack Start unauthenticated reflected XSS via server-function responses (CVE-2026-102989 / GHSA-qx66-fv34-fjm8, critical, CVSS 9.3).** A crafted server-function link makes the app return attacker-controlled HTML from its own origin. Every listed package gets a branch: @tanstack/start-server-core < 1.169.39, react-start < 1.168.60, solid-start < 1.168.57, vue-start < 1.168.56, all from 1.143.12. 15 tests.
+- **VG1245 — OpenNext Cloudflare cache interception middleware bypass via percent-encoded paths (CVE-2026-100409 / GHSA-2vc4-c4r6-p6v6, high, CVSS 7.5).** An encoded path skips the middleware matcher, then is decoded into a protected route's cache key. @opennextjs/cloudflare >= 0.3.0, < 1.20.2. 9 tests.
+- **VG1246 — Claude Code plugin hash pin bypass, residual window 2.1.64–2.1.178 (CVE-2026-86063 / GHSA-pq7j-f95f-qfcv, high).** A branch named like the pinned SHA wins the checkout. Fixed in 2.1.179; VG927 already flags < 2.1.64, so this rule covers only the rest (no overlap). 7 tests.
+- **VG1247 — Ghost RCE / stored XSS / invite token disclosure cluster (CVE-2026-105642, -105643, -105649, -105650, -105651, -105675, -105677, -105679, high).** Eight advisories, union >= 2.5.0, < 6.67.0, all fixed in 6.67.0. 9 tests.
+- **VG1248 — Backstage confluence-to-markdown Scaffolder action path traversal (CVE-2026-106560 / GHSA-2cmg-v53w-8xfp, high, CVSS 7.1).** Generated content can be written outside the task workspace. < 0.3.25. 9 tests.
+
+CVE version-pin rule count 219 → 224.
+
 ## [3.59.0] - 2026-10-15
 
 ### Added — 5 rules from daily intel: Handlebars, shell-quote, Backstage Scaffolder, OpenZeppelin Confidential Contracts, Backstage Bitbucket (589 → 594 rules)
