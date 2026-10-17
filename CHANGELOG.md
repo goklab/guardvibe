@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.61.0] - 2026-10-17
+
+### Added — 5 rules from daily intel: Backstage Sentry, Actual Sync Server, JHipster, PraisonAI, TinaCMS (599 → 604 rules)
+- **VG1249 — Backstage Sentry Scaffolder actions SSRF and credential disclosure (CVE-2026-106459 / GHSA-g734-fhp4-7mfp, high, CVSS 8.5).** A per-action apiBaseUrl sends the Sentry integration token to an arbitrary host. @backstage/plugin-scaffolder-backend-module-sentry >= 0.3.0, < 0.3.8. 8 tests.
+- **VG1250 — Actual Sync Server CORS proxy GitHub allowlist prefix bypass (CVE-2026-57449 / GHSA-m62c-5q34-f3cf, high).** A startsWith() check without a path boundary lets authenticated users read private repositories with the server's GitHub token. @actual-app/sync-server <= 26.6.0, fixed 26.7.0. 8 tests.
+- **VG1251 — JHipster generated apps reactive sort SQL injection and Blob ContentType stored XSS (CVE-2026-107375 / GHSA-r223-96jv-q533, CVE-2026-107303 / GHSA-9ffp-22j7-56r2, high, CVSS 8.8).** Both packages get a branch: generator-jhipster < 9.4.0 and react-jhipster <= 1.0.3 (fixed 1.1.0). 13 tests.
+- **VG1252 — PraisonAI AgentOS unauthenticated network-exposed default (CVE-2026-61426 / GHSA-6wjp-v33h-5cvq, high, CVSS 8.6).** Binds 0.0.0.0 with no API key, exposing agent system prompts and invocation. praisonai (npm) < 1.7.3. 7 tests.
+- **VG1253 — TinaCMS admin preview iframe loads an attacker origin from the URL fragment (CVE-2026-108261 / GHSA-x34j-47hf-4xg7, critical, CVSS 9.3).** One link opened by an editor gives read/write access to the content API. tinacms <= 3.13.0 (fixed 3.14.0) and @tinacms/app <= 2.5.13 (fixed 2.5.14). 13 tests.
+
+CVE version-pin rule count 224 → 229.
+
 ## [3.60.0] - 2026-10-16
 
 ### Added — 5 rules from daily intel: TanStack Start, OpenNext Cloudflare, Claude Code, Ghost, Backstage Scaffolder (594 → 599 rules)
