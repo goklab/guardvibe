@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.62.0] - 2026-10-18
+
+### Added — 2 rules from daily intel: Qwik, TinaCMS CLI (604 → 606 rules)
+- **VG1254 — Qwik server crash via resource thenable in the qwik-json request body (CVE-2026-84994 / GHSA-x586-xvc8-g7q6, high, CVSS 4.0 8.7).** One unauthenticated request leaves an orphaned rejection that terminates the Node process. @builder.io/qwik < 1.20.0; the @qwik.dev/core pre-release line (< 2.0.0-beta.37) is named in the description but not version-pinned. 10 tests.
+- **VG1255 — TinaCMS CLI code injection via unescaped Git branch name in the generated client (CVE-2026-108259 / GHSA-pwhx-cvv3-qj5c, high, CVSS 8.2).** A branch name with a quote closes the URL literal in client.ts and runs code at build/import time. @tinacms/cli <= 2.7.0, fixed 3.0.0. 9 tests.
+
+CVE version-pin rule count 229 → 231.
+
 ## [3.61.0] - 2026-10-17
 
 ### Added — 5 rules from daily intel: Backstage Sentry, Actual Sync Server, JHipster, PraisonAI, TinaCMS (599 → 604 rules)
