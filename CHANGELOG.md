@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.63.0] - 2026-10-21
+
+### Added — 5 rules from daily intel: MCP TypeScript SDK, follow-redirects, markdown-it, Vite / launch-editor, Angular router (606 → 611 rules)
+- **VG1256 — MCP TypeScript SDK HTTP server memory exhaustion, cross-session task access and cross-client message delivery (CVE-2026-111768 / GHSA-46jr-4wx8-v453, CVE-2026-111767 / GHSA-22jm-h49p-29qw, CVE-2026-111770 / GHSA-jm63-cq47-j5jp, high, CVSS 8.6).** One request exhausts the heap; shared task stores and shared server instances leak data across clients. @modelcontextprotocol/sdk >= 1.3.0, < 1.32.0 and @modelcontextprotocol/server >= 2.0.0, < 2.3.0. 14 tests.
+- **VG1257 — follow-redirects credential headers forwarded on cross-origin redirects (CVE-2026-111756 / GHSA-q3jh-wrc6-jgq8, CVE-2026-111755 / GHSA-8r9p-f939-6h3c, high, CVSS 4.0 8.2).** Array-form headers and unescaped sensitiveHeaders names bypass credential stripping. follow-redirects 1.16.0, fixed 1.16.1. 7 tests.
+- **VG1258 — markdown-it quadratic-time rendering via unclosed link reference definitions and smartquotes (CVE-2026-111758 / GHSA-gfr2-rv44-r23c, CVE-2026-111759 / GHSA-r7fv-28h4-cvq7, high, CVSS 7.5).** markdown-it < 14.3.3 and 15.0.0–15.0.2. 12 tests.
+- **VG1259 — Vite / launch-editor dev-server command injection on Windows (CVE-2026-112942 / GHSA-587h-7wmj-h5pm, CVE-2026-112943 / GHSA-698v-4r3x-3vcv, high, CVSS 4.0 7.5).** Every listed package and line gets a branch: launch-editor <= 2.14.1, vite <= 6.4.3 / 7.0–7.3.6 / 8.0–8.1.5 / 8.2.0–8.2.3 / 8.3.0–8.3.2, vite-plus <= 1.0.0. 26 tests.
+- **VG1260 — Angular router SSR DoS via RouterLink query-param retention and unmatched empty-path outlets (CVE-2026-111751 / GHSA-57xq-rjx2-v5xh, CVE-2026-111752 / GHSA-62vg-58rm-qff7, high, CVSS 4.0 8.2).** @angular/router < 20.3.33, 21.0–21.2.24, 22.0–22.2.0; the end-of-life <= 19.x lines are flagged in full. 14 tests.
+
+CVE version-pin rule count 231 → 236.
+
 ## [3.62.0] - 2026-10-18
 
 ### Added — 2 rules from daily intel: Qwik, TinaCMS CLI (604 → 606 rules)
