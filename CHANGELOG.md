@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.64.0] - 2026-10-22
+
+### Added — 2 rules from daily intel: Storybook, ApostropheCMS (611 → 613 rules)
+- **VG1261 — Storybook dev server code injection from a malicious website via missing origin validation (CVE-2026-114125 / GHSA-f2ph-cmg5-wxc8, critical, CVSS 4.0 9.4).** A website the developer visits while `storybook dev` runs can change project files and, under further conditions, get them executed. Every listed package and line gets a branch: storybook 8.0–8.6.18 / 9.0–9.1.20 / 10.0–10.6.1, @storybook/core, core-server and experimental-addon-test 8.0–8.6.18, @storybook/addon-vitest 9.0–9.1.20 / 10.0–10.6.1, @storybook/addon-mcp 10.6.0–10.6.1; the 11.0.0 alpha prereleases are left out. 34 tests.
+- **VG1262 — ApostropheCMS denial of service via pre-auth big-upload import, leaked CSV upload temp files and prototype-member deletion (CVE-2026-113711 / GHSA-86wm-68pq-5jwq, CVE-2026-113658 / GHSA-qhcq-9pm2-c9w9, CVE-2026-113666 / GHSA-j5rq-xfvr-p969, high, CVSS 7.5).** apostrophe < 4.33.0, @apostrophecms/import-export < 3.7.0, @apostrophecms/db-connect < 1.1.0; apostrophe 3.x and older have no fix and are flagged in full. 20 tests.
+
+CVE version-pin rule count 236 → 238.
+
 ## [3.63.0] - 2026-10-21
 
 ### Added — 5 rules from daily intel: MCP TypeScript SDK, follow-redirects, markdown-it, Vite / launch-editor, Angular router (606 → 611 rules)
