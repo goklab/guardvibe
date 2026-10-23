@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.65.0] - 2026-10-23
+
+### Added — 5 rules from daily intel: Next.js, DOMPurify, Sentry Next.js SDK, toml (613 → 618 rules)
+- **VG1263 — Next.js Image Optimization RCE, `use cache` typed-array RCE and Server Actions DoS, residual window (GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr, CVE-2026-94482 / GHSA-p3m5-59mp-jv5r, critical, CVSS 4.0 9.5).** All three are fixed in 15.5.28 and 16.4.1. Older pins were already flagged by earlier Next.js rules; this closes exact pins on 15.5.24–15.5.27, 16.3.8+ and 16.4.0, ~16.3.x, and ^12.0 / ^12.1 on the end-of-life 12.x line. 15 tests.
+- **VG1264 — DOMPurify SAFE_FOR_TEMPLATES bypass via split template expressions in attached shadow roots (GHSA-cg2g-xh64-v4q7, critical, CVSS 4.0 9.2).** dompurify 3.4.5–3.4.16 (3.4.4 is VG1085), fixed 3.4.17. 8 tests.
+- **VG1265 — DOMPurify IN_PLACE hook-detached subtree keeps event handlers armed (GHSA-mrv2-3pqr-j5jr, incomplete fix for GHSA-p98j-92pf-mc4p, high, CVSS 4.0 7.6).** Every dompurify release below 3.4.4; ^0–^2 have no fix on their major and are flagged. 11 tests.
+- **VG1266 — @sentry/nextjs middleware bypass under the tunnel route (CVE-2026-114139 / GHSA-mchm-gjx6-7h55, critical, CVSS 4.0 9.1).** @sentry/nextjs 9.36.0–9.47.1 and 10.0.0–10.75.1; the 11.0.0 prereleases are left out. 15 tests.
+- **VG1267 — toml quadratic and unbounded-integer DoS in toml.parse() (CVE-2026-114141 / GHSA-4qx8-w7c3-pj3p, CVE-2026-114143 / GHSA-9j65-hcg3-gc64, CVE-2026-114144 / GHSA-9qmh-m7c6-f92p, high, CVSS 4.0 8.7).** Residual window over VG1157: toml 4.2.0–5.0.0 and ^4.x, fixed 5.0.1. 10 tests.
+
+CVE version-pin rule count 238 → 243.
+
 ## [3.64.0] - 2026-10-22
 
 ### Added — 2 rules from daily intel: Storybook, ApostropheCMS (611 → 613 rules)
