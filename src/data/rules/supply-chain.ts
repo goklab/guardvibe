@@ -273,7 +273,7 @@ export const supplyChainRules: SecurityRule[] = [
     description:
       "Code, configuration, or dependency references the Session/Oxen messenger file-relay endpoint filev2.getsession.org (or another *.getsession.org host) as a fetch target, base URL, or hardcoded constant. This endpoint is the documented exfiltration channel for two distinct 2026 supply-chain campaigns: @tanstack mass malware (CVE-2026-45321, VG1056) and the Miasma @redhat-cloud-services compromise (RHSB-2026-006, VG1074). A web/server codebase has no legitimate reason to talk to this host; presence is a high-confidence Indicator of Compromise. Audit the host running this code for credential rotation candidates immediately.",
     pattern:
-      /\b(?:[a-z0-9-]+\.)?getsession\.org\b/gi,
+      /(?:(?<![a-z0-9-])[a-z0-9-]+\.|\b)getsession\.org\b/gi,
     languages: ["javascript", "typescript", "json"],
     fix: "Treat the host running this code as potentially compromised. Block *.getsession.org egress at the firewall, rotate every cloud, npm, GitHub, and SSH credential reachable from the host, wipe and reissue the runner if it is a CI box, and search the lockfile for the upstream package that introduced the reference. Pin away from that package or use overrides to evict it. Search git history for when the reference appeared to estimate the exposure window.",
     fixCode:
