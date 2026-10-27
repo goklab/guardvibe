@@ -5,6 +5,22 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.66.0] - 2026-10-27
+
+### Added — 6 rules from daily intel: zod, @graphql-tools/utils, undici, body-parser, multer, @azure/msal-node (618 → 624 rules)
+- **VG1268 — zod unbounded array issue accumulation exhausts memory (CVE-2023-54404 / GHSA-mrhx-c7xc-m3w5, high, CVSS 4.0 8.2).** Every release below 4.6.6; zod 3 has no fixed release, so ^0–^3 are flagged and ^4 is not. 10 tests.
+- **VG1269 — @graphql-tools/utils mergeIncrementalResult prototype pollution via non-primitive path segments (CVE-2026-114604 / GHSA-c4qx-w738-7hr3, high, CVSS 4.0 8.4).** Residual pin 12.0.1 over VG1214, fixed 12.0.2. 6 tests.
+- **VG1270 — undici fetch() process crash on excessive content-encodings (CVE-2026-109869 / GHSA-xjj6-f33q-929c, high, CVSS 7.5).** Residual window over VG1173: 6.28.1–6.29.0, 7.29.1–7.30.0 and 8.10.2–8.12.1, plus ~6.28, ~7.29, ~8.10 and ~8.11; fixed 6.29.1 / 7.30.1 / 8.12.2. 13 tests.
+- **VG1271 — body-parser uncaught decoder error on trailing bytes after a compressed body (CVE-2026-111181 / GHSA-27r3-jxmh-p828, high, CVSS 7.5).** Below 1.20.9 and 2.0.0–2.3.x, fixed 1.20.9 / 2.4.0. 11 tests.
+- **VG1272 — multer process crash from a pending async fileFilter after request teardown (CVE-2026-113872 / GHSA-q7qp-rjg7-q26m, high, CVSS 7.5).** Residual window over VG1142: 2.3.x–2.4.x, fixed 2.5.0. 7 tests.
+- **VG1273 — @azure/msal-node auth code flow discloses parameters to an attacker-controlled endpoint (CVE-2026-109461 / GHSA-xcx6-jx8p-x3h5, high, CVSS 7.5).** 5.x–7.0.x, fixed 7.1.0; 5.0.0 prereleases left out. 10 tests.
+
+### Changed
+- zod 4.6.7 and body-parser 2.4.0 in the dependency tree.
+- VG1075 pattern anchored to the start of a hostname run; same matches, no quadratic scan on long label runs.
+
+CVE version-pin rule count 243 → 249.
+
 ## [3.65.0] - 2026-10-23
 
 ### Added — 5 rules from daily intel: Next.js, DOMPurify, Sentry Next.js SDK, toml (613 → 618 rules)
