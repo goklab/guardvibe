@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.67.0] - 2026-10-30
+
+### Added — 5 rules from daily intel: git-diff, happy-dom, postal-mime, electron, undici (624 → 629 rules)
+- **VG1274 — git-diff OS command injection via crafted strings passed to gitDiff() (CVE-2026-110634 / GHSA-6wfj-92cw-88vg, critical, CVSS 9.8).** Every release below 2.0.7, fixed 2.0.7; ^0 / ^1 are flagged, ^2 is not. 10 tests.
+- **VG1275 — happy-dom ESM import-alias code injection, export-name code injection and iframe / stylesheet SSRF (CVE-2026-115895 / GHSA-834v-8h66-3h79, CVE-2026-33943 / GHSA-6q6h-j7hj-3r64, CVE-2026-118660 / GHSA-c8p4-j97h-3vg8, high, CVSS 8.8).** Every release below 21.0.4 is affected by at least one; ^0–^20 are flagged, ^21 is not. 10 tests.
+- **VG1276 — postal-mime quadratic CPU on long runs of RFC 2047 encoded words (GHSA-f2hq-32vh-53cc, high, CVSS 7.5).** 3.0.0–4.0.7, fixed 4.0.8. 10 tests.
+- **VG1277 — Electron trusts compromised eMudhra intermediate certificates (CVE-2026-115570 / GHSA-jr5w-w6x2-84p9, high, CVSS 7.4).** Residual window over VG1179: the end-of-life 41 line, 42.10.0–42.11.15, 43.5.0–43.8.0 and 44.0.0–44.9.0; fixed 42.11.16 / 43.8.1 / 44.9.1; prerelease pins left out. 19 tests.
+- **VG1278 — undici Agent drops custom TLS checkServerIdentity and TLS 1.2 renegotiation crash (CVE-2026-109383 / GHSA-2m5v-pch6-74hx, CVE-2026-87018 / GHSA-qrxm-fqhp-jwvm, high, CVSS 7.5).** Residual window over VG918 / VG919: the never-fixed 5.x line (exact, ~ and ^) and ~6.11.x; fixed 6.29.1 / 7.30.1 / 8.12.2. 11 tests.
+
+CVE version-pin rule count 249 → 254.
+
 ## [3.66.0] - 2026-10-27
 
 ### Added — 6 rules from daily intel: zod, @graphql-tools/utils, undici, body-parser, multer, @azure/msal-node (618 → 624 rules)
