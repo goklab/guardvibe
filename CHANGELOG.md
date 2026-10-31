@@ -5,6 +5,20 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.68.0] - 2026-10-31
+
+### Added — 5 rules from daily intel: @modelcontextprotocol/node + hono, tinymce, dd-trace, ckeditor5, seroval (629 → 634 rules)
+- **VG1279 — MCP TypeScript SDK HTTP adapters accept unbounded request bodies and JSON-RPC batches (GHSA-f897-62hf-6gxq, high, CVSS 7.5).** Residual window over VG1256: @modelcontextprotocol/node 2.0.x (exact and ~2.0) and @modelcontextprotocol/hono 2.0.0; fixed 2.1.0 / 2.0.1. 11 tests.
+- **VG1280 — TinyMCE media plugin data-mce-object stored XSS (CVE-2026-116675 / GHSA-mf2p-h6hf-fcwm, high, CVSS 4.0 8.5).** Residual window over VG1079: 7.9.3 and 8.5.1–8.9.2, plus ~8.5–~8.8; fixed 7.9.4 / 8.9.3. 13 tests.
+- **VG1281 — dd-trace ReDoS in the default URL query-string obfuscation regex (CVE-2026-116693 / GHSA-x94g-w73q-hpcw, high, CVSS 4.0 8.7).** 2.0.0–5.131.0 and 6.0.0–6.20.0, fixed 5.131.1 / 6.20.1; ^2–^4 are flagged, ^5 / ^6 are not. 15 tests.
+- **VG1282 — CKEditor 5 engine XSS through es-toolkit prototype pollution in style attributes (CVE-2026-116688 / GHSA-rh54-vffm-5fvp, high, CVSS 8.1).** ckeditor5 and @ckeditor/ckeditor5-engine 45.0.0–47.7.3 and 48.0.0–48.5.0, fixed 47.7.4 / 48.5.1; ^45 / ^46 are flagged. 16 tests.
+- **VG1283 — Seroval fromJSON unchecked array length / sequence index DoS and async-iterator callable invocation (CVE-2026-116581 / GHSA-97r2-qh9m-474h, CVE-2026-116584 / GHSA-wp97-x4hv-qvhp, CVE-2026-116580 / GHSA-7rv5-mrxv-xcr9, high, CVSS 7.5).** Residual window over VG1206: exact pins 1.6.3–1.6.7, fixed 1.6.8. 9 tests.
+
+### Changed
+- glob 14.0.2 and minimatch 11.0.1 in the dev dependency tree.
+
+CVE version-pin rule count 254 → 259.
+
 ## [3.67.0] - 2026-10-30
 
 ### Added — 5 rules from daily intel: git-diff, happy-dom, postal-mime, electron, undici (624 → 629 rules)
