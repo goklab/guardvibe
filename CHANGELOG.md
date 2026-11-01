@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.69.0] - 2026-11-01
+
+### Added — 5 rules from daily intel: systeminformation, re2js, @graphql-tools/executor-legacy-ws, vue-i18n, graphql-scalars (634 → 639 rules)
+- **VG1284 — systeminformation Windows command injection in services() via Unicode curly quotes (CVE-2026-116576 / GHSA-3f7j-7jwc-fxfj, high, CVSS 7.8).** Residual window over VG1066: everything before 4.17.0 (exact, ~ and ^ — 0.x–4.x never get the fix) and 5.31.6–5.33.15 with ~5.31 / ~5.32; fixed 5.33.16. 15 tests.
+- **VG1285 — RE2JS quadratic-time lookbehind matching DoS (CVE-2026-116795 / GHSA-gg6h-894w-4m9c, high, CVSS 7.5).** 2.2.0–2.8.6, fixed 2.8.7. 9 tests.
+- **VG1286 — @graphql-tools/executor-legacy-ws per-request connectionParams replayed in later callers' connection_init (CVE-2026-118665 / GHSA-434m-5hcj-pxf3, high, CVSS 4.0 8.2).** Residual pin 1.1.35 over VG1215, fixed 1.1.36. 7 tests.
+- **VG1287 — Vue I18n escapeParameter XSS through iframe srcdoc (CVE-2026-118257 / GHSA-83rm-6c8r-g728, high, CVSS 7.2).** vue-i18n, petite-vue-i18n, @intlify/core-base, @intlify/core, @intlify/vue-i18n-core and @intlify/shared at 9.14.5, 10.0.8 and 11.1.10–11.4.13, fixed 11.4.14; the 12.0.0-alpha.4 prerelease pin is left out. 18 tests.
+- **VG1288 — graphql-scalars PhoneNumber scalar exponential-backtracking ReDoS (CVE-2026-115887 / GHSA-x8rm-f576-gq67, high, CVSS 7.5).** 1.24.1–2.0.0, fixed 2.0.1; ^1.24.1+ is flagged, ^2 is not. 11 tests.
+
+CVE version-pin rule count 259 → 264.
+
 ## [3.68.0] - 2026-10-31
 
 ### Added — 5 rules from daily intel: @modelcontextprotocol/node + hono, tinymce, dd-trace, ckeditor5, seroval (629 → 634 rules)
