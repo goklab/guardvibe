@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.70.0] - 2026-11-02
+
+### Added — 5 rules from daily intel: highcharts, decode-uri-component, follow-redirects, node-forge, joi + @hapi/joi (639 → 644 rules)
+- **VG1289 — Highcharts chart-configuration XSS and Object.prototype pollution cluster (CVE-2026-118246 / GHSA-35rr-xwfh-x789, CVE-2026-118251 / GHSA-5793-x2q3-c3q7, CVE-2026-118244 / GHSA-65hg-cf3f-5m39, CVE-2026-116796 / GHSA-mw4f-gj5x-6xr4, CVE-2026-118250 / GHSA-rmqc-xvr3-v46c, CVE-2026-118249 / GHSA-gfvx-2c2g-38wq, high, CVSS 4.0 up to 8.4).** Every release below 11.4.9 is affected by at least one, plus 12.0.0–12.6.1 and 13.0.0–13.1.0; fixed 11.4.9 / 12.6.2 / 13.1.1; ^10 and older are flagged, ^11–^13 are not. 19 tests.
+- **VG1290 — decode-uri-component quadratic replacement of percent-encoded runs DoS (CVE-2026-118664 / GHSA-qr28-fpjm-wq7f, high, CVSS 4.0 8.2).** Up to 0.5.0, fixed 0.5.1; ^0.0–^0.4 are flagged, ^0.5 is not. 10 tests.
+- **VG1291 — follow-redirects cross-realm sensitiveHeaders array discarded (CVE-2026-116689 / GHSA-mrwp-f3q8-3g9p, high, CVSS 4.0 8.2).** Residual pin 1.16.1 over VG1257, fixed 1.16.2. 8 tests.
+- **VG1292 — node-forge PEM ReDoS, PKCS#12 MAC forgery, TLS record DoS and basicConstraints bypass (CVE-2026-118779 / GHSA-7wch-p9px-956x, CVE-2026-118782 / GHSA-jc66-7q78-782g, CVE-2026-119188 / GHSA-8hrf-8g6f-7xwp, CVE-2026-119187 / GHSA-hqq3-7jhf-c5jx, CVE-2026-119190 / GHSA-5x38-2vff-x55p, high, CVSS 7.5).** Up to 1.4.0, fixed 1.4.1; the 0.x lines are flagged with ^ and ~, ^1 is not. 9 tests.
+- **VG1293 — joi string().email({ multiple: true }) quadratic split DoS (CVE-2026-118772 / GHSA-4528-x5fx-h6hg, high, CVSS 7.5).** Residual window over VG1174: joi 17.1.1+ on 17.1.x, 17.13.7–17.13.8 and 18.2.6–18.3.0 with ~17.1 / ~18.2, fixed 17.13.9 / 18.3.1; plus the never-fixed @hapi/joi 16.x–17.x (exact, ~ and ^). 23 tests.
+
+CVE version-pin rule count 264 → 269.
+
 ## [3.69.0] - 2026-11-01
 
 ### Added — 5 rules from daily intel: systeminformation, re2js, @graphql-tools/executor-legacy-ws, vue-i18n, graphql-scalars (634 → 639 rules)
