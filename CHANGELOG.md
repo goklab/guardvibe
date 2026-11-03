@@ -5,6 +5,20 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.71.0] - 2026-11-03
+
+### Added — 5 rules from daily intel: @hapi/content + content, @socket.io/cluster-engine, nodejs-whisper, obsidian-tc (644 → 649 rules)
+- **VG1294 — @hapi/content quadratic Content-Disposition parameter parsing DoS (CVE-2026-119202 / GHSA-8494-f6mr-cjpv, high, CVSS 7.5).** Up to 6.0.2, fixed 6.0.3; every line below 6 is flagged with ^ and ~, ^6 is not; plus the deprecated, never-fixed `content` 3.0.6–4.0.6. 15 tests.
+- **VG1295 — @socket.io/cluster-engine prototype pollution via unsafe client session lookup (CVE-2026-102600 / GHSA-wfpm-5gcm-94cg, high, CVSS 7.5).** Exact pin 0.1.0, fixed 0.1.1; ^0.1 and ~0.1 are not flagged. 7 tests.
+- **VG1296 — nodejs-whisper OS command injection via crafted audio file paths (CVE-2026-110644 / GHSA-2f48-3555-fpx6, critical, CVSS 9.8).** Below 0.4.0, fixed 0.4.0; ^0.0–^0.3 and ~0.0–~0.3 are flagged. 8 tests.
+- **VG1297 — obsidian-tc MCP server DNS-rebinding drive-by and cross-vault token access (CVE-2026-77363 / GHSA-pqh8-4pj7-32xx, CVE-2026-77366 / GHSA-84c9-qqpq-2pq5, critical, CVSS 9.9).** Below 1.3.1, fixed 1.3.1; ^1 is not flagged. 10 tests.
+- **VG1298 — obsidian-tc unowned note overwrite and declined HITL confirmation bypass (CVE-2026-115478 / GHSA-r3g7-r4hr-m258, CVE-2026-115477 / GHSA-737x-cwfr-5vvc, high, CVSS 4.0 7.1).** 1.3.1–1.31.3 above VG1297, fixed 1.31.4; ~1.3–~1.30 are flagged, ^1 and ~1.31 are not. 10 tests.
+
+### Changed
+- VG1261 (Storybook dev server) now also cites the companion advisory CVE-2026-114126 / GHSA-px85-f4q5-jh77, which has the same affected and fixed versions; the pattern is unchanged.
+
+CVE version-pin rule count 269 → 274.
+
 ## [3.70.0] - 2026-11-02
 
 ### Added — 5 rules from daily intel: highcharts, decode-uri-component, follow-redirects, node-forge, joi + @hapi/joi (639 → 644 rules)
