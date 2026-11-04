@@ -95,16 +95,16 @@ export const authRules: SecurityRule[] = [
   },
   {
     id: "VG427",
-    name: "Supabase getSession Instead of getUser",
+    name: "Supabase getSession Instead of getClaims / getUser",
     severity: "medium",
     owasp: "A07:2025 Sensitive Data Exposure",
     description:
-      "Using supabase.auth.getSession() on the server side is insecure. The JWT can be spoofed. Use getUser() which validates the token with Supabase Auth server.",
+      "Using supabase.auth.getSession() on the server side is insecure: it returns the session from the request cookies without verifying the JWT, so the user it reports can be spoofed. Use getClaims(), which verifies the token's signature against the project's JSON Web Key Set (and falls back to the Auth server when the project has no asymmetric signing keys), or getUser(), which validates the token with the Supabase Auth server on every call.",
     pattern: /supabase\.auth\.getSession\s*\(/g,
     languages: ["javascript", "typescript"],
-    fix: "Use supabase.auth.getUser() on the server side.",
+    fix: "On the server, use supabase.auth.getClaims() (Supabase's current recommendation — verified against the JWKS, usually without a network round-trip) or supabase.auth.getUser() when you need the full, freshly fetched user record.",
     fixCode:
-      '// CORRECT: validates with Auth server\nconst { data: { user }, error } = await supabase.auth.getUser();\nif (error || !user) throw new Error("Unauthorized");',
+      '// CORRECT: verifies the JWT signature\nconst { data, error } = await supabase.auth.getClaims();\nif (error || !data?.claims) throw new Error("Unauthorized");\nconst userId = data.claims.sub;\n\n// Also correct: validates with the Auth server on every call\nconst { data: { user } } = await supabase.auth.getUser();',
     compliance: ["SOC2:CC6.6"],
   },
 

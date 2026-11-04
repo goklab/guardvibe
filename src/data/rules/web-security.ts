@@ -48,7 +48,7 @@ export const webSecurityRules: SecurityRule[] = [
     severity: "critical",
     owasp: "A07:2025 Sensitive Data Exposure",
     description: ".env file with secrets appears to be tracked by git. Secrets will be visible in repository history.",
-    pattern: /^(?:SUPABASE_SERVICE_ROLE_KEY|STRIPE_SECRET_KEY|DATABASE_URL|RESEND_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|CLERK_SECRET_KEY|AUTH_SECRET|NEXTAUTH_SECRET)\s*=\s*\S{10,}/gm,
+    pattern: /^(?:SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY|STRIPE_SECRET_KEY|DATABASE_URL|RESEND_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|CLERK_SECRET_KEY|AUTH_SECRET|NEXTAUTH_SECRET)\s*=\s*\S{10,}/gm,
     languages: ["shell"],
     fix: "Add .env* to .gitignore immediately. Rotate any exposed secrets.",
     fixCode: "# .gitignore\n.env\n.env.*\n.env.local\n!.env.example",

@@ -839,7 +839,7 @@ export function analyzeCode(
     // Skip VG430 (Supabase anon key on server) when file properly separates client/server
     // or is a React Native/mobile client (anon key with AsyncStorage is correct pattern)
     if (rule.id === "VG430") {
-      const hasServiceRole = /(?:SUPABASE_SERVICE_ROLE|service_role|serviceRole)/i.test(code);
+      const hasServiceRole = /(?:SUPABASE_SERVICE_ROLE|SUPABASE_SECRET_KEY|service_role|serviceRole)/i.test(code);
       const hasClientServer = /(?:createClient|createServerClient|createBrowserClient)/i.test(code) && hasServiceRole;
       if (hasClientServer) continue;
       const isMobileClient = isReactNative || /AsyncStorage/i.test(code) || /EXPO_PUBLIC_/i.test(code);
@@ -853,7 +853,7 @@ export function analyzeCode(
     // Naming variants covered: createServerClient (Supabase docs), createServerSupabaseClient,
     // createServiceClient / createServiceRoleClient (common project conventions),
     // createAdminClient (Clerk-adjacent and DIY).
-    if (rule.id === "VG448" && /(?:SUPABASE_SERVICE_ROLE|service_role|createServerSupabaseClient|createServerClient|createService(?:Role)?Client|createAdminClient|createServiceSupabase)/i.test(code)) continue;
+    if (rule.id === "VG448" && /(?:SUPABASE_SERVICE_ROLE|SUPABASE_SECRET_KEY|service_role|createServerSupabaseClient|createServerClient|createService(?:Role)?Client|createAdminClient|createServiceSupabase)/i.test(code)) continue;
 
     // VG872/VG873 legitimate package filtering is handled at match level below
 

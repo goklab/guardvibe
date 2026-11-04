@@ -49,6 +49,9 @@ describe("Web Security Rules", () => {
     it("detects STRIPE_SECRET_KEY with real value", () => {
       testRule("VG656", "STRIPE_SECRET_KEY=sk_live_abc123def456ghi789", true);
     });
+    it("detects SUPABASE_SECRET_KEY with real value", () => {
+      testRule("VG656", "SUPABASE_SECRET_KEY=sb_secret_AbCdEfGhIjKlMnOpQrStUvWx", true);
+    });
     it("detects DATABASE_URL with real value", () => {
       testRule("VG656", "DATABASE_URL=postgresql://user:pass@host:5432/db", true);
     });
