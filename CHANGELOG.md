@@ -5,6 +5,11 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.71.2] - 2026-11-07
+
+### Changed
+- Same contents as 3.70.0, republished to check registry availability. Rules added in 3.71.0 are not included in this build.
+
 ## [3.70.0] - 2026-11-02
 
 ### Added — 5 rules from daily intel: highcharts, decode-uri-component, follow-redirects, node-forge, joi + @hapi/joi (639 → 644 rules)
