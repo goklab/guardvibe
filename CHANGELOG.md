@@ -5,6 +5,11 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.71.1] - 2026-11-07
+
+### Fixed
+- Republishes the 3.71.0 contents: the 3.71.0 upload was not made available by the npm registry, so it never reached users. No rule or code changes; rule count stays 649, CVE version-pin rule count 274.
+
 ## [3.71.0] - 2026-11-03
 
 ### Added — 5 rules from daily intel: @hapi/content + content, @socket.io/cluster-engine, nodejs-whisper, obsidian-tc (644 → 649 rules)
