@@ -5,6 +5,11 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.71.3] - 2026-11-07
+
+### Fixed
+- Restores the 3.71.x rules (VG1294–VG1298) as the latest version. 3.71.2 was a registry availability check that carried the 3.70.0 contents. No rule changes; 649 rules, 274 CVE version-pin rules.
+
 ## [3.71.1] - 2026-11-07
 
 ### Fixed
