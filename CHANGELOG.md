@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.72.0] - 2026-11-08
+
+### Added — 5 rules from daily intel: @sylphx/pdf-reader-mcp, @highcharts/grid-lite + grid-pro, @highcharts/dashboards, signalk-server + @signalk/resources-provider, @sigstore/oci (649 → 654 rules)
+- **VG1299 — @sylphx/pdf-reader-mcp HTTP transport ignores MCP_API_KEY, unauthenticated PDF read (CVE-2026-62264 / GHSA-q344-5v34-gm84, high, CVSS 7.5).** 2.2.0–3.0.0, fixed 3.0.1; 2.x is flagged with ^ and ~, ^3 and ~3.0 are not. 10 tests.
+- **VG1300 — Highcharts Grid Lite / Grid Pro configuration XSS cluster (CVE-2026-118254 / GHSA-r5wg-q8fc-p6w2, CVE-2026-118242 / GHSA-6g3c-p4fg-xv47, CVE-2026-116797 / GHSA-5ghw-9mgr-jvx2, CVE-2026-118255 / GHSA-6hgp-fmhr-mrg4, high, CVSS 4.0 up to 8.6).** 2.0.0–3.1.0, fixed 3.2.0; 2.x is flagged with ^ and ~, ^3 is not. 10 tests.
+- **VG1301 — Highcharts Dashboards configuration XSS cluster (CVE-2026-118253 / GHSA-58g7-7f52-h92c, CVE-2026-118252 / GHSA-rcqf-f6h2-ccg9, CVE-2026-118245 / GHSA-grj7-r4jv-pw9j, CVE-2026-118255 / GHSA-6hgp-fmhr-mrg4, CVE-2026-116797 / GHSA-5ghw-9mgr-jvx2, high, CVSS 4.0 up to 8.6).** 1.0.0–4.2.2, fixed 4.2.3; 1.x–3.x are flagged with ^ and ~, ^4 and ~4.2 are not. 9 tests.
+- **VG1302 — Signal K resources API path traversal discloses the JWT secret, enabling admin token forgery and RCE (GHSA-4xm8-rg9h-jhq2, critical, CVSS 9.8).** signalk-server 2.0.0–2.33.x, fixed 2.34.0, and @signalk/resources-provider 1.0.0–1.5.2, fixed 1.5.3; ^2 / ^1 are not flagged. 12 tests.
+- **VG1303 — @sigstore/oci registry credentials sent to a cross-host blob-upload Location (CVE-2026-118763 / GHSA-j63v-mwhm-56jx, high, CVSS 7.4).** Up to 0.7.1, fixed 0.7.2; ^0.0–^0.6 are flagged, ^0.7 is not. 9 tests.
+
+CVE version-pin rule count 274 → 279.
+
 ## [3.71.3] - 2026-11-07
 
 ### Fixed
