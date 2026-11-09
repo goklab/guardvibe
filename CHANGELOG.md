@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.73.0] - 2026-11-09
+
+### Added — 3 rules from daily intel: @nx/gradle + @nx/maven, @sd-jwt/core, @enspirit/elo (654 → 657 rules)
+- **VG1304 — @nx/gradle and @nx/maven OS command injection via nx.json plugin options (CVE-2026-119282 / GHSA-qm8w-vx34-5j9j, high, CVSS 4.0 7.3).** @nx/gradle 21.0.0–22.7.8 and 23.0.0–23.1.1, @nx/maven 22.0.2–22.7.8 and 23.0.0–23.1.1, fixed 22.7.9 / 23.1.2; ^21 is flagged, ^22 and ^23 are not. 18 tests.
+- **VG1305 — SD-JWT tampered disclosures silently dropped instead of rejected (CVE-2026-62374 / GHSA-f9j6-8p6x-r9j6, high, CVSS 4.0 7.1).** @sd-jwt/core up to 0.19.0, fixed 0.20.0; ^0.0–^0.19 are flagged. @sd-jwt/decode has no patched release and is not flagged. 9 tests.
+- **VG1306 — Elo compiler code injection cluster (CVE-2026-44267 / GHSA-33r5-xmm8-v6x5, CVE-2026-44266 / GHSA-7w38-ggh5-v542, CVE-2026-44265 / GHSA-x9rp-7wh3-2rj5, critical, CVSS 9.8).** @enspirit/elo up to 1.0.0, fixed 1.0.1; ^0.x / ~0.x are flagged, ^1.0 and ~1.0 are not. 9 tests.
+
+CVE version-pin rule count 279 → 282.
+
 ## [3.72.0] - 2026-11-08
 
 ### Added — 5 rules from daily intel: @sylphx/pdf-reader-mcp, @highcharts/grid-lite + grid-pro, @highcharts/dashboards, signalk-server + @signalk/resources-provider, @sigstore/oci (649 → 654 rules)
