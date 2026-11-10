@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.74.0] - 2026-11-10
+
+### Added — 5 rules from daily intel: @strands-agents/sdk, @anthropic-ai/claude-code, isomorphic-git, ag-psd, moleculer (657 → 662 rules)
+- **VG1307 — Strands Agents SDK A2A server shares conversation history across callers (CVE-2026-115419 / GHSA-4v6f-7vjh-6x4m, high, CVSS 8.1).** @strands-agents/sdk below 1.5.0, fixed 1.5.0; every 0.x line and ~1.0–~1.4 are flagged, ^1 is not. The Python strands-agents package in the same advisory is not on npm. 9 tests.
+- **VG1308 — Claude Code Edit tool TOCTOU symlink race writes outside the workspace (CVE-2026-88968 / GHSA-5xjx-9qx6-jcrv, high, CVSS 4.0 7.7).** Residual window 2.1.179–2.1.250 over VG927 and VG1246, fixed 2.1.251; exact pins only, ^2 and ~2.1 are not flagged. 9 tests.
+- **VG1309 — isomorphic-git checkout writes outside the working tree via directory symlink (CVE-2026-63395 / GHSA-9qw7-j9xw-fv9c, high, CVSS 8.8).** Up to 1.38.5, fixed 1.38.6; 0.x and ~1.0–~1.37 are flagged, ^1 and ~1.38 are not. 10 tests.
+- **VG1310 — ag-psd totalMemoryLimit bypass allows unbounded layer buffer allocation (CVE-2026-63501 / GHSA-6w3r-6hpr-hp6p, high, CVSS 7.5).** Up to 31.0.0, fixed 31.0.1; ^ and ~ on every major below 31 are flagged, ^31 and ~31.0 are not. 9 tests.
+- **VG1311 — Moleculer TCP transporter negative length field infinite loop DoS (CVE-2026-97705 / GHSA-h89v-g948-47vp, high, CVSS 7.5).** Below 0.14.36 and 0.15.0–0.15.1, fixed 0.14.36 / 0.15.2; ^ and ~ on 0.0–0.13 are flagged, ^0.14 / ^0.15 are not. 14 tests.
+
+CVE version-pin rule count 282 → 287.
+
 ## [3.73.0] - 2026-11-09
 
 ### Added — 3 rules from daily intel: @nx/gradle + @nx/maven, @sd-jwt/core, @enspirit/elo (654 → 657 rules)
