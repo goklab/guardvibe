@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.75.0] - 2026-11-11
+
+### Added — 5 rules from daily intel: react-server-dom-*, mongoose, bitcoinjs-lib, @nuxt/content (662 → 667 rules)
+- **VG1312 — react-server-dom-* React Server Components typed-array deserialization RCE (CVE-2026-126187 / GHSA-xqc2-xf4c-x3h3, critical, CVSS 4.0 9.5).** react-server-dom-webpack / -turbopack / -parcel 19.0.0–19.0.8, 19.1.0–19.1.9, 19.2.0–19.2.8 and 19.3.0, fixed 19.0.9 / 19.1.10 / 19.2.9 / 19.3.1; exact pins only, ^19 and ~19.y can resolve to the fix. 15 tests.
+- **VG1313 — Mongoose sanitizeFilter not applied to countDocuments() (CVE-2026-125120 / GHSA-pcrw-h46h-c93h, critical, CVSS 9.8).** Below 6.13.11, 7.8.12, 8.24.3 and 9.9.2; ^ and ~ on 0.x–5.x are flagged, ^6–^9 are not. 17 tests.
+- **VG1314 — Mongoose inherited-property writes and ignored connection-level sanitizeFilter (CVE-2026-125117 / GHSA-8332-j7wj-wjw4, CVE-2026-125119 / GHSA-gg4r-jv3p-qx3c, high, CVSS 8.2 / 7.5).** Below 6.13.12, 7.8.13, 8.24.7 and 9.11.4; ^ and ~ on 0.x–5.x are flagged, ^6–^9 are not. 16 tests.
+- **VG1315 — bitcoinjs-lib merkle node duplication accepts a forged transaction list (CVE-2026-107846 / GHSA-8vv3-6qpc-gpw6, critical, CVSS 4.0 9.3).** 2.3.0–5.2.0, 6.0.0–6.1.7 and 7.0.0–7.0.1, fixed 5.2.1 / 6.1.8 / 7.0.2; ^2.3+–^4 are flagged, ^5–^7 are not; 7.0.0-rc prereleases are not matched. 16 tests.
+- **VG1316 — Nuxt Content unauthenticated SQLite function DoS via the content query API (CVE-2026-102650 / GHSA-xxrh-5hgg-gj4h, high, CVSS 7.5).** 3.0.0–3.15.1, fixed 3.15.2; ~3.0–~3.14 are flagged, ^3 and ~3.15 are not. 10 tests.
+
+CVE version-pin rule count 287 → 292.
+
 ## [3.74.0] - 2026-11-10
 
 ### Added — 5 rules from daily intel: @strands-agents/sdk, @anthropic-ai/claude-code, isomorphic-git, ag-psd, moleculer (657 → 662 rules)
