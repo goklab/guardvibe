@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.76.0] - 2026-11-12
+
+### Added — 2 rules from daily intel: node-opcua, @ohif/extension-dicom-pdf (667 → 669 rules)
+- **VG1317 — node-opcua namespace DefaultRolePermissions fail-open lets anonymous clients Write and Call (CVE-2026-95860 / GHSA-xggf-m53x-jc3f, critical).** node-opcua, node-opcua-address-space and node-opcua-server 2.42.0–2.179.x, fixed 2.180.0; ~2.42–~2.179 and exact pins are flagged, ^2 is not. 12 tests.
+- **VG1318 — OHIF Viewer dicom-pdf extension DOM XSS via the encapsulated document MIME type (CVE-2026-118670 / GHSA-xwgp-w3pj-q5h3, high, CVSS 8.8).** @ohif/extension-dicom-pdf 3.5.0–3.12.17 and 3.13.0–3.13.9, fixed 3.12.18 / 3.13.10; ~3.5–~3.11 and exact pins are flagged, ^3, ~3.12 and ~3.13 are not; 3.14.0-beta prereleases are not matched. 13 tests.
+
+CVE version-pin rule count 292 → 294.
+
 ## [3.75.0] - 2026-11-11
 
 ### Added — 5 rules from daily intel: react-server-dom-*, mongoose, bitcoinjs-lib, @nuxt/content (662 → 667 rules)
