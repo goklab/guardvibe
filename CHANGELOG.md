@@ -5,6 +5,13 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.77.0] - 2026-11-13
+
+### Added — 1 rule from daily intel: @microsoft/aspire-cli (669 → 670 rules)
+- **VG1319 — Aspire CLI insecure temporary directory lets a local user plant an MSBuild response file and read sensitive config (CVE-2026-120778 / GHSA-m63f-xhvm-6mv5, CVE-2026-120792 / GHSA-q6jf-24jf-m3cg, high, CVSS 7.3).** @microsoft/aspire-cli and its five platform packages 13.4.2–13.6.4, fixed 13.6.5; ~13.4, ~13.5 and exact pins are flagged, ^13 and ~13.6 are not. 13 tests.
+
+CVE version-pin rule count 294 → 295.
+
 ## [3.76.0] - 2026-11-12
 
 ### Added — 2 rules from daily intel: node-opcua, @ohif/extension-dicom-pdf (667 → 669 rules)
