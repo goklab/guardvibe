@@ -5,6 +5,15 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.78.0] - 2026-11-17
+
+### Added — 3 rules from daily intel: @sveltejs/kit, code-review-mcp-server (670 → 673 rules)
+- **VG1320 — SvelteKit server-only import guard bypass through src/params.js inlines server secrets into the client bundle (CVE-2026-128118 / GHSA-m9j8-jcmv-hp69, high, CVSS 7.5).** @sveltejs/kit 3.0.0–3.1.0, fixed 3.1.1; ~3.0 and exact pins are flagged, ^3 and ~3.1 are not. 11 tests.
+- **VG1321 — SvelteKit remote functions form/query/command body parsing blocks the event loop (CVE-2026-128120 / GHSA-3r8g-jcqq-3p5j, high, CVSS 7.5).** @sveltejs/kit 2.42.0–3.1.0, fixed 3.1.1; 2.x has no fix yet but still gets backports, so only exact 2.42.0–2.70.4 and ~2.42–~2.69 are flagged there, plus ~3.0 and exact 3.0.0–3.1.0; ^2, ~2.70, ^3 and ~3.1 are not. 13 tests.
+- **VG1322 — code-review-mcp-server command injection through folderPath/baseBranch MCP tool parameters (CVE-2026-68934 / GHSA-jq3q-62jc-fqq9, high).** Versions before 1.5.3, fixed 1.5.3; ~1.0–~1.4 and exact pins are flagged, ^1 and ~1.5 are not. 11 tests.
+
+CVE version-pin rule count 295 → 298.
+
 ## [3.77.0] - 2026-11-13
 
 ### Added — 1 rule from daily intel: @microsoft/aspire-cli (669 → 670 rules)
