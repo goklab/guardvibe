@@ -5,6 +5,17 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.79.0] - 2026-11-19
+
+### Added — 5 rules from daily intel: mcp-sanitizer, @libp2p/crypto, @libp2p/gossipsub, install-artifact-from-github, @connorbritain/mssql-mcp-* (673 → 678 rules)
+- **VG1323 — mcp-sanitizer lets ported localhost / bracketed IPv6 URLs through its SSRF check and whitelists every /home and /Users path (GHSA-4mfg-r38w-w8fg, CVSS 8.2; GHSA-7w82-6f9j-v9jp, CVSS 7.5; high).** Versions before 1.4.0, fixed 1.4.0; ~1.0–~1.3 and exact pins are flagged, ^1 is not. 9 tests.
+- **VG1324 — @libp2p/crypto DER decoder loops over an attacker-claimed length, a pre-auth event-loop stall via Identify (CVE-2026-110789 / GHSA-rvfr-cqwq-rc4j, high, CVSS 7.5).** Up to 5.1.21, fixed 5.1.22; ^1–^4, ~ below 5.1 and exact pins are flagged, ^5 and ~5.1 are not. 10 tests.
+- **VG1325 — @libp2p/gossipsub keeps a permanent topics-map entry per subscribed topic with no cap, a memory-exhaustion DoS (CVE-2026-119793 / GHSA-x2vm-cf3p-m2w8, high, CVSS 7.5).** Before 17.0.0, fixed 17.0.0; closes the windows VG1233 does not cover (every line before 15.x and all of 16.x, including ^16 and ~16); 15.x stays with VG1233. 11 tests.
+- **VG1326 — install-artifact-from-github writes and loads downloaded native addons with no integrity check, from a mirror an env var can redirect (CVE-2026-73864 / GHSA-88q3-gch3-5396, high, CVSS 7.5).** Up to 1.6.0, fixed 1.7.0; ~1.0–~1.6 and exact pins are flagged, ^1 is not. 9 tests.
+- **VG1327 — mssql-mcp MCP tools interpolate table names, columns and WHERE clauses into T-SQL (CVE-2026-63129 / GHSA-2m9m-6cr5-9x25, high, CVSS 8.8).** @connorbritain/mssql-mcp-core and -server up to 0.5.x (fixed 0.6.0), -reader and -writer up to 0.4.x (fixed 0.5.0); 0.x carets stay within the minor, so ^, ~ and exact pins on affected minors are flagged. 13 tests.
+
+CVE version-pin rule count 298 → 303.
+
 ## [3.78.0] - 2026-11-17
 
 ### Added — 3 rules from daily intel: @sveltejs/kit, code-review-mcp-server (670 → 673 rules)
