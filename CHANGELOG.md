@@ -5,6 +5,16 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.80.0] - 2026-11-20
+
+### Added — 4 rules from daily intel: effect, @doist/todoist-mcp, @augment-vir/node, codewhale (678 → 682 rules)
+- **VG1328 — effect Schema.TemplateLiteral compiles String spans to ambiguous lazy wildcards, a cubic-backtracking ReDoS on decode (CVE-2026-121707 / GHSA-7589-6fvf-x4pw, high).** 3.10.0–3.22.0, fixed 3.22.1; the advisory lists everything up to 3.22.0 but Schema only ships inside effect from 3.10.0, so older versions are not flagged; ~3.10–~3.21 and exact pins are flagged, ^3 and ~3.22 are not. 13 tests.
+- **VG1329 — @doist/todoist-mcp HTTP server accepts attacker-controlled Host/Origin, so a website can DNS-rebind to the local MCP server and read, write and delete Todoist data (CVE-2026-76807 / GHSA-833v-v58w-294h, critical).** Up to 10.3.2, fixed 10.3.3; ^0–^9, ~10.0–~10.2 and exact pins are flagged, ^10 and ~10.3 are not. 10 tests.
+- **VG1330 — @augment-vir/node grep() puts the search pattern into a bash command string, so $() in the pattern runs commands (CVE-2026-63496 / GHSA-xvcc-vqjv-phqh, high).** Before 31.73.5, fixed 31.73.5; ^30, ~ below 31.73 and exact pins are flagged, ^31 and ~31.73 are not. 11 tests.
+- **VG1331 — codewhale agent runs shell commands without approval: the read-only classifier auto-approves fd/rg/git grep exec flags, and automations default auto_approve to true (CVE-2026-83816 / GHSA-3mgh-93r5-r7jf; CVE-2026-83817 / GHSA-8hp3-xxrg-v9c8; high).** Up to 0.8.67, fixed 0.9.0; 0.x carets stay within the minor, so ^0.8, ~0.8 and exact pins are flagged. 9 tests.
+
+CVE version-pin rule count 303 → 307.
+
 ## [3.79.0] - 2026-11-19
 
 ### Added — 5 rules from daily intel: mcp-sanitizer, @libp2p/crypto, @libp2p/gossipsub, install-artifact-from-github, @connorbritain/mssql-mcp-* (673 → 678 rules)
