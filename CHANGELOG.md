@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.81.0] - 2026-11-21
+
+### Added — 2 rules from daily intel: aedes, obsidian-sync-mcp (682 → 684 rules)
+- **VG1332 — aedes MQTT broker crashes on a deeply nested topic: qlobber throws "too many words" and nothing catches it, so one PUBLISH, SUBSCRIBE or Will topic kills the broker (CVE-2026-63341 / GHSA-xxqp-5qx8-gj5q, high).** Before 1.1.1, fixed 1.1.1; ^0.x, ~0.x, ~1.0 and exact pins are flagged, ^1 and ~1.1 are not. 12 tests.
+- **VG1333 — obsidian-sync-mcp no-auth HTTP mode skips Host/Origin checks, so a website can DNS-rebind to the local MCP server and read, overwrite and delete vault notes (CVE-2026-77283 / GHSA-mx6p-3fg7-v6pj, high).** Up to 0.5.6, fixed 0.5.7; ^0.0–^0.4, ~0.0–~0.4 and exact pins are flagged, ^0.5 and ~0.5 are not. 10 tests.
+
+CVE version-pin rule count 307 → 309.
+
 ## [3.80.0] - 2026-11-20
 
 ### Added — 4 rules from daily intel: effect, @doist/todoist-mcp, @augment-vir/node, codewhale (678 → 682 rules)
