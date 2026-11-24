@@ -5,6 +5,13 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.82.0] - 2026-11-24
+
+### Added — 1 rule from daily intel: vue-i18n (684 → 685 rules)
+- **VG1334 — vue-i18n escapeParameterHtml escapes parameters but not attribute contexts, so a message that puts a parameter inside a tag attribute and is rendered with v-html runs script (CVE-2025-53892 / GHSA-x8qp-wqqm-57ph, medium).** Closes the window below the incomplete fix covered by VG1287: vue-i18n, @intlify/core and @intlify/core-base 9.0.0–9.14.4, 10.0.0–10.0.7 and 11.0.0–11.1.9, @intlify/vue-i18n-core from 9.2.0, petite-vue-i18n on 10.x and 11.x (fixed 9.14.5 / 10.0.8 / 11.1.10); ~9.0–~9.13, ~11.0 and exact pins are flagged, every ^ spec and ~9.14, ~10.0, ~11.1 are not. 25 tests.
+
+CVE version-pin rule count 309 → 310.
+
 ## [3.81.0] - 2026-11-21
 
 ### Added — 2 rules from daily intel: aedes, obsidian-sync-mcp (682 → 684 rules)
