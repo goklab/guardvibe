@@ -46,6 +46,27 @@ describe("Database Rules", () => {
   it("VG437: detects service role key in client", () => {
     testRule("VG437", '"use client";\nconst key = process.env.SUPABASE_SERVICE_ROLE_KEY;', true);
   });
+  it("VG437: detects the new Supabase secret key env var in client", () => {
+    testRule("VG437", '"use client";\nconst key = process.env.SUPABASE_SECRET_KEY;', true);
+  });
+  it("VG437: detects an sb_secret_ literal in client", () => {
+    testRule("VG437", '"use client";\nconst supabase = createClient(url, "sb_secret_abcdefgh12345678");', true);
+  });
+  it("VG437: detects a client component importing the admin client module", () => {
+    testRule("VG437", '"use client";\nimport { adminClient } from "@/lib/supabase/admin";', true);
+    testRule("VG437", '"use client";\nimport { supabaseAdmin } from "../lib/supabaseAdmin";', true);
+    testRule("VG437", '"use client";\nimport { db } from "@/lib/supabase/service-role.ts";', true);
+  });
+  it("VG437: ignores a client component importing an unrelated admin UI module", () => {
+    testRule("VG437", '"use client";\nimport { Table } from "@/components/admin/client-table";', false);
+    testRule("VG437", '"use client";\nimport { createBrowserClient } from "@/lib/supabase/client";', false);
+  });
+  it("VG437: ignores the publishable key in client", () => {
+    testRule("VG437", '"use client";\nconst key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;', false);
+  });
+  it("VG437: ignores the admin client import in a server file", () => {
+    testRule("VG437", 'import "server-only";\nimport { adminClient } from "@/lib/supabase/admin";', false);
+  });
 
   describe("VG439 - Postgres View Without SECURITY INVOKER", () => {
     it("detects CREATE VIEW without security_invoker", () => {
