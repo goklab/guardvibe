@@ -5,6 +5,14 @@ All notable changes to GuardVibe are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.83.0] - 2026-11-27
+
+### Added — 2 rules from daily intel: ruflo, @appium/storage-plugin (685 → 687 rules)
+- **VG1335 — ruflo MCP bridge exposes POST /mcp with no authentication and binds to all interfaces in the default docker-compose, so any network client can call terminal_execute, get a shell, read provider API keys and poison the AgentDB pattern store (CVE-2026-59726 / GHSA-c4hm-4h84-2cf3, critical).** Before 3.16.3, fixed 3.16.3; ~3.0–~3.15 and exact pins are flagged, ^3 and ~3.16 are not. 11 tests.
+- **VG1336 — @appium/storage-plugin POST /storage/delete joins the unsanitized name onto the storage root and rimrafs it, so an unauthenticated client can recursively delete any file the Appium user can write (CVE-2026-58192 / GHSA-jwgx-mp9m-jwcr, high).** Before 1.1.6, fixed 1.1.6; ^0.x, ~0.x, ~1.0 and exact pins are flagged, ^1 and ~1.1 are not. 11 tests.
+
+CVE version-pin rule count 310 → 312.
+
 ## [3.82.0] - 2026-11-24
 
 ### Added — 1 rule from daily intel: vue-i18n (684 → 685 rules)
